@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>کافه روشن</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body id="top">
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a href="#top" class="logo">
+        <img src="images/logo.png" alt="کافه روشن" class="logo-img"
+          onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='flex';">
+        <div id="logoFallback" class="logo-fallback">کافه روشن</div>
+      </a>
+      <nav class="main-nav" id="mainNav">
+        <a href="#menu">منو</a>
+        <a href="#about">درباره ما</a>
+        <a href="#location">آدرس و ساعات</a>
+      </nav>
+
+      <div class="header-actions">
+        <button class="theme-toggle" id="themeToggle" aria-label="تغییر تم">🌙</button>
+        <button class="nav-toggle" id="navToggle" aria-label="باز کردن منو">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <p class="eyebrow">قهوه، دسر و صبحانه — هر روز، تازه</p>
+        <h1>یک فنجان<br>آرامش خالص</h1>
+        <p class="hero-sub">کافه روشن، جایی برای مکث کردن. قهوه‌ی تخصصی، شیرینی‌های خانگی و صبحانه‌ی ساده، در فضایی روشن
+          و بی‌ادعا.</p>
+        <a href="#menu" class="btn">دیدن منو</a>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="cup-mark"></div>
+      </div>
+    </section>
+
+    <!-- MENU -->
+    <section class="menu-section" id="menu">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="section-num">منو</span>
+          <h2>محصولات کافه</h2>
+        </div>
+        <div class="menu-controls">
+          <div class="tabs" id="categoryTabs"></div>
+          <select id="sortPrice" class="sort-select" aria-label="مرتب‌سازی">
+            <option value="default">مرتب‌سازی: پیش‌فرض</option>
+            <option value="low-high">ارزان‌ترین</option>
+            <option value="high-low">گران‌ترین</option>
+          </select>
+        </div>
+        <div class="product-list" id="productGrid"></div>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section class="about-section" id="about">
+      <div class="wrap about-inner">
+        <div class="about-text">
+          <span class="section-num">درباره ما</span>
+          <h2>ساده، تازه، صمیمی</h2>
+          <p>کافه روشن سال ۱۴۰۰ با یک هدف ساده شروع شد: قهوه‌ی خوب، بدون پیچیدگی. دانه‌های تازه رست‌شده، شیرینی‌های
+            دست‌ساز هر روز صبح، و فضایی که بشه توش نفس کشید.</p>
+        </div>
+        <div class="about-stats">
+          <div class="stat"><span class="stat-num">۵+</span><span class="stat-label">سال تجربه</span></div>
+          <div class="stat"><span class="stat-num">۳۰+</span><span class="stat-label">آیتم منو</span></div>
+          <div class="stat"><span class="stat-num">۱۰۰٪</span><span class="stat-label">تازه و روزانه</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOCATION -->
+    <section class="location-section" id="location">
+      <div class="wrap location-inner">
+        <div class="location-block">
+          <span class="section-num">آدرس</span>
+          <h2>کجا پیدامون کنید</h2>
+          <p class="location-text">خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲</p>
+        </div>
+        <div class="location-block">
+          <span class="section-num">ساعات کاری</span>
+          <h2>همیشه بازیم</h2>
+          <ul class="hours-list">
+            <li><span>شنبه تا چهارشنبه</span><span class="mono">۰۸:۰۰ – ۲۳:۰۰</span></li>
+            <li><span>پنج‌شنبه و جمعه</span><span class="mono">۰۹:۰۰ – ۲۴:۰۰</span></li>
+          </ul>
+        </div>
+        <div class="location-block">
+          <span class="section-num">شبکه‌های اجتماعی</span>
+          <h2>دنبال‌مون کنید</h2>
+          <div class="social-links">
+            <a href="#" target="_blank" rel="noopener">اینستاگرام</a>
+            <a href="#" target="_blank" rel="noopener">واتساپ</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- PRODUCT MODAL -->
+  <div class="modal-overlay" id="productModal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalName">
+      <button class="modal-close" id="modalClose" aria-label="بستن">✕</button>
+      <div class="modal-image" id="modalImage">
+        <div class="placeholder" id="modalPlaceholder"></div>
+      </div>
+      <div class="modal-body">
+        <span class="modal-cat" id="modalCat"></span>
+        <h3 id="modalName"></h3>
+        <p class="modal-note" id="modalNote"></p>
+        <span class="modal-price mono" id="modalPrice"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CART DRAWER -->
+  <div class="cart-overlay" id="cartOverlay"></div>
+  <aside class="cart-drawer" id="cartDrawer">
+    <div class="cart-header">
+      <h3>سبد خرید</h3>
+      <button class="cart-close" id="cartClose">✕</button>
+    </div>
+    <div class="cart-items" id="cartItems">
+      <p class="cart-empty">سبد خرید شما خالی است.</p>
+    </div>
+    <div class="cart-footer">
+      <div class="cart-total">
+        <span>مبلغ کل:</span>
+        <span id="cartTotalPrice" class="mono">۰ تومان</span>
+      </div>
+      <button class="btn cart-checkout">تسویه حساب</button>
+    </div>
+  </aside>
+
+  <!-- FLOATING CART (نوار شناور پایین صفحه) -->
+  <div class="floating-cart" id="floatingCart">
+    <img src="" alt="محصول" id="floatCartImg">
+    <div class="float-cart-info">
+      <span id="floatCartName"></span>
+      <span id="floatCartCount" class="mono"></span>
+    </div>
+    <div class="float-cart-price">
+      <span id="floatCartTotal" class="mono"></span>
+      <span>مشاهده سبد</span>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <span>© ۱۴۰۴ کافه روشن</span>
+      <a href="#top" id="backToTopBtn">بازگشت به بالا ↑</a>
+    </div>
+  </footer>
+
+  <script src="js/script.js"></script>
+</body>
+
+</html>

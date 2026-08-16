@@ -1,0 +1,89 @@
+{
+  "categories": [
+    { "id": "coffee", "label": "قهوه" },
+    { "id": "dessert", "label": "دسر" },
+    { "id": "breakfast", "label": "صبحانه" }
+  ],
+  "products": [
+    {
+      "id": "p1",
+      "category": "coffee",
+      "name": "اسپرسو",
+      "note": "دان برزیل، تلخی متعادل",
+      "price": 85000,
+      "image": "images/products/espresso.jpg"
+    },
+    {
+      "id": "p2",
+      "category": "coffee",
+      "name": "لاته",
+      "note": "شیر بخارداده، اسپرسو دوبل",
+      "price": 115000,
+      "image": "images/products/latte.jpg"
+    },
+    {
+      "id": "p3",
+      "category": "coffee",
+      "name": "فلت وایت",
+      "note": "کرمای غلیظ، طعم قوی",
+      "price": 125000,
+      "image": "images/products/flatwhite.jpg"
+    },
+    {
+      "id": "p4",
+      "category": "coffee",
+      "name": "قهوه دمی",
+      "note": "روش V60، دان اتیوپی",
+      "price": 140000,
+      "image": "images/products/pourover.jpg"
+    },
+    {
+      "id": "p5",
+      "category": "dessert",
+      "name": "تیرامیسو",
+      "note": "دستی، رست تازه روزانه",
+      "price": 165000,
+      "image": "images/products/tiramisu.jpg"
+    },
+    {
+      "id": "p6",
+      "category": "dessert",
+      "name": "چیزکیک لیمو",
+      "note": "خامه‌ای، ترش‌وشیرین",
+      "price": 155000,
+      "image": "images/products/cheesecake.jpg"
+    },
+    {
+      "id": "p7",
+      "category": "dessert",
+      "name": "براونی",
+      "note": "شکلات تلخ ۷۰٪",
+      "price": 95000,
+      "image": "images/products/brownie.jpg"
+    },
+    {
+      "id": "p8",
+      "category": "breakfast",
+      "name": "صبحانه کامل",
+      "note": "تخم‌مرغ، نان، پنیر، مربا",
+      "price": 220000,
+      "image": "images/products/breakfast.jpg"
+    },
+    {
+      "id": "p9",
+      "category": "breakfast",
+      "name": "کروسان",
+      "note": "پخت تازه، کره‌ای",
+      "price": 90000,
+      "image": "images/products/croissant.jpg"
+    },
+    {
+      "id": "p10",
+      "category": "breakfast",
+      "name": "املت سبزیجات",
+      "note": "با نان تست",
+      "price": 130000,
+      "image": "images/products/omelette.jpg"
+    }
+  ]
+}
