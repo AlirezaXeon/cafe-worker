@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "seed": "wrangler kv key put products --binding=PRODUCTS_KV --path=./public/data/products.seed.json --remote"
   },
   "devDependencies": {
     "jsdom": "^30.0.1",

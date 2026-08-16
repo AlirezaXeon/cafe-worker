@@ -8,5 +8,20 @@
     "binding": "ASSETS",
     "not_found_handling": "404-page",
     "html_handling": "auto-trailing-slash"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cafe-roshan-db",
+      // بعد از اجرای «wrangler d1 create cafe-roshan-db»، database_id رو همینجا جایگزین کن
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "BOT_STATE",
+      // بعد از اجرای «wrangler kv namespace create BOT_STATE»، id رو همینجا جایگزین کن
+      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+    }
+  ]
 }

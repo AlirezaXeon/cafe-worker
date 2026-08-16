@@ -123,7 +123,8 @@ let currentSort = 'default';
 
 async function loadProducts() {
   try {
-    const res = await fetch('data/products.json');
+    const res = await fetch('/api/products');
+    if (!res.ok) throw new Error('پاسخ سرور موفق نبود: ' + res.status);
     productsData = await res.json();
   } catch (err) {
     console.error('محصولات لود نشدند:', err);

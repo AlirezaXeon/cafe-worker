@@ -1300,3 +1300,38 @@ button {
     font-size: 2.2rem;
   }
 }
+
+/* ============ DISCOUNT ============ */
+.price-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.price-old {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  font-size: 0.85em;
+}
+
+.discount-badge {
+  display: inline-block;
+  background: #E55353;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-inline-start: 4px;
+}
+
+.modal-price .price-old {
+  display: block;
+  font-size: 0.6em;
+  margin-bottom: 4px;
+}
+
+.modal-price .price-new {
+  color: var(--gold);
+}
