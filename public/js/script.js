@@ -95,7 +95,7 @@ function closeModal() {
 
 function handleClose() {
   if (history.state && history.state.modal) {
-    history.back(); 
+    history.back();
   } else {
     closeModal();
   }
@@ -129,6 +129,17 @@ async function loadProducts() {
   try {
     const res = await fetch('data/products.json');
     productsData = await res.json();
+
+    // --- اعمال چیدمان ارسالی از ربات ---
+    const grid = document.getElementById('productGrid');
+    grid.classList.remove('layout-1col', 'layout-2col'); // پاک کردن کلاس‌های قبلی
+    if (productsData.layout === '1col') {
+      grid.classList.add('layout-1col');
+    } else {
+      grid.classList.add('layout-2col');
+    }
+    // -----------------------------------------
+
   } catch (err) {
     console.error('محصولات لود نشدند:', err);
     return;
@@ -214,7 +225,7 @@ function renderProducts() {
       e.stopPropagation();
       const productId = btn.dataset.id;
       addToCart(productId);
-      
+
       btn.textContent = "افزوده شد ✓";
       btn.classList.add('added');
       setTimeout(() => {

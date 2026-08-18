@@ -72,6 +72,7 @@ async function sendMainMenu(env, chatId) {
   await sendMessage(env, chatId, "🍰 <b>مدیریت کافه روشن</b>\nیکی رو انتخاب کن:", [
     [{ text: "📦 محصولات", callback_data: "menu:products" }],
     [{ text: "🏷 دسته‌بندی‌ها", callback_data: "menu:categories" }],
+    [{ text: "🎨 چیدمان منو (ستون‌ها)", callback_data: "menu:layout" }],
     [{ text: "💰 تغییر قیمت دسته‌جمعی", callback_data: "menu:bulk" }],
   ]);
 }
@@ -146,6 +147,26 @@ export async function handleCallback(env, chatId, data) {
   if (data === "menu:products") return sendCategoryPicker(env, chatId, "browse");
   if (data === "menu:categories") return sendCategoriesMenu(env, chatId);
   if (data === "menu:bulk") return sendCategoryPicker(env, chatId, "bulk");
+
+  // ----------- کدهای جدید چیدمان (این رو اضافه کن) -----------
+  if (data === "menu:layout") {
+    const currentLayout = await env.PRODUCTS_KV.get("settings:layout") || "2col";
+    const statusText = currentLayout === "2col" ? "دو ستونه (فعلی)" : "تک ستونه (فعلی)";
+    return sendMessage(env, chatId, `🎨 چیدمان فعلی منو: <b>${statusText}</b>\n\nمی‌خوای تغییرش بدی؟`, [
+      [{ text: "۱ ستونه (تمام عرض)", callback_data: "setlayout:1col" }],
+      [{ text: "۲ ستونه (کنار هم)", callback_data: "setlayout:2col" }],
+      [{ text: "🔙 بازگشت", callback_data: "menu:home" }],
+    ]);
+  }
+
+  if (action === "setlayout") {
+    const newLayout = a; // مقدار 1col یا 2col
+    await env.PRODUCTS_KV.put("settings:layout", newLayout);
+    const label = newLayout === "2col" ? "دو ستونه" : "تک ستونه";
+    await sendMessage(env, chatId, `✅ چیدمان منو روی <b>${label}</b> تنظیم شد.\n\n⏳ ممکنه تا ۱ دقیقه طول بکشه تا تو سایت اعمال بشه (به خاطر کش کلادفلر).`);
+    return sendMainMenu(env, chatId);
+  }
+  // -----------------------------------------------------------
 
   if (action === "catpick") {
     const mode = a;
