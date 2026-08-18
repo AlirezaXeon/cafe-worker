@@ -52,9 +52,9 @@ npx wrangler deploy
 
 ## ۷. وصل کردن وبهوک تلگرام
 ```bash
-curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
+curl -X POST "https://api.telegram.org/bot8433098266:AAE_SYEItfLc_h0uQZy1bum09lncpua0N8w/setWebhook" \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://cafe-roshan.<subdomain>.workers.dev/tg-webhook", "secret_token": "<WEBHOOK_SECRET>"}'
+  -d '{"url": "https://cafe-roshan.alireza.pespc.workers.dev/tg-webhook", "secret_token": "<Azda0905.>"}'
 ```
 جای `<TELEGRAM_BOT_TOKEN>`, `<subdomain>` و `<WEBHOOK_SECRET>` مقادیر واقعی خودت رو بذار.
 

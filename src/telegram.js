@@ -29,6 +29,24 @@ async function tg(env, method, payload) {
   return res.json();
 }
 
+// دانلود فایل عکس از سرورهای تلگرام
+async function downloadTelegramFile(env, fileId) {
+  // ۱. گرفتن مسیر فایل از تلگرام
+  const fileRes = await tg(env, "getFile", { file_id: fileId });
+  if (!fileRes.ok || !fileRes.result?.file_path) return null;
+
+  // ۲. دانلود خود فایل باینری (عکس)
+  const filePath = fileRes.result.file_path;
+  const downloadUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`;
+  const imgRes = await fetch(downloadUrl);
+  if (!imgRes.ok) return null;
+
+  return {
+    buffer: await imgRes.arrayBuffer(),
+    ext: filePath.split('.').pop() // پسوند فایل (مثلا jpg یا webp)
+  };
+}
+
 const sendMessage = (env, chatId, text, keyboard) =>
   tg(env, "sendMessage", {
     chat_id: chatId,
@@ -315,31 +333,73 @@ export async function handleTextStep(env, chatId, text, session) {
   if (session.step === "new_product_price") {
     const price = parseInt(trimmed.replace(/[^\d]/g, ""), 10);
     if (!price) return forceReply(env, chatId, "یه عدد معتبر بفرست:");
-    await setSession(env, chatId, { ...session, step: "new_product_image", price });
-    return forceReply(env, chatId, "آدرس عکس محصول رو بفرست (مثلاً images/products/x.jpg) یا بنویس «رد شو»:");
+    const data = await getProducts(env);
+    const newId = nextProductId(data);
+    await setSession(env, chatId, { ...session, step: "new_product_image", price, productId: newId });
+    return forceReply(env, chatId, "📷 حالا عکس محصول رو بفرست، یا اگر عکس نداره بنویس «بدون عکس»:");
   }
 
   if (session.step === "new_product_image") {
-    const image = trimmed === "رد شو" ? "images/products/placeholder.jpg" : trimmed;
-    const data = await getProducts(env);
-    const id = nextProductId(data);
-    data.products.push({
-      id,
-      category: session.catId,
-      name: session.name,
-      note: session.note,
-      price: roundPrice(session.price),
-      originalPrice: null,
-      image,
-    });
-    await saveProducts(env, data);
-    await clearSession(env, chatId);
-    await sendMessage(env, chatId, "✅ محصول جدید اضافه شد.");
-    return sendProductList(env, chatId, session.catId);
+    if (trimmed === "بدون عکس") {
+      const image = "images/products/placeholder.jpg";
+      const data = await getProducts(env);
+      data.products.push({
+        id: session.productId,
+        category: session.catId,
+        name: session.name,
+        note: session.note,
+        price: roundPrice(session.price),
+        originalPrice: null,
+        image,
+      });
+      await saveProducts(env, data);
+      await clearSession(env, chatId);
+      await sendMessage(env, chatId, "✅ محصول جدید اضافه شد (بدون عکس).");
+      return sendProductList(env, chatId, session.catId);
+    }
+    return forceReply(env, chatId, "لطفاً فقط عکس بفرست یا بنویس «بدون عکس»:");
   }
 
   await clearSession(env, chatId);
   return sendMainMenu(env, chatId);
+}
+
+// ---------- پردازش عکس ارسالی در تلگرام ----------
+
+export async function handleImageStep(env, chatId, photoArray, session) {
+  // تلگرام عکس رو در چند سایز می‌فرسته، ما بزرگترین رو برمی‌داریم (آخرین آیتم آرایه)
+  const fileId = photoArray[photoArray.length - 1].file_id;
+
+  await sendMessage(env, chatId, "⏳ در حال آپلود عکس...");
+
+  const fileData = await downloadTelegramFile(env, fileId);
+  if (!fileData) {
+    return forceReply(env, chatId, "❌ خطا در دریافت عکس. لطفاً دوباره بفرست یا بنویس «بدون عکس»:");
+  }
+
+  const filename = `${session.productId}.${fileData.ext}`;
+
+  // ذخیره عکس در KV
+  await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
+    metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+  });
+
+  // ذخیره اطلاعات محصول در دیتابیس
+  const data = await getProducts(env);
+  data.products.push({
+    id: session.productId,
+    category: session.catId,
+    name: session.name,
+    note: session.note,
+    price: roundPrice(session.price),
+    originalPrice: null,
+    image: `images/products/${filename}`, // آدرس نسبی برای سایت
+  });
+  await saveProducts(env, data);
+  await clearSession(env, chatId);
+
+  await sendMessage(env, chatId, "✅ محصول جدید همراه با عکس اضافه شد.");
+  return sendProductList(env, chatId, session.catId);
 }
 
 // ---------- ورودی اصلی ----------
@@ -359,7 +419,14 @@ export async function handleUpdate(update, env) {
     }
 
     const session = await getSession(env, chatId);
-    if (session && msg.text) return handleTextStep(env, chatId, msg.text, session);
+    if (session) {
+      // اگر منتظر عکس بودیم و کاربر عکس فرستاد
+      if (msg.photo && session.step === "new_product_image") {
+        return handleImageStep(env, chatId, msg.photo, session);
+      }
+      // اگر متن فرستاد
+      if (msg.text) return handleTextStep(env, chatId, msg.text, session);
+    }
 
     return sendMainMenu(env, chatId);
   }
