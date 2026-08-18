@@ -74,7 +74,11 @@ function openModal(product, catLabelText) {
   modalCat.style.setProperty('--cat-color', CAT_COLORS[product.category] || '#9DBA8F');
   modalName.textContent = product.name;
   modalNote.textContent = product.note;
-  modalPrice.textContent = formatPrice(product.price);
+  if (product.originalPrice && product.originalPrice > product.price) {
+    modalPrice.innerHTML = `<span class="price-old mono">${formatPrice(product.originalPrice)}</span><span class="price-new">${formatPrice(product.price)}</span>`;
+  } else {
+    modalPrice.textContent = formatPrice(product.price);
+  }
 
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
@@ -123,8 +127,7 @@ let currentSort = 'default';
 
 async function loadProducts() {
   try {
-    const res = await fetch('/api/products');
-    if (!res.ok) throw new Error('پاسخ سرور موفق نبود: ' + res.status);
+    const res = await fetch('data/products.json');
     productsData = await res.json();
   } catch (err) {
     console.error('محصولات لود نشدند:', err);
@@ -184,10 +187,14 @@ function renderProducts() {
         <div class="product-header">
           <span class="cat-dot" data-cat="${p.category}"></span>
           <div class="product-name">${p.name}</div>
+          ${p.originalPrice ? '<span class="discount-badge">تخفیف</span>' : ''}
         </div>
         <div class="product-note">${p.note}</div>
         <div class="product-footer">
-          <span class="product-price mono">${formatPrice(p.price)}</span>
+          <div class="price-group">
+            ${p.originalPrice ? `<span class="price-old mono">${formatPrice(p.originalPrice)}</span>` : ''}
+            <span class="product-price mono">${formatPrice(p.price)}</span>
+          </div>
           <button class="add-to-cart-btn" data-id="${p.id}">افزودن +</button>
         </div>
       </div>

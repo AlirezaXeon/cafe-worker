@@ -1,49 +1,30 @@
-// این Worker به‌جای Pages، کل سایت کافه رو مستقیم از edge Cloudflare سرو می‌کنه.
-// چون از دامنه workers.dev استفاده می‌شه (نه pages.dev)، برای مواقعی که pages.dev فیلتره مناسبه.
-//
-// از این پس محصولات از D1 (دیتابیس SQL کلادفلر) خونده می‌شن، نه از فایل استاتیک
-// public/data/products.json. مدیریت محصولات (افزودن/ویرایش/حذف) از طریق بات
-// تلگرام روی مسیر /telegram-webhook انجام می‌شه.
-
-import { handleTelegramUpdate } from "./telegram.js";
+import { handleUpdate } from "./telegram.js";
+import { getProducts } from "./products.js";
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // --- Webhook تلگرام ---
-    if (url.pathname === "/telegram-webhook" && request.method === "POST") {
-      return handleTelegramUpdate(request, env);
+    // محصولات رو دیگه از فایل استاتیک نمی‌خونیم، از KV می‌خونیم تا ربات بتونه تغییرشون بده
+    if (url.pathname === "/data/products.json") {
+      const data = await getProducts(env);
+      return new Response(JSON.stringify(data), {
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
     }
 
-    // --- API محصولات: جایگزین public/data/products.json ---
-    if (url.pathname === "/api/products" && request.method === "GET") {
-      return getProductsFromDB(env);
+    // وبهوک تلگرام؛ فقط با هدر مخفی درست پذیرفته میشه (تلگرام خودش این هدر رو ست می‌کنه)
+    if (url.pathname === "/tg-webhook" && request.method === "POST") {
+      const secretHeader = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
+      if (!env.WEBHOOK_SECRET || secretHeader !== env.WEBHOOK_SECRET) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      const update = await request.json();
+      // پاسخ سریع به تلگرام میدیم و پردازش رو در پس‌زمینه ادامه میدیم
+      ctx.waitUntil(handleUpdate(update, env));
+      return new Response("OK");
     }
 
-    // بقیه‌ی درخواست‌ها مستقیم از پوشه public سرو می‌شن (HTML, CSS, JS, عکس‌ها)
     return env.ASSETS.fetch(request);
   },
 };
-
-async function getProductsFromDB(env) {
-  try {
-    const [{ results: categories }, { results: products }] = await Promise.all([
-      env.DB.prepare("SELECT id, label FROM categories").all(),
-      env.DB.prepare("SELECT id, category, name, note, price, image FROM products").all(),
-    ]);
-
-    const body = JSON.stringify({ categories, products });
-    return new Response(body, {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store", // همیشه دیتای تازه (چون بات ممکنه تغییرش داده باشه)
-      },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: "خطا در خواندن محصولات", detail: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json; charset=utf-8" },
-    });
-  }
-}

@@ -7,21 +7,15 @@
     "directory": "./public",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    "html_handling": "auto-trailing-slash"
+    "html_handling": "auto-trailing-slash",
+    "run_worker_first": [
+      "/data/products.json"
+    ]
   },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "cafe-roshan-db",
-      // بعد از اجرای «wrangler d1 create cafe-roshan-db»، database_id رو همینجا جایگزین کن
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
-    }
-  ],
   "kv_namespaces": [
     {
-      "binding": "BOT_STATE",
-      // بعد از اجرای «wrangler kv namespace create BOT_STATE»، id رو همینجا جایگزین کن
-      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+      "binding": "PRODUCTS_KV",
+      "id": "19ff67341950489da140d84890ab90c5"
     }
   ]
 }
