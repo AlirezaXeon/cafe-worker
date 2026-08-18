@@ -8,12 +8,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body id="top">
+
+  <!-- SPLASH SCREEN -->
+  <div id="splash">
+    <div class="splash-inner">
+      <img src="images/logo.png" alt="کافه روشن" class="splash-logo"
+        onerror="this.style.display='none'; document.getElementById('splashFallback').style.display='flex';">
+      <div id="splashFallback" class="logo-fallback" style="font-size: 2.5rem; display:none;">کافه روشن</div>
+      <div class="splash-progress"><span></span></div>
+    </div>
+  </div>
 
   <header class="site-header">
     <div class="wrap header-inner">
@@ -25,7 +35,7 @@
       <nav class="main-nav" id="mainNav">
         <a href="#menu">منو</a>
         <a href="#about">درباره ما</a>
-        <a href="#location">آدرس و ساعات</a>
+        <a href="#location">ارتباط با ما</a>
       </nav>
 
       <div class="header-actions">
@@ -91,11 +101,27 @@
     <!-- LOCATION -->
     <section class="location-section" id="location">
       <div class="wrap location-inner">
+
         <div class="location-block">
+          <span class="section-num">شبکه‌های اجتماعی</span>
+          <h2>دنبال‌مون کنید</h2>
+          <div class="social-links">
+            <a href="https://instagram.com/alirezaxeon" target="_blank" rel="noopener">اینستاگرام</a>
+            <a href="https://t.me/alirezaxeon" target="_blank" rel="noopener">تلگرام</a>
+          </div>
+        </div>
+
+        <div class="location-block location-block-map">
           <span class="section-num">آدرس</span>
           <h2>کجا پیدامون کنید</h2>
           <p class="location-text">خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲</p>
+          <div class="map-container">
+            <iframe
+              src="https://maps.google.com/maps?q=خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲&t=&z=15&ie=UTF8&iwloc=&output=embed"
+              frameborder="0" scrolling="no" marginheight="0" marginwidth="0" allowfullscreen></iframe>
+          </div>
         </div>
+
         <div class="location-block">
           <span class="section-num">ساعات کاری</span>
           <h2>همیشه بازیم</h2>
@@ -104,14 +130,7 @@
             <li><span>پنج‌شنبه و جمعه</span><span class="mono">۰۹:۰۰ – ۲۴:۰۰</span></li>
           </ul>
         </div>
-        <div class="location-block">
-          <span class="section-num">شبکه‌های اجتماعی</span>
-          <h2>دنبال‌مون کنید</h2>
-          <div class="social-links">
-            <a href="#" target="_blank" rel="noopener">اینستاگرام</a>
-            <a href="#" target="_blank" rel="noopener">واتساپ</a>
-          </div>
-        </div>
+
       </div>
     </section>
   </main>
@@ -145,9 +164,8 @@
     <div class="cart-footer">
       <div class="cart-total">
         <span>مبلغ کل:</span>
-        <span id="cartTotalPrice" class="mono">۰ تومان</span>
+        <span id="cartTotalPrice" class="mono">۰ ت</span>
       </div>
-
     </div>
   </aside>
 

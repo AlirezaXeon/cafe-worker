@@ -37,8 +37,22 @@ mainNav.querySelectorAll('a').forEach(link => {
 
 // ============ PRICE FORMAT ============
 function formatPrice(price) {
-  return price.toLocaleString('fa-IR') + ' تومان';
+  const toFa = (v) => String(v).replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
+  // تقسیم بر 1000 و اضافه کردن حرف ت
+  const val = Math.round(price / 1000);
+  return `<span class="price-amount">${toFa(val)}</span><span class="price-suffix"> ت</span>`;
 }
+// ============ SPLASH SCREEN LOGIC ============
+window.addEventListener('load', () => {
+  const splash = document.getElementById('splash');
+  if (splash) {
+    setTimeout(() => {
+      splash.classList.add('hide');
+      // بعد از اتمام انیمیشن محو شدن، کد رو کامل پاک میکنه تا جلوی اسکرول رو نگیره
+      setTimeout(() => splash.remove(), 250);
+    }, 700); // ~0.7 ثانیه نمایش لوگو
+  }
+});
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -61,14 +75,19 @@ function openModal(product, catLabelText) {
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
 
-  const img = document.createElement('img');
-  img.src = product.image;
-  img.alt = product.name;
-  img.onerror = () => {
-    img.remove();
+  const imgSrc = product.image || getCategoryImage(product.category);
+  if (imgSrc) {
+    const img = document.createElement('img');
+    img.src = imgSrc;
+    img.alt = product.name;
+    img.onerror = () => {
+      img.remove();
+      modalPlaceholder.style.display = 'flex';
+    };
+    modalImage.prepend(img);
+  } else {
     modalPlaceholder.style.display = 'flex';
-  };
-  modalImage.prepend(img);
+  }
 
   modalCat.textContent = catLabelText;
   modalCat.style.setProperty('--cat-color', CAT_COLORS[product.category] || '#9DBA8F');
@@ -77,7 +96,7 @@ function openModal(product, catLabelText) {
   if (product.originalPrice && product.originalPrice > product.price) {
     modalPrice.innerHTML = `<span class="price-old mono">${formatPrice(product.originalPrice)}</span><span class="price-new">${formatPrice(product.price)}</span>`;
   } else {
-    modalPrice.textContent = formatPrice(product.price);
+    modalPrice.innerHTML = formatPrice(product.price);
   }
 
   modal.classList.add('open');
@@ -129,17 +148,6 @@ async function loadProducts() {
   try {
     const res = await fetch('data/products.json');
     productsData = await res.json();
-
-    // --- اعمال چیدمان ارسالی از ربات ---
-    const grid = document.getElementById('productGrid');
-    grid.classList.remove('layout-1col', 'layout-2col'); // پاک کردن کلاس‌های قبلی
-    if (productsData.layout === '1col') {
-      grid.classList.add('layout-1col');
-    } else {
-      grid.classList.add('layout-2col');
-    }
-    // -----------------------------------------
-
   } catch (err) {
     console.error('محصولات لود نشدند:', err);
     return;
@@ -148,16 +156,36 @@ async function loadProducts() {
   renderProducts();
 }
 
+// اگه محصولی عکس نداشت، عکس دسته‌بندیش (یا اولین محصول دارای عکس تو همون دسته) رو نشون میده
+function getCategoryImage(catId) {
+  const cat = productsData.categories.find(c => c.id === catId);
+  if (cat && cat.image) return cat.image;
+  const withImg = productsData.products.find(p => p.category === catId && p.image);
+  return withImg ? withImg.image : null;
+}
+
 function renderTabs() {
-  const allBtn = `<button class="tab-btn active" data-cat="all">همه</button>`;
-  const catBtns = productsData.categories
-    .map(c => `<button class="tab-btn" data-cat="${c.id}">${c.label}</button>`)
-    .join('');
+  const allBtn = `<button class="cat-card active" data-cat="all">
+    <span class="cat-card-img cat-card-img--all">✦</span>
+    <span class="cat-card-label">همه</span>
+  </button>`;
+
+  const catBtns = productsData.categories.map(c => {
+    const img = getCategoryImage(c.id);
+    const imgHtml = img
+      ? `<img src="${img}" alt="${c.label}" onerror="this.remove(); this.parentElement.textContent='${c.label.charAt(0)}';">`
+      : c.label.charAt(0);
+    return `<button class="cat-card" data-cat="${c.id}">
+      <span class="cat-card-img">${imgHtml}</span>
+      <span class="cat-card-label">${c.label}</span>
+    </button>`;
+  }).join('');
+
   tabsEl.innerHTML = allBtn + catBtns;
 
-  tabsEl.querySelectorAll('.tab-btn').forEach(btn => {
+  tabsEl.querySelectorAll('.cat-card').forEach(btn => {
     btn.addEventListener('click', () => {
-      tabsEl.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      tabsEl.querySelectorAll('.cat-card').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeCategory = btn.dataset.cat;
       renderProducts();
@@ -187,12 +215,13 @@ function renderProducts() {
   };
 
   // استفاده از نقطه رنگی به جای متن دسته‌بندی
-  grid.innerHTML = items.map(p => `
+  grid.innerHTML = items.map(p => {
+    const imgSrc = p.image || getCategoryImage(p.category);
+    return `
     <article class="product-card" data-id="${p.id}">
       <div class="product-image">
-        <img src="${p.image}" alt="${p.name}"
-             onerror="this.remove(); this.parentElement.querySelector('.placeholder').style.display='flex';">
-        <div class="placeholder" style="display:none;">${p.name.charAt(0)}</div>
+        ${imgSrc ? `<img src="${imgSrc}" alt="${p.name}" onerror="this.remove(); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
+        <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${p.name.charAt(0)}</div>
       </div>
       <div class="product-info">
         <div class="product-header">
@@ -210,7 +239,8 @@ function renderProducts() {
         </div>
       </div>
     </article>
-  `).join('');
+  `;
+  }).join('');
 
   grid.querySelectorAll('.product-card').forEach(card => {
     card.addEventListener('click', (e) => {
@@ -285,7 +315,7 @@ function addToCart(productId) {
   if (existingItem) {
     existingItem.quantity++;
   } else {
-    cart.push({ ...product, quantity: 1 });
+    cart.push({ ...product, image: product.image || getCategoryImage(product.category), quantity: 1 });
   }
   renderCart();
 }
@@ -319,7 +349,7 @@ function renderCart() {
     floatCartImg.style.display = 'block';
     floatCartName.textContent = lastItem.name;
     floatCartCount.textContent = `${totalQty.toLocaleString('fa-IR')} مورد در سبد`;
-    floatCartTotal.textContent = formatPrice(totalPrice);
+    floatCartTotal.innerHTML = formatPrice(totalPrice);
     floatingCart.classList.add('active'); // نمایش با انیمیشن
   } else {
     floatingCart.classList.remove('active'); // مخفی کردن وقتی سبد خالیه
@@ -328,7 +358,7 @@ function renderCart() {
   // آپدیت محتوای داخل پنل سبد خرید
   if (cart.length === 0) {
     cartItemsEl.innerHTML = `<p class="cart-empty">سبد خرید شما خالی است.</p>`;
-    cartTotalPriceEl.textContent = formatPrice(0);
+    cartTotalPriceEl.innerHTML = formatPrice(0);
     return;
   }
 
@@ -348,7 +378,7 @@ function renderCart() {
     </div>
   `).join('');
 
-  cartTotalPriceEl.textContent = formatPrice(totalPrice);
+  cartTotalPriceEl.innerHTML = formatPrice(totalPrice);
 }
 
 // ============ BACK TO TOP BUTTON ============

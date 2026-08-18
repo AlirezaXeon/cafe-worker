@@ -1,7 +1,8 @@
 -- جدول دسته‌بندی‌ها
 CREATE TABLE IF NOT EXISTS categories (
   id    TEXT PRIMARY KEY,
-  label TEXT NOT NULL
+  label TEXT NOT NULL,
+  image TEXT
 );
 
 -- جدول محصولات
@@ -16,10 +17,10 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 -- دیتای اولیه: همون چیزی که تو public/data/products.json بود
-INSERT INTO categories (id, label) VALUES
-  ('coffee', 'قهوه'),
-  ('dessert', 'دسر'),
-  ('breakfast', 'صبحانه');
+INSERT INTO categories (id, label, image) VALUES
+  ('coffee', 'قهوه', 'images/categories/coffee.jpg'),
+  ('dessert', 'دسر', 'images/categories/dessert.jpg'),
+  ('breakfast', 'صبحانه', 'images/categories/breakfast.jpg');
 
 INSERT INTO products (id, category, name, note, price, image) VALUES
   ('p1',  'coffee',    'اسپرسو',        'دان برزیل، تلخی متعادل',      85000,  'images/products/espresso.jpg'),

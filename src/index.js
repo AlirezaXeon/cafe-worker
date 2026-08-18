@@ -8,9 +8,6 @@ export default {
     // محصولات رو دیگه از فایل استاتیک نمی‌خونیم، از KV می‌خونیم تا ربات بتونه تغییرشون بده
     if (url.pathname === "/data/products.json") {
       const data = await getProducts(env);
-      // خواندن تنظیمات چیدمان از ربات (اگر نبود، پیش‌فرض رو ۲ ستونه در نظر می‌گیره)
-      const layoutSetting = await env.PRODUCTS_KV.get("settings:layout") || "2col";
-      data.layout = layoutSetting; // اضافه کردن به خروجی جیسون
       return new Response(JSON.stringify(data), {
         headers: { "content-type": "application/json; charset=utf-8" },
       });
