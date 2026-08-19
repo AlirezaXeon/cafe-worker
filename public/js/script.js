@@ -42,6 +42,17 @@ function formatPrice(price) {
   const val = Math.round(price / 1000);
   return `<span class="price-amount">${toFa(val)}</span><span class="price-suffix"> ت</span>`;
 }
+// ============ SPLASH SCREEN LOGIC ============
+window.addEventListener('load', () => {
+  const splash = document.getElementById('splash');
+  if (splash) {
+    setTimeout(() => {
+      splash.classList.add('hide');
+      // بعد از اتمام انیمیشن محو شدن، کد رو کامل پاک میکنه تا جلوی اسکرول رو نگیره
+      setTimeout(() => splash.remove(), 250);
+    }, 700); // ~0.7 ثانیه نمایش لوگو
+  }
+});
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');

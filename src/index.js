@@ -9,10 +9,14 @@ export default {
     if (url.pathname === "/data/products.json") {
       const data = await getProducts(env);
       return new Response(JSON.stringify(data), {
+<<<<<<< HEAD
         headers: {
           "content-type": "application/json; charset=utf-8",
           "Cache-Control": "no-store, must-revalidate",
         },
+=======
+        headers: { "content-type": "application/json; charset=utf-8" },
+>>>>>>> affde574ec8b1ad56093a632f0a5d9e66f7e3b6a
       });
     }
 
