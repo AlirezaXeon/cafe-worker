@@ -2,15 +2,18 @@
   "categories": [
     {
       "id": "coffee",
-      "label": "قهوه"
+      "label": "قهوه",
+      "image": "images/categories/coffee.jpg"
     },
     {
       "id": "dessert",
-      "label": "دسر"
+      "label": "دسر",
+      "image": "images/categories/dessert.jpg"
     },
     {
       "id": "breakfast",
-      "label": "صبحانه"
+      "label": "صبحانه",
+      "image": "images/categories/breakfast.jpg"
     }
   ],
   "products": [

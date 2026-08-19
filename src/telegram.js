@@ -1,579 +1,500 @@
-// ============ بات تلگرام مدیریت محصولات (نسخه‌ی دکمه‌ای) ============
-// این فایل مسئول پردازش پیام‌ها و کلیک‌های دکمه از تلگرام (webhook) و
-// تعامل با D1 (محصولات) و KV (وضعیت مکالمه‌ی هر کاربر) هست.
+import {
+  getProducts,
+  saveProducts,
+  productsInCategory,
+  findProduct,
+  findCategory,
+  roundPrice,
+  previewCategoryPercent,
+  applyCategoryPercent,
+  setProductDiscount,
+  removeProductDiscount,
+  nextProductId,
+} from "./products.js";
+import { getSession, setSession, clearSession } from "./session.js";
 
-const TELEGRAM_API = "https://api.telegram.org/bot";
-const STATE_TTL_SECONDS = 60 * 30; // وضعیت ناتمام بعد از ۳۰ دقیقه بی‌استفاده پاک می‌شه
+const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+const toFa = (v) => String(v).replace(/[0-9]/g, (d) => FA_DIGITS[d]);
+const formatToman = (n) =>
+  toFa(Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")) + " تومان";
+const escapeHtml = (s) =>
+  String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// ============ ابزارهای پایه‌ی تلگرام ============
-
-async function tgCall(env, method, payload) {
-  const url = `${TELEGRAM_API}${env.TELEGRAM_BOT_TOKEN}/${method}`;
-  const res = await fetch(url, {
+async function tg(env, method, payload) {
+  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
   return res.json();
 }
 
-function sendMessage(env, chatId, text, keyboard) {
-  return tgCall(env, "sendMessage", {
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    reply_markup: keyboard,
-  });
-}
+// دانلود فایل عکس از سرورهای تلگرام
+async function downloadTelegramFile(env, fileId) {
+  // ۱. گرفتن مسیر فایل از تلگرام
+  const fileRes = await tg(env, "getFile", { file_id: fileId });
+  if (!fileRes.ok || !fileRes.result?.file_path) return null;
 
-function editMessage(env, chatId, messageId, text, keyboard) {
-  return tgCall(env, "editMessageText", {
-    chat_id: chatId,
-    message_id: messageId,
-    text,
-    parse_mode: "HTML",
-    reply_markup: keyboard,
-  });
-}
+  // ۲. دانلود خود فایل باینری (عکس)
+  const filePath = fileRes.result.file_path;
+  const downloadUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`;
+  const imgRes = await fetch(downloadUrl);
+  if (!imgRes.ok) return null;
 
-function answerCallback(env, callbackQueryId, text) {
-  return tgCall(env, "answerCallbackQuery", {
-    callback_query_id: callbackQueryId,
-    text,
-  });
-}
-
-function isAuthorized(env, chatId) {
-  const allowed = (env.TELEGRAM_ALLOWED_CHAT_IDS || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return allowed.includes(String(chatId));
-}
-
-function formatPrice(price) {
-  return Number(price).toLocaleString("fa-IR") + " تومان";
-}
-
-// ============ مدیریت وضعیت مکالمه (KV) ============
-
-function stateKey(chatId) {
-  return `state:${chatId}`;
-}
-
-async function getState(env, chatId) {
-  const raw = await env.BOT_STATE.get(stateKey(chatId));
-  return raw ? JSON.parse(raw) : null;
-}
-
-async function setState(env, chatId, state) {
-  await env.BOT_STATE.put(stateKey(chatId), JSON.stringify(state), {
-    expirationTtl: STATE_TTL_SECONDS,
-  });
-}
-
-async function clearState(env, chatId) {
-  await env.BOT_STATE.delete(stateKey(chatId));
-}
-
-// ============ کیبوردهای شیشه‌ای (Inline Keyboards) ============
-
-function mainMenuKeyboard() {
   return {
-    inline_keyboard: [
-      [{ text: "📦 محصولات", callback_data: "menu:products" }],
-      [{ text: "➕ افزودن محصول", callback_data: "menu:add" }],
-      [{ text: "🏷 دسته‌بندی‌ها", callback_data: "menu:categories" }],
-    ],
+    buffer: await imgRes.arrayBuffer(),
+    ext: filePath.split('.').pop() // پسوند فایل (مثلا jpg یا webp)
   };
 }
 
-function backToMainKeyboard() {
-  return {
-    inline_keyboard: [[{ text: "🔙 منوی اصلی", callback_data: "menu:main" }]],
-  };
+const sendMessage = (env, chatId, text, keyboard) =>
+  tg(env, "sendMessage", {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    reply_markup: keyboard ? { inline_keyboard: keyboard } : undefined,
+  });
+
+// کیبورد ثابت پایین صفحه — همیشه زیر باکس تایپ می‌مونه، نه چسبیده به یه پیام خاص
+const MAIN_MENU_KEYBOARD = {
+  keyboard: [
+    ["📦 محصولات", "🏷 دسته‌بندی‌ها"],
+    ["💰 تغییر قیمت دسته‌جمعی"],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+};
+
+// متنی که هر دکمه‌ی کیبورد ثابت می‌فرسته، به کدوم اکشن وصله
+const MAIN_MENU_ROUTES = {
+  "📦 محصولات": (env, chatId) => sendCategoryPicker(env, chatId, "browse"),
+  "🏷 دسته‌بندی‌ها": (env, chatId) => sendCategoriesMenu(env, chatId),
+  "💰 تغییر قیمت دسته‌جمعی": (env, chatId) => sendCategoryPicker(env, chatId, "bulk"),
+};
+
+const sendWithMainKeyboard = (env, chatId, text) =>
+  tg(env, "sendMessage", {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    reply_markup: MAIN_MENU_KEYBOARD,
+  });
+
+const forceReply = (env, chatId, text) =>
+  tg(env, "sendMessage", {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    reply_markup: { force_reply: true },
+  });
+
+const answerCallback = (env, id, text) =>
+  tg(env, "answerCallbackQuery", { callback_query_id: id, text, show_alert: false });
+
+// ---------- منوها ----------
+
+async function sendMainMenu(env, chatId) {
+  await sendWithMainKeyboard(
+    env,
+    chatId,
+    "🍰 <b>مدیریت کافه روشن</b>\nاز کیبورد پایین صفحه یکی رو انتخاب کن 👇"
+  );
 }
 
-function productListKeyboard(products) {
-  const rows = products.map((p) => [
-    { text: `${p.name} — ${formatPrice(p.price)}`, callback_data: `product:view:${p.id}` },
+async function sendCategoryPicker(env, chatId, mode) {
+  const data = await getProducts(env);
+  const rows = data.categories.map((c) => [
+    { text: c.label, callback_data: `catpick:${mode}:${c.id}` },
   ]);
-  rows.push([{ text: "🔙 منوی اصلی", callback_data: "menu:main" }]);
-  return { inline_keyboard: rows };
+  rows.push([{ text: "🔙 بازگشت", callback_data: "menu:home" }]);
+  const title =
+    mode === "bulk" ? "کدوم دسته رو می‌خوای قیمتش رو تغییر بدی؟" : "کدوم دسته رو می‌خوای ببینی؟";
+  await sendMessage(env, chatId, title, rows);
 }
 
-function productDetailKeyboard(id) {
-  return {
-    inline_keyboard: [
-      [
-        { text: "✏️ ویرایش", callback_data: `product:edit:${id}` },
-        { text: "🗑 حذف", callback_data: `product:delete:${id}` },
-      ],
-      [{ text: "🔙 لیست محصولات", callback_data: "menu:products" }],
+async function sendProductList(env, chatId, catId) {
+  const data = await getProducts(env);
+  const cat = findCategory(data, catId);
+  const rows = productsInCategory(data, catId).map((p) => [
+    {
+      text: p.originalPrice ? `${p.name} — ${formatToman(p.price)} 🏷` : `${p.name} — ${formatToman(p.price)}`,
+      callback_data: `prod:${p.id}`,
+    },
+  ]);
+  rows.push([{ text: "➕ افزودن محصول جدید", callback_data: `catpick:newprod:${catId}` }]);
+  rows.push([{ text: "🔙 بازگشت", callback_data: "menu:products" }]);
+  await sendMessage(env, chatId, `📦 محصولات دسته «${escapeHtml(cat ? cat.label : catId)}»`, rows);
+}
+
+async function sendProductDetail(env, chatId, productId) {
+  const data = await getProducts(env);
+  const p = findProduct(data, productId);
+  if (!p) return sendMainMenu(env, chatId);
+  const cat = findCategory(data, p.category);
+
+  const priceLine = p.originalPrice
+    ? `💰 قیمت: <s>${formatToman(p.originalPrice)}</s> ← ${formatToman(p.price)}`
+    : `💰 قیمت: ${formatToman(p.price)}`;
+
+  const text = `<b>${escapeHtml(p.name)}</b>\nدسته: ${escapeHtml(cat ? cat.label : p.category)}\n${escapeHtml(
+    p.note
+  )}\n${priceLine}`;
+
+  const rows = [
+    [{ text: "✏️ ویرایش قیمت", callback_data: `editprice:${p.id}` }],
+    [{ text: "🏷 اعمال تخفیف", callback_data: `discount:${p.id}` }],
+  ];
+  if (p.originalPrice) rows.push([{ text: "❌ حذف تخفیف", callback_data: `rmdiscount:${p.id}` }]);
+  rows.push([{ text: "🗑 حذف محصول", callback_data: `delprod:${p.id}` }]);
+  rows.push([{ text: "🔙 بازگشت", callback_data: `catpick:browse:${p.category}` }]);
+
+  await sendMessage(env, chatId, text, rows);
+}
+
+async function sendCategoriesMenu(env, chatId) {
+  const data = await getProducts(env);
+  const rows = data.categories.flatMap((c) => [
+    [{ text: c.label, callback_data: `catpick:browse:${c.id}` }],
+    [
+      { text: "✏️ ویرایش نام", callback_data: `editcat:${c.id}` },
+      { text: "🗑 حذف", callback_data: `delcat:${c.id}` },
     ],
-  };
+  ]);
+  rows.push([{ text: "➕ افزودن دسته جدید", callback_data: "newcat" }]);
+  rows.push([{ text: "🔙 بازگشت", callback_data: "menu:home" }]);
+  await sendMessage(env, chatId, "🏷 <b>دسته‌بندی‌ها</b>", rows);
 }
 
-function editFieldKeyboard(id) {
-  return {
-    inline_keyboard: [
-      [
-        { text: "نام", callback_data: `editfield:${id}:name` },
-        { text: "قیمت", callback_data: `editfield:${id}:price` },
-      ],
-      [
-        { text: "یادداشت", callback_data: `editfield:${id}:note` },
-        { text: "دسته‌بندی", callback_data: `editfield:${id}:category` },
-      ],
-      [{ text: "عکس", callback_data: `editfield:${id}:image` }],
-      [{ text: "🔙 انصراف", callback_data: `product:view:${id}` }],
-    ],
-  };
-}
+// ---------- دکمه‌ها (callback_query) ----------
 
-function categoryPickerKeyboard(categories, prefix) {
-  const rows = categories.map((c) => [{ text: c.label, callback_data: `${prefix}:${c.id}` }]);
-  rows.push([{ text: "🔙 انصراف", callback_data: "menu:main" }]);
-  return { inline_keyboard: rows };
-}
+export async function handleCallback(env, chatId, data) {
+  const [action, a, b] = data.split(":");
 
-function confirmDeleteKeyboard(id) {
-  return {
-    inline_keyboard: [
-      [
-        { text: "✅ بله، حذف شود", callback_data: `product:confirmdelete:${id}` },
-        { text: "❌ انصراف", callback_data: `product:view:${id}` },
-      ],
-    ],
-  };
-}
+  if (data === "menu:home") return sendMainMenu(env, chatId);
+  if (data === "menu:products") return sendCategoryPicker(env, chatId, "browse");
+  if (data === "menu:categories") return sendCategoriesMenu(env, chatId);
+  if (data === "menu:bulk") return sendCategoryPicker(env, chatId, "bulk");
 
-function skipOrCancelKeyboard(skipData) {
-  return {
-    inline_keyboard: [
-      [{ text: "رد کردن ⏭", callback_data: skipData }],
-      [{ text: "❌ انصراف", callback_data: "menu:main" }],
-    ],
-  };
-}
-
-// ============ دسترسی به دیتابیس ============
-
-async function fetchProducts(env) {
-  const { results } = await env.DB.prepare(
-    "SELECT id, category, name, note, price, image FROM products ORDER BY category, id"
-  ).all();
-  return results;
-}
-
-async function fetchCategories(env) {
-  const { results } = await env.DB.prepare("SELECT id, label FROM categories").all();
-  return results;
-}
-
-async function fetchProduct(env, id) {
-  return env.DB.prepare(
-    "SELECT id, category, name, note, price, image FROM products WHERE id = ?"
-  )
-    .bind(id)
-    .first();
-}
-
-async function categoryLabel(env, categoryId) {
-  const cat = await env.DB.prepare("SELECT label FROM categories WHERE id = ?")
-    .bind(categoryId)
-    .first();
-  return cat ? cat.label : categoryId;
-}
-
-// ============ رندر پیام‌ها ============
-
-async function renderMainMenu(env, chatId, messageId) {
-  const text = "به پنل مدیریت محصولات خوش اومدی 👋\nیکی از گزینه‌ها رو انتخاب کن:";
-  const kb = mainMenuKeyboard();
-  if (messageId) await editMessage(env, chatId, messageId, text, kb);
-  else await sendMessage(env, chatId, text, kb);
-}
-
-async function renderProductList(env, chatId, messageId) {
-  const products = await fetchProducts(env);
-  if (!products.length) {
-    const text = "هنوز محصولی ثبت نشده.";
-    const kb = backToMainKeyboard();
-    if (messageId) await editMessage(env, chatId, messageId, text, kb);
-    else await sendMessage(env, chatId, text, kb);
-    return;
-  }
-  const text = "📦 روی هر محصول بزن تا جزئیات و گزینه‌های ویرایش/حذف رو ببینی:";
-  const kb = productListKeyboard(products);
-  if (messageId) await editMessage(env, chatId, messageId, text, kb);
-  else await sendMessage(env, chatId, text, kb);
-}
-
-async function renderCategories(env, chatId, messageId) {
-  const categories = await fetchCategories(env);
-  const text = categories.length
-    ? "🏷 دسته‌بندی‌های موجود:\n\n" +
-      categories.map((c) => `<code>${c.id}</code> — ${c.label}`).join("\n")
-    : "هیچ دسته‌بندی‌ای ثبت نشده.";
-  const kb = backToMainKeyboard();
-  if (messageId) await editMessage(env, chatId, messageId, text, kb);
-  else await sendMessage(env, chatId, text, kb);
-}
-
-async function renderProductDetail(env, chatId, messageId, id) {
-  const p = await fetchProduct(env, id);
-  if (!p) {
-    await editMessage(env, chatId, messageId, "این محصول دیگه وجود نداره.", backToMainKeyboard());
-    return;
-  }
-  const catLabel = await categoryLabel(env, p.category);
-  const text = [
-    `<b>${p.name}</b>`,
-    `دسته‌بندی: ${catLabel}`,
-    p.note ? `یادداشت: ${p.note}` : null,
-    `قیمت: ${formatPrice(p.price)}`,
-    p.image ? `عکس: <code>${p.image}</code>` : "عکس: ثبت نشده",
-  ]
-    .filter(Boolean)
-    .join("\n");
-  await editMessage(env, chatId, messageId, text, productDetailKeyboard(id));
-}
-
-// ============ جریان «افزودن محصول» (مرحله‌به‌مرحله) ============
-
-async function startAddFlow(env, chatId, messageId) {
-  await setState(env, chatId, { flow: "add", step: "name", data: {} });
-  await editMessage(
-    env,
-    chatId,
-    messageId,
-    "بیا محصول جدید رو اضافه کنیم.\n\nاول: <b>اسم محصول</b> رو بفرست.",
-    { inline_keyboard: [[{ text: "❌ انصراف", callback_data: "menu:main" }]] }
-  );
-}
-
-async function handleAddFlowText(env, chatId, state, text) {
-  const { data } = state;
-
-  if (state.step === "name") {
-    data.name = text;
-    state.step = "category";
-    await setState(env, chatId, state);
-    const categories = await fetchCategories(env);
-    await sendMessage(env, chatId, "دسته‌بندی رو انتخاب کن:", categoryPickerKeyboard(categories, "addcat"));
-    return;
-  }
-
-  if (state.step === "note") {
-    data.note = text;
-    state.step = "price";
-    await setState(env, chatId, state);
-    await sendMessage(env, chatId, "قیمت رو به تومان بفرست (فقط عدد، مثلاً 95000):", {
-      inline_keyboard: [[{ text: "❌ انصراف", callback_data: "menu:main" }]],
-    });
-    return;
-  }
-
-  if (state.step === "price") {
-    const price = parseInt(text.replace(/[^\d]/g, ""), 10);
-    if (isNaN(price) || price <= 0) {
-      await sendMessage(env, chatId, "قیمت باید یه عدد معتبر باشه. دوباره بفرست:");
-      return;
+  if (action === "catpick") {
+    const mode = a;
+    const catId = b;
+    if (mode === "browse") return sendProductList(env, chatId, catId);
+    if (mode === "bulk") {
+      await setSession(env, chatId, { step: "bulk_percent", catId });
+      return forceReply(env, chatId, "درصد تغییر قیمت رو بفرست (مثبت = افزایش، منفی = تخفیف). مثال: 20 یا -15");
     }
-    data.price = price;
-    state.step = "image";
-    await setState(env, chatId, state);
-    await sendMessage(
-      env,
-      chatId,
-      "مسیر عکس محصول رو بفرست (مثلاً images/products/latte.jpg)\nیا رد کن:",
-      skipOrCancelKeyboard("addimg:skip")
-    );
-    return;
-  }
-
-  if (state.step === "image") {
-    data.image = text;
-    await finalizeAddProduct(env, chatId, data);
-    return;
-  }
-}
-
-async function finalizeAddProduct(env, chatId, data) {
-  const id = "p" + Date.now().toString(36);
-  await env.DB.prepare(
-    "INSERT INTO products (id, category, name, note, price, image) VALUES (?, ?, ?, ?, ?, ?)"
-  )
-    .bind(id, data.category, data.name, data.note || "", data.price, data.image || "")
-    .run();
-
-  await clearState(env, chatId);
-
-  const catLabel = await categoryLabel(env, data.category);
-  const text = [
-    "✅ محصول با موفقیت اضافه شد!",
-    "",
-    `<b>${data.name}</b>`,
-    `دسته‌بندی: ${catLabel}`,
-    data.note ? `یادداشت: ${data.note}` : null,
-    `قیمت: ${formatPrice(data.price)}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  await sendMessage(env, chatId, text, mainMenuKeyboard());
-}
-
-// ============ جریان «ویرایش محصول» ============
-
-async function startEditFlow(env, chatId, messageId, id, field) {
-  const p = await fetchProduct(env, id);
-  if (!p) {
-    await editMessage(env, chatId, messageId, "این محصول دیگه وجود نداره.", backToMainKeyboard());
-    return;
-  }
-
-  if (field === "category") {
-    const categories = await fetchCategories(env);
-    await editMessage(env, chatId, messageId, "دسته‌بندی جدید رو انتخاب کن:", categoryPickerKeyboard(categories, `editcat:${id}`));
-    return;
-  }
-
-  await setState(env, chatId, { flow: "edit", productId: id, field });
-
-  const fieldLabels = { name: "اسم جدید", price: "قیمت جدید (فقط عدد)", note: "یادداشت جدید", image: "مسیر عکس جدید" };
-  await editMessage(
-    env,
-    chatId,
-    messageId,
-    `${fieldLabels[field]} رو بفرست:`,
-    { inline_keyboard: [[{ text: "❌ انصراف", callback_data: `product:view:${id}` }]] }
-  );
-}
-
-async function handleEditFlowText(env, chatId, state, text) {
-  const { productId, field } = state;
-  let value = text;
-
-  if (field === "price") {
-    const price = parseInt(text.replace(/[^\d]/g, ""), 10);
-    if (isNaN(price) || price <= 0) {
-      await sendMessage(env, chatId, "قیمت باید یه عدد معتبر باشه. دوباره بفرست:");
-      return;
+    if (mode === "newprod") {
+      await setSession(env, chatId, { step: "new_product_name", catId });
+      return forceReply(env, chatId, "اسم محصول جدید رو بفرست:");
     }
-    value = price;
   }
 
-  await env.DB.prepare(`UPDATE products SET ${field} = ? WHERE id = ?`).bind(value, productId).run();
-  await clearState(env, chatId);
+  if (action === "prod") return sendProductDetail(env, chatId, a);
 
-  await sendMessage(env, chatId, "✅ محصول ویرایش شد.");
-  const p = await fetchProduct(env, productId);
-  if (p) {
-    const catLabel = await categoryLabel(env, p.category);
-    const text2 = [
-      `<b>${p.name}</b>`,
-      `دسته‌بندی: ${catLabel}`,
-      p.note ? `یادداشت: ${p.note}` : null,
-      `قیمت: ${formatPrice(p.price)}`,
-      p.image ? `عکس: <code>${p.image}</code>` : "عکس: ثبت نشده",
-    ]
-      .filter(Boolean)
+  if (action === "editprice") {
+    await setSession(env, chatId, { step: "edit_price", productId: a });
+    return forceReply(env, chatId, "قیمت جدید رو به تومان بفرست (فقط عدد):");
+  }
+
+  if (action === "discount") {
+    await setSession(env, chatId, { step: "discount_percent", productId: a });
+    return forceReply(env, chatId, "چند درصد تخفیف بدیم؟ (مثلاً 15):");
+  }
+
+  if (action === "rmdiscount") {
+    const data2 = await getProducts(env);
+    const p = findProduct(data2, a);
+    if (p) {
+      removeProductDiscount(p);
+      await saveProducts(env, data2);
+    }
+    return sendProductDetail(env, chatId, a);
+  }
+
+  if (action === "delprod") {
+    return sendMessage(env, chatId, "مطمئنی می‌خوای این محصول حذف بشه؟", [
+      [{ text: "✅ آره، حذف کن", callback_data: `delprodyes:${a}` }],
+      [{ text: "❌ نه", callback_data: `prod:${a}` }],
+    ]);
+  }
+
+  if (action === "delprodyes") {
+    const data2 = await getProducts(env);
+    const p = findProduct(data2, a);
+    const catId = p ? p.category : null;
+    data2.products = data2.products.filter((x) => x.id !== a);
+    await saveProducts(env, data2);
+    await sendMessage(env, chatId, "🗑 محصول حذف شد.");
+    return catId ? sendProductList(env, chatId, catId) : sendMainMenu(env, chatId);
+  }
+
+  if (data === "newcat") {
+    await setSession(env, chatId, { step: "new_category_id" });
+    return forceReply(env, chatId, "یک شناسه‌ی انگلیسی کوتاه برای دسته بفرست (مثلاً drinks):");
+  }
+
+  if (action === "editcat") {
+    const data2 = await getProducts(env);
+    const cat = findCategory(data2, a);
+    if (!cat) return sendCategoriesMenu(env, chatId);
+    await setSession(env, chatId, { step: "edit_category_label", catId: a });
+    return forceReply(env, chatId, `اسم جدید برای «${escapeHtml(cat.label)}» رو بفرست:`);
+  }
+
+  if (action === "delcat") {
+    const data2 = await getProducts(env);
+    const count = productsInCategory(data2, a).length;
+    if (count > 0) {
+      return sendMessage(env, chatId, `این دسته ${toFa(count)} محصول داره. اول محصولاتش رو حذف یا جابه‌جا کن.`);
+    }
+    return sendMessage(env, chatId, "مطمئنی این دسته حذف بشه؟", [
+      [{ text: "✅ آره", callback_data: `delcatyes:${a}` }],
+      [{ text: "❌ نه", callback_data: "menu:categories" }],
+    ]);
+  }
+
+  if (action === "delcatyes") {
+    const data2 = await getProducts(env);
+    data2.categories = data2.categories.filter((c) => c.id !== a);
+    await saveProducts(env, data2);
+    await sendMessage(env, chatId, "🗑 دسته حذف شد.");
+    return sendCategoriesMenu(env, chatId);
+  }
+
+  if (data === "bulkconfirm") {
+    const session = await getSession(env, chatId);
+    if (!session || session.step !== "bulk_confirm") return sendMainMenu(env, chatId);
+    const data2 = await getProducts(env);
+    applyCategoryPercent(data2, session.catId, session.percent);
+    await saveProducts(env, data2);
+    await clearSession(env, chatId);
+    await sendMessage(env, chatId, "✅ قیمت‌ها به‌روزرسانی شدن.");
+    return sendMainMenu(env, chatId);
+  }
+
+  if (data === "bulkcancel") {
+    await clearSession(env, chatId);
+    await sendMessage(env, chatId, "لغو شد.");
+    return sendMainMenu(env, chatId);
+  }
+
+  return sendMainMenu(env, chatId);
+}
+
+// ---------- پیام‌های متنی در میانه‌ی یه مرحله ----------
+
+export async function handleTextStep(env, chatId, text, session) {
+  const trimmed = (text || "").trim();
+
+  if (session.step === "bulk_percent") {
+    const percent = parseFloat(trimmed.replace(/[٪%]/g, ""));
+    if (isNaN(percent) || percent === 0) {
+      return forceReply(env, chatId, "یه عدد معتبر بفرست (مثلاً 20 یا -10):");
+    }
+    const data = await getProducts(env);
+    const preview = previewCategoryPercent(data, session.catId, percent);
+    if (preview.length === 0) {
+      await clearSession(env, chatId);
+      return sendMessage(env, chatId, "این دسته محصولی نداره.");
+    }
+    const lines = preview
+      .map((p) => `• ${escapeHtml(p.name)}: ${formatToman(p.oldPrice)} ← ${formatToman(p.newPrice)}`)
       .join("\n");
-    await sendMessage(env, chatId, text2, productDetailKeyboard(productId));
+    await setSession(env, chatId, { step: "bulk_confirm", catId: session.catId, percent });
+    return sendMessage(env, chatId, `پیش‌نمایش تغییر قیمت (${toFa(percent)}٪):\n\n${lines}\n\nتایید می‌کنی؟`, [
+      [{ text: "✅ تایید و اعمال", callback_data: "bulkconfirm" }],
+      [{ text: "❌ لغو", callback_data: "bulkcancel" }],
+    ]);
   }
+
+  if (session.step === "edit_price") {
+    const price = parseInt(trimmed.replace(/[^\d]/g, ""), 10);
+    if (!price) return forceReply(env, chatId, "یه عدد معتبر برای قیمت بفرست:");
+    const data = await getProducts(env);
+    const p = findProduct(data, session.productId);
+    if (p) {
+      p.price = roundPrice(price);
+      p.originalPrice = null;
+      await saveProducts(env, data);
+    }
+    await clearSession(env, chatId);
+    await sendMessage(env, chatId, "✅ قیمت به‌روزرسانی شد.");
+    return sendProductDetail(env, chatId, session.productId);
+  }
+
+  if (session.step === "discount_percent") {
+    const percent = parseFloat(trimmed.replace(/[٪%]/g, ""));
+    if (isNaN(percent) || percent <= 0 || percent >= 100) {
+      return forceReply(env, chatId, "درصد باید بین ۱ تا ۹۹ باشه:");
+    }
+    const data = await getProducts(env);
+    const p = findProduct(data, session.productId);
+    if (p) {
+      setProductDiscount(p, percent);
+      await saveProducts(env, data);
+    }
+    await clearSession(env, chatId);
+    await sendMessage(env, chatId, "✅ تخفیف اعمال شد.");
+    return sendProductDetail(env, chatId, session.productId);
+  }
+
+  if (session.step === "new_category_id") {
+    const id = trimmed.toLowerCase().replace(/\s+/g, "-");
+    if (!/^[a-z0-9-]+$/.test(id)) {
+      return forceReply(env, chatId, "فقط حروف انگلیسی، عدد و خط تیره مجازه. دوباره بفرست:");
+    }
+    await setSession(env, chatId, { step: "new_category_label", id });
+    return forceReply(env, chatId, "اسم فارسی این دسته رو بفرست (مثلاً «نوشیدنی‌ها»):");
+  }
+
+  if (session.step === "new_category_label") {
+    const data = await getProducts(env);
+    data.categories.push({ id: session.id, label: trimmed });
+    await saveProducts(env, data);
+    await clearSession(env, chatId);
+    await sendMessage(env, chatId, "✅ دسته جدید اضافه شد.");
+    return sendCategoriesMenu(env, chatId);
+  }
+
+  if (session.step === "edit_category_label") {
+    if (!trimmed) {
+      return forceReply(env, chatId, "اسم نمی‌تونه خالی باشه. دوباره بفرست:");
+    }
+    const data = await getProducts(env);
+    const cat = findCategory(data, session.catId);
+    if (cat) {
+      cat.label = trimmed;
+      await saveProducts(env, data);
+    }
+    await clearSession(env, chatId);
+    await sendMessage(env, chatId, "✅ اسم دسته به‌روزرسانی شد.");
+    return sendCategoriesMenu(env, chatId);
+  }
+
+  if (session.step === "new_product_name") {
+    await setSession(env, chatId, { ...session, step: "new_product_note", name: trimmed });
+    return forceReply(env, chatId, "توضیح کوتاه محصول رو بفرست:");
+  }
+
+  if (session.step === "new_product_note") {
+    await setSession(env, chatId, { ...session, step: "new_product_price", note: trimmed });
+    return forceReply(env, chatId, "قیمت رو به تومان بفرست (فقط عدد):");
+  }
+
+  if (session.step === "new_product_price") {
+    const price = parseInt(trimmed.replace(/[^\d]/g, ""), 10);
+    if (!price) return forceReply(env, chatId, "یه عدد معتبر بفرست:");
+    const data = await getProducts(env);
+    const newId = nextProductId(data);
+    await setSession(env, chatId, { ...session, step: "new_product_image", price, productId: newId });
+    return forceReply(env, chatId, "📷 حالا عکس محصول رو بفرست، یا اگر عکس نداره بنویس «بدون عکس»:");
+  }
+
+  if (session.step === "new_product_image") {
+    if (trimmed === "بدون عکس") {
+      const image = "images/products/placeholder.jpg";
+      const data = await getProducts(env);
+      data.products.push({
+        id: session.productId,
+        category: session.catId,
+        name: session.name,
+        note: session.note,
+        price: roundPrice(session.price),
+        originalPrice: null,
+        image,
+      });
+      await saveProducts(env, data);
+      await clearSession(env, chatId);
+      await sendMessage(env, chatId, "✅ محصول جدید اضافه شد (بدون عکس).");
+      return sendProductList(env, chatId, session.catId);
+    }
+    return forceReply(env, chatId, "لطفاً فقط عکس بفرست یا بنویس «بدون عکس»:");
+  }
+
+  await clearSession(env, chatId);
+  return sendMainMenu(env, chatId);
 }
 
-// ============ هندلر اصلی پیام‌های متنی ============
+// ---------- پردازش عکس ارسالی در تلگرام ----------
 
-async function handleTextMessage(env, chatId, text) {
-  if (text === "/start" || text === "/help") {
-    await clearState(env, chatId);
-    await renderMainMenu(env, chatId, null);
-    return;
+export async function handleImageStep(env, chatId, photoArray, session) {
+  // تلگرام عکس رو در چند سایز می‌فرسته، ما بزرگترین رو برمی‌داریم (آخرین آیتم آرایه)
+  const fileId = photoArray[photoArray.length - 1].file_id;
+
+  await sendMessage(env, chatId, "⏳ در حال آپلود عکس...");
+
+  const fileData = await downloadTelegramFile(env, fileId);
+  if (!fileData) {
+    return forceReply(env, chatId, "❌ خطا در دریافت عکس. لطفاً دوباره بفرست یا بنویس «بدون عکس»:");
   }
 
-  const state = await getState(env, chatId);
-  if (!state) {
-    await sendMessage(env, chatId, "برای شروع /start رو بفرست.", mainMenuKeyboard());
-    return;
-  }
+  const filename = `${session.productId}.${fileData.ext}`;
 
-  if (state.flow === "add") {
-    await handleAddFlowText(env, chatId, state, text);
-  } else if (state.flow === "edit") {
-    await handleEditFlowText(env, chatId, state, text);
-  }
+  // ذخیره عکس در KV
+  await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
+    metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+  });
+
+  // ذخیره اطلاعات محصول در دیتابیس
+  const data = await getProducts(env);
+  data.products.push({
+    id: session.productId,
+    category: session.catId,
+    name: session.name,
+    note: session.note,
+    price: roundPrice(session.price),
+    originalPrice: null,
+    image: `images/products/${filename}`, // آدرس نسبی برای سایت
+  });
+  await saveProducts(env, data);
+  await clearSession(env, chatId);
+
+  await sendMessage(env, chatId, "✅ محصول جدید همراه با عکس اضافه شد.");
+  return sendProductList(env, chatId, session.catId);
 }
 
-// ============ هندلر اصلی کلیک روی دکمه‌ها (callback_query) ============
+// ---------- ورودی اصلی ----------
 
-async function handleCallbackQuery(env, callback) {
-  const chatId = callback.message.chat.id;
-  const messageId = callback.message.message_id;
-  const data = callback.data;
+export async function handleUpdate(update, env) {
+  const adminIds = (env.ADMIN_IDS || "").split(",").map((s) => s.trim()).filter(Boolean);
 
-  await answerCallback(env, callback.id, "");
+  if (update.message) {
+    const msg = update.message;
+    const chatId = msg.chat.id;
+    const fromId = String(msg.from.id);
+    if (!adminIds.includes(fromId)) return; // کاربر غیرمجاز؛ نادیده گرفته میشه
 
-  if (data === "menu:main") {
-    await clearState(env, chatId);
-    await renderMainMenu(env, chatId, messageId);
-    return;
-  }
-
-  if (data === "menu:products") {
-    await clearState(env, chatId);
-    await renderProductList(env, chatId, messageId);
-    return;
-  }
-
-  if (data === "menu:categories") {
-    await clearState(env, chatId);
-    await renderCategories(env, chatId, messageId);
-    return;
-  }
-
-  if (data === "menu:add") {
-    await startAddFlow(env, chatId, messageId);
-    return;
-  }
-
-  if (data.startsWith("product:view:")) {
-    const id = data.split(":")[2];
-    await clearState(env, chatId);
-    await renderProductDetail(env, chatId, messageId, id);
-    return;
-  }
-
-  if (data.startsWith("product:edit:")) {
-    const id = data.split(":")[2];
-    await editMessage(env, chatId, messageId, "کدوم فیلد رو می‌خوای ویرایش کنی؟", editFieldKeyboard(id));
-    return;
-  }
-
-  if (data.startsWith("product:delete:")) {
-    const id = data.split(":")[2];
-    const p = await fetchProduct(env, id);
-    if (!p) {
-      await editMessage(env, chatId, messageId, "این محصول دیگه وجود نداره.", backToMainKeyboard());
-      return;
+    if (msg.text === "/start") {
+      await clearSession(env, chatId);
+      return sendMainMenu(env, chatId);
     }
-    await editMessage(
-      env,
-      chatId,
-      messageId,
-      `مطمئنی می‌خوای «${p.name}» رو حذف کنی؟`,
-      confirmDeleteKeyboard(id)
-    );
-    return;
-  }
 
-  if (data.startsWith("product:confirmdelete:")) {
-    const id = data.split(":")[2];
-    const p = await fetchProduct(env, id);
-    await env.DB.prepare("DELETE FROM products WHERE id = ?").bind(id).run();
-    await editMessage(
-      env,
-      chatId,
-      messageId,
-      `🗑 محصول «${p ? p.name : id}» حذف شد.`,
-      backToMainKeyboard()
-    );
-    return;
-  }
-
-  if (data.startsWith("editfield:")) {
-    const [, id, field] = data.split(":");
-    await startEditFlow(env, chatId, messageId, id, field);
-    return;
-  }
-
-  if (data.startsWith("editcat:")) {
-    // فرمت: editcat:<productId>:<newCategoryId>
-    const parts = data.split(":");
-    const productId = parts[1];
-    const newCategory = parts[2];
-    await env.DB.prepare("UPDATE products SET category = ? WHERE id = ?")
-      .bind(newCategory, productId)
-      .run();
-    await renderProductDetail(env, chatId, messageId, productId);
-    return;
-  }
-
-  if (data.startsWith("addcat:")) {
-    // فرمت: addcat:<categoryId>  — انتخاب دسته حین جریان افزودن محصول
-    const categoryId = data.split(":")[1];
-    const state = await getState(env, chatId);
-    if (!state || state.flow !== "add") {
-      await renderMainMenu(env, chatId, messageId);
-      return;
+    // دکمه‌های کیبورد ثابت پایین صفحه — هر جای مکالمه که باشیم جواب می‌دن
+    // و هر مرحله‌ی نیمه‌کاره‌ای (مثلاً منتظر بودن برای قیمت) رو لغو می‌کنن
+    if (MAIN_MENU_ROUTES[msg.text]) {
+      await clearSession(env, chatId);
+      return MAIN_MENU_ROUTES[msg.text](env, chatId);
     }
-    state.data.category = categoryId;
-    state.step = "note";
-    await setState(env, chatId, state);
-    await editMessage(
-      env,
-      chatId,
-      messageId,
-      "یادداشت کوتاه محصول رو بفرست (مثلاً «دان برزیل، تلخی متعادل»)\nیا رد کن:",
-      skipOrCancelKeyboard("addnote:skip")
-    );
-    return;
-  }
 
-  if (data === "addnote:skip") {
-    const state = await getState(env, chatId);
-    if (!state || state.flow !== "add") return;
-    state.data.note = "";
-    state.step = "price";
-    await setState(env, chatId, state);
-    await editMessage(env, chatId, messageId, "قیمت رو به تومان بفرست (فقط عدد، مثلاً 95000):", {
-      inline_keyboard: [[{ text: "❌ انصراف", callback_data: "menu:main" }]],
-    });
-    return;
-  }
-
-  if (data === "addimg:skip") {
-    const state = await getState(env, chatId);
-    if (!state || state.flow !== "add") return;
-    state.data.image = "";
-    await finalizeAddProduct(env, chatId, state.data);
-    return;
-  }
-}
-
-// ============ ورودی اصلی وبهوک ============
-
-export async function handleTelegramUpdate(request, env) {
-  let update;
-  try {
-    update = await request.json();
-  } catch {
-    return new Response("bad request", { status: 400 });
-  }
-
-  const chatId = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id;
-  if (!chatId) return new Response("ok");
-
-  if (!isAuthorized(env, chatId)) {
-    if (update.message) {
-      await sendMessage(env, chatId, "⛔️ شما اجازه دسترسی به این بات رو ندارید.");
-    } else if (update.callback_query) {
-      await answerCallback(env, update.callback_query.id, "⛔️ دسترسی ندارید");
+    const session = await getSession(env, chatId);
+    if (session) {
+      // اگر منتظر عکس بودیم و کاربر عکس فرستاد
+      if (msg.photo && session.step === "new_product_image") {
+        return handleImageStep(env, chatId, msg.photo, session);
+      }
+      // اگر متن فرستاد
+      if (msg.text) return handleTextStep(env, chatId, msg.text, session);
     }
-    return new Response("ok");
+
+    return sendMainMenu(env, chatId);
   }
 
-  try {
-    if (update.callback_query) {
-      await handleCallbackQuery(env, update.callback_query);
-    } else if (update.message && update.message.text) {
-      await handleTextMessage(env, chatId, update.message.text.trim());
-    }
-  } catch (err) {
-    await sendMessage(env, chatId, `خطا: ${err.message}`);
+  if (update.callback_query) {
+    const cq = update.callback_query;
+    const chatId = cq.message.chat.id;
+    const fromId = String(cq.from.id);
+    if (!adminIds.includes(fromId)) return answerCallback(env, cq.id, "دسترسی نداری");
+    await answerCallback(env, cq.id);
+    return handleCallback(env, chatId, cq.data);
   }
-
-  return new Response("ok");
 }

@@ -1,8 +1,17 @@
 {
   "categories": [
-    { "id": "coffee", "label": "قهوه" },
-    { "id": "dessert", "label": "دسر" },
-    { "id": "breakfast", "label": "صبحانه" }
+    {
+      "id": "coffee",
+      "label": "قهوه"
+    },
+    {
+      "id": "dessert",
+      "label": "دسر"
+    },
+    {
+      "id": "breakfast",
+      "label": "صبحانه"
+    }
   ],
   "products": [
     {
@@ -24,10 +33,10 @@
     {
       "id": "p3",
       "category": "coffee",
-      "name": "فلت وایت",
-      "note": "کرمای غلیظ، طعم قوی",
+      "name": "شیک اورئو",
+      "note": "",
       "price": 125000,
-      "image": "images/products/flatwhite.jpg"
+      "image": "images/products/Oreo-Frappuccino.jpg"
     },
     {
       "id": "p4",
