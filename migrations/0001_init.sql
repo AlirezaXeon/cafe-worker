@@ -17,19 +17,11 @@ CREATE TABLE IF NOT EXISTS products (
   FOREIGN KEY (category) REFERENCES categories(id)
 );
 
-<<<<<<< HEAD
--- ============ دسته‌بندی‌ها ============
-INSERT INTO categories (id, label) VALUES
-  ('coffee',    'قهوه'),
-  ('dessert',   'دسر'),
-  ('breakfast', 'صبحانه');
-=======
 -- دیتای اولیه: همون چیزی که تو public/data/products.json بود
 INSERT INTO categories (id, label, image) VALUES
   ('coffee', 'قهوه', 'images/categories/coffee.jpg'),
   ('dessert', 'دسر', 'images/categories/dessert.jpg'),
   ('breakfast', 'صبحانه', 'images/categories/breakfast.jpg');
->>>>>>> affde574ec8b1ad56093a632f0a5d9e66f7e3b6a
 
 -- ============ محصولات (دیتای فعلی از products.json) ============
 INSERT INTO products (id, category, name, note, price, image) VALUES
