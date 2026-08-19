@@ -198,27 +198,13 @@ sortSelect.addEventListener('change', (e) => {
   renderProducts();
 });
 
-function renderProducts() {
-  let items = activeCategory === 'all'
-    ? [...productsData.products]
-    : productsData.products.filter(p => p.category === activeCategory);
-
-  if (currentSort === 'low-high') {
-    items.sort((a, b) => a.price - b.price);
-  } else if (currentSort === 'high-low') {
-    items.sort((a, b) => b.price - a.price);
-  }
-
-  const catLabel = id => {
-    const c = productsData.categories.find(c => c.id === id);
-    return c ? c.label : id;
-  };
-
-  // استفاده از نقطه رنگی به جای متن دسته‌بندی
-  grid.innerHTML = items.map(p => {
-    const imgSrc = p.image || getCategoryImage(p.category);
-    return `
+function productCardHtml(p) {
+  const imgSrc = p.image || getCategoryImage(p.category);
+  return `
     <article class="product-card" data-id="${p.id}">
+      <svg class="card-neon" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <rect x="1" y="1" width="98" height="98" rx="7" ry="7" pathLength="100"></rect>
+      </svg>
       <div class="product-image">
         ${imgSrc ? `<img src="${imgSrc}" alt="${p.name}" onerror="this.remove(); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
         <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${p.name.charAt(0)}</div>
@@ -240,7 +226,42 @@ function renderProducts() {
       </div>
     </article>
   `;
-  }).join('');
+}
+
+function renderProducts() {
+  let items = activeCategory === 'all'
+    ? [...productsData.products]
+    : productsData.products.filter(p => p.category === activeCategory);
+
+  if (currentSort === 'low-high') {
+    items.sort((a, b) => a.price - b.price);
+  } else if (currentSort === 'high-low') {
+    items.sort((a, b) => b.price - a.price);
+  }
+
+  const catLabel = id => {
+    const c = productsData.categories.find(c => c.id === id);
+    return c ? c.label : id;
+  };
+
+  if (activeCategory === 'all') {
+    // تو حالت «همه»، محصولات رو زیر عنوان دسته‌بندی خودشون گروه می‌کنیم
+    // تا موقع اسکرول کردن روی کل منو، کاربر گم نشه که الان چه دسته‌ای رو می‌بینه
+    const groups = productsData.categories
+      .map(c => ({ cat: c, items: items.filter(p => p.category === c.id) }))
+      .filter(g => g.items.length > 0);
+
+    grid.innerHTML = groups.map(g => `
+      <div class="menu-group">
+        <h3 class="menu-group-title">${g.cat.label}</h3>
+        <div class="product-list">
+          ${g.items.map(productCardHtml).join('')}
+        </div>
+      </div>
+    `).join('');
+  } else {
+    grid.innerHTML = `<div class="product-list">${items.map(productCardHtml).join('')}</div>`;
+  }
 
   grid.querySelectorAll('.product-card').forEach(card => {
     card.addEventListener('click', (e) => {

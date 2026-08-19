@@ -15,6 +15,17 @@
 
 <body id="top">
 
+  <!-- گرادیانت مشترک برای افکت نئونِ دور کارت محصولات -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="neonGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color: var(--gold)" />
+        <stop offset="50%" style="stop-color: var(--accent)" />
+        <stop offset="100%" style="stop-color: var(--gold)" />
+      </linearGradient>
+    </defs>
+  </svg>
+
   <!-- SPLASH SCREEN -->
   <div id="splash">
     <div class="splash-inner">
@@ -58,7 +69,9 @@
         <a href="#menu" class="btn">دیدن منو</a>
       </div>
       <div class="hero-visual" aria-hidden="true">
-        <div class="cup-mark"></div>
+        <div class="cup-mark">
+          <img src="images/logo.png" alt="" class="cup-mark-logo" onerror="this.style.display='none'">
+        </div>
       </div>
     </section>
 
@@ -77,7 +90,7 @@
             <option value="high-low">گران‌ترین</option>
           </select>
         </div>
-        <div class="product-list" id="productGrid"></div>
+        <div class="menu-groups" id="productGrid"></div>
       </div>
     </section>
 

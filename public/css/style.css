@@ -62,12 +62,51 @@ html {
 body {
   font-family: var(--font-fa);
   background-color: var(--bg);
+  background-image:
+    radial-gradient(circle, rgba(212, 175, 55, 0.11), transparent 42%),
+    radial-gradient(circle, rgba(157, 186, 143, 0.10), transparent 45%),
+    repeating-linear-gradient(45deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 28px);
+  background-size: 140% 140%, 150% 150%, 40px 40px;
+  background-position: 10% 15%, 85% 80%, 0 0;
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-attachment: fixed, fixed, fixed;
+  animation: ambientDrift 24s ease-in-out infinite alternate;
   color: var(--ink);
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   max-width: 100%;
-  transition: background 0.3s ease, color 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+@keyframes ambientDrift {
+  0% {
+    background-position: 10% 15%, 85% 80%, 0 0;
+  }
+
+  50% {
+    background-position: 35% 30%, 60% 60%, 0 0;
+  }
+
+  100% {
+    background-position: 15% 40%, 90% 55%, 0 0;
+  }
+}
+
+:root[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle, rgba(58, 74, 54, 0.06), transparent 42%),
+    radial-gradient(circle, rgba(212, 175, 55, 0.08), transparent 45%),
+    repeating-linear-gradient(45deg,
+      rgba(44, 37, 32, 0.025) 0px,
+      rgba(44, 37, 32, 0.025) 1px,
+      transparent 1px,
+      transparent 28px);
+  background-size: 140% 140%, 150% 150%, 40px 40px;
 }
 
 /* Custom Scrollbar */
@@ -444,6 +483,19 @@ button {
   border: 1px solid var(--accent);
 }
 
+.cup-mark-logo {
+  position: absolute;
+  inset: 160px;
+  width: calc(100% - 320px);
+  height: calc(100% - 320px);
+  margin: auto;
+  z-index: 2;
+  border-radius: 50%;
+  object-fit: contain;
+  padding: 22px;
+  animation: rotate 80s linear infinite reverse;
+}
+
 @keyframes rotate {
   from {
     transform: rotate(0deg);
@@ -492,6 +544,12 @@ button {
   gap: 16px;
   margin-bottom: 32px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 64px;
+  z-index: 40;
+  background: var(--bg);
+  padding: 14px 0 16px;
+  border-bottom: 1px solid var(--line);
 }
 
 /* فیکس اسکرول افقی تب‌ها */
@@ -597,6 +655,27 @@ button {
 }
 
 /* --- گرید محصولات --- */
+.menu-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.menu-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 12px 20px;
+  margin-bottom: 20px;
+}
+
 .product-list {
   display: grid;
   grid-template-columns: 1fr;
@@ -604,25 +683,23 @@ button {
 }
 
 .product-card {
-  background: var(--card-bg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  box-shadow: var(--shadow-sm);
   position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 140px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .product-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--line);
 }
 
-/* رنگی کردن کل کارت بر اساس دسته بندی */
+/* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته بندی */
 .product-card:has(.cat-dot[data-cat="coffee"]) {
   background: rgba(181, 136, 99, 0.06);
 }
@@ -655,14 +732,44 @@ button {
   background: rgba(212, 145, 143, 0.1);
 }
 
-/* عکس ۱ در ۱ در حالت عادی */
-.product-card .product-image {
+/* نئونی که دقیقاً روی خط لبه‌ی کادر (دور تا دور مستطیل) حرکت می‌کنه، نه چرخش از وسط */
+.card-neon {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  min-width: unset;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  overflow: visible;
+}
+
+.card-neon rect {
+  fill: none;
+  stroke: url(#neonGradient);
+  stroke-width: 2.4;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-dasharray: 24 76;
+  animation: neonTrace 3.5s linear infinite;
+}
+
+@keyframes neonTrace {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+/* عکس مربعی سمت راست کارت (چیدمان افقی) */
+.product-card .product-image {
+  width: 116px;
+  min-width: 116px;
+  height: 116px;
   aspect-ratio: 1 / 1;
-  height: auto;
+  align-self: center;
+  margin: 12px;
   background: var(--bg-alt);
   overflow: hidden;
+  border-radius: var(--radius);
 }
 
 .product-card .product-image img {
@@ -677,12 +784,13 @@ button {
 }
 
 .product-card .product-info {
-  padding: 12px;
+  padding: 14px 16px;
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .product-header {
@@ -715,16 +823,16 @@ button {
 }
 
 .product-card .product-name {
-  font-size: 0.95rem;
+  font-size: 1.08rem;
   font-weight: 700;
   line-height: 1.3;
 }
 
 .product-card .product-note {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--ink-soft);
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -742,7 +850,7 @@ button {
 .product-card .product-price {
   font-family: var(--font-fa);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 1.02rem;
   color: var(--accent);
   display: inline-flex;
   align-items: baseline;
