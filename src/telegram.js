@@ -54,129 +54,6 @@ const sendMessage = (env, chatId, text, keyboard) =>
     parse_mode: "HTML",
     reply_markup: keyboard ? { inline_keyboard: keyboard } : undefined,
   });
-<<<<<<< HEAD
-
-// کیبورد ثابت پایین صفحه — همیشه زیر باکس تایپ می‌مونه، نه چسبیده به یه پیام خاص
-const MAIN_MENU_KEYBOARD = {
-  keyboard: [
-    ["📦 محصولات", "🏷 دسته‌بندی‌ها"],
-    ["💰 تغییر قیمت دسته‌جمعی"],
-  ],
-  resize_keyboard: true,
-  is_persistent: true,
-};
-
-// متنی که هر دکمه‌ی کیبورد ثابت می‌فرسته، به کدوم اکشن وصله
-const MAIN_MENU_ROUTES = {
-  "📦 محصولات": (env, chatId) => sendCategoryPicker(env, chatId, "browse"),
-  "🏷 دسته‌بندی‌ها": (env, chatId) => sendCategoriesMenu(env, chatId),
-  "💰 تغییر قیمت دسته‌جمعی": (env, chatId) => sendCategoryPicker(env, chatId, "bulk"),
-};
-
-const sendWithMainKeyboard = (env, chatId, text) =>
-  tg(env, "sendMessage", {
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    reply_markup: MAIN_MENU_KEYBOARD,
-  });
-
-const forceReply = (env, chatId, text) =>
-  tg(env, "sendMessage", {
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    reply_markup: { force_reply: true },
-  });
-
-const answerCallback = (env, id, text) =>
-  tg(env, "answerCallbackQuery", { callback_query_id: id, text, show_alert: false });
-
-// ---------- منوها ----------
-
-async function sendMainMenu(env, chatId) {
-  await sendWithMainKeyboard(
-    env,
-    chatId,
-    "🍰 <b>مدیریت کافه روشن</b>\nاز کیبورد پایین صفحه یکی رو انتخاب کن 👇"
-  );
-}
-
-async function sendCategoryPicker(env, chatId, mode) {
-  const data = await getProducts(env);
-  const rows = data.categories.map((c) => [
-    { text: c.label, callback_data: `catpick:${mode}:${c.id}` },
-  ]);
-  rows.push([{ text: "🔙 بازگشت", callback_data: "menu:home" }]);
-  const title =
-    mode === "bulk" ? "کدوم دسته رو می‌خوای قیمتش رو تغییر بدی؟" : "کدوم دسته رو می‌خوای ببینی؟";
-  await sendMessage(env, chatId, title, rows);
-}
-
-async function sendProductList(env, chatId, catId) {
-  const data = await getProducts(env);
-  const cat = findCategory(data, catId);
-  const rows = productsInCategory(data, catId).map((p) => [
-    {
-      text: p.originalPrice ? `${p.name} — ${formatToman(p.price)} 🏷` : `${p.name} — ${formatToman(p.price)}`,
-      callback_data: `prod:${p.id}`,
-    },
-  ]);
-  rows.push([{ text: "➕ افزودن محصول جدید", callback_data: `catpick:newprod:${catId}` }]);
-  rows.push([{ text: "🔙 بازگشت", callback_data: "menu:products" }]);
-  await sendMessage(env, chatId, `📦 محصولات دسته «${escapeHtml(cat ? cat.label : catId)}»`, rows);
-}
-
-async function sendProductDetail(env, chatId, productId) {
-  const data = await getProducts(env);
-  const p = findProduct(data, productId);
-  if (!p) return sendMainMenu(env, chatId);
-  const cat = findCategory(data, p.category);
-
-  const priceLine = p.originalPrice
-    ? `💰 قیمت: <s>${formatToman(p.originalPrice)}</s> ← ${formatToman(p.price)}`
-    : `💰 قیمت: ${formatToman(p.price)}`;
-
-  const text = `<b>${escapeHtml(p.name)}</b>\nدسته: ${escapeHtml(cat ? cat.label : p.category)}\n${escapeHtml(
-    p.note
-  )}\n${priceLine}`;
-
-  const rows = [
-    [{ text: "✏️ ویرایش قیمت", callback_data: `editprice:${p.id}` }],
-    [{ text: "🏷 اعمال تخفیف", callback_data: `discount:${p.id}` }],
-  ];
-  if (p.originalPrice) rows.push([{ text: "❌ حذف تخفیف", callback_data: `rmdiscount:${p.id}` }]);
-  rows.push([{ text: "🗑 حذف محصول", callback_data: `delprod:${p.id}` }]);
-  rows.push([{ text: "🔙 بازگشت", callback_data: `catpick:browse:${p.category}` }]);
-
-  await sendMessage(env, chatId, text, rows);
-}
-
-async function sendCategoriesMenu(env, chatId) {
-  const data = await getProducts(env);
-  const rows = data.categories.flatMap((c) => [
-    [{ text: c.label, callback_data: `catpick:browse:${c.id}` }],
-    [
-      { text: "✏️ ویرایش نام", callback_data: `editcat:${c.id}` },
-      { text: "🗑 حذف", callback_data: `delcat:${c.id}` },
-    ],
-  ]);
-  rows.push([{ text: "➕ افزودن دسته جدید", callback_data: "newcat" }]);
-  rows.push([{ text: "🔙 بازگشت", callback_data: "menu:home" }]);
-  await sendMessage(env, chatId, "🏷 <b>دسته‌بندی‌ها</b>", rows);
-}
-
-// ---------- دکمه‌ها (callback_query) ----------
-
-export async function handleCallback(env, chatId, data) {
-  const [action, a, b] = data.split(":");
-
-  if (data === "menu:home") return sendMainMenu(env, chatId);
-  if (data === "menu:products") return sendCategoryPicker(env, chatId, "browse");
-  if (data === "menu:categories") return sendCategoriesMenu(env, chatId);
-  if (data === "menu:bulk") return sendCategoryPicker(env, chatId, "bulk");
-
-=======
 
 const forceReply = (env, chatId, text) =>
   tg(env, "sendMessage", {
@@ -270,7 +147,6 @@ export async function handleCallback(env, chatId, data) {
   if (data === "menu:categories") return sendCategoriesMenu(env, chatId);
   if (data === "menu:bulk") return sendCategoryPicker(env, chatId, "bulk");
 
->>>>>>> affde574ec8b1ad56093a632f0a5d9e66f7e3b6a
   if (action === "catpick") {
     const mode = a;
     const catId = b;
@@ -329,17 +205,6 @@ export async function handleCallback(env, chatId, data) {
     return forceReply(env, chatId, "یک شناسه‌ی انگلیسی کوتاه برای دسته بفرست (مثلاً drinks):");
   }
 
-<<<<<<< HEAD
-  if (action === "editcat") {
-    const data2 = await getProducts(env);
-    const cat = findCategory(data2, a);
-    if (!cat) return sendCategoriesMenu(env, chatId);
-    await setSession(env, chatId, { step: "edit_category_label", catId: a });
-    return forceReply(env, chatId, `اسم جدید برای «${escapeHtml(cat.label)}» رو بفرست:`);
-  }
-
-=======
->>>>>>> affde574ec8b1ad56093a632f0a5d9e66f7e3b6a
   if (action === "delcat") {
     const data2 = await getProducts(env);
     const count = productsInCategory(data2, a).length;
@@ -455,24 +320,6 @@ export async function handleTextStep(env, chatId, text, session) {
     return sendCategoriesMenu(env, chatId);
   }
 
-<<<<<<< HEAD
-  if (session.step === "edit_category_label") {
-    if (!trimmed) {
-      return forceReply(env, chatId, "اسم نمی‌تونه خالی باشه. دوباره بفرست:");
-    }
-    const data = await getProducts(env);
-    const cat = findCategory(data, session.catId);
-    if (cat) {
-      cat.label = trimmed;
-      await saveProducts(env, data);
-    }
-    await clearSession(env, chatId);
-    await sendMessage(env, chatId, "✅ اسم دسته به‌روزرسانی شد.");
-    return sendCategoriesMenu(env, chatId);
-  }
-
-=======
->>>>>>> affde574ec8b1ad56093a632f0a5d9e66f7e3b6a
   if (session.step === "new_product_name") {
     await setSession(env, chatId, { ...session, step: "new_product_note", name: trimmed });
     return forceReply(env, chatId, "توضیح کوتاه محصول رو بفرست:");
@@ -571,14 +418,6 @@ export async function handleUpdate(update, env) {
       return sendMainMenu(env, chatId);
     }
 
-<<<<<<< HEAD
-    // دکمه‌های کیبورد ثابت پایین صفحه — هر جای مکالمه که باشیم جواب می‌دن
-    // و هر مرحله‌ی نیمه‌کاره‌ای (مثلاً منتظر بودن برای قیمت) رو لغو می‌کنن
-    if (MAIN_MENU_ROUTES[msg.text]) {
-      await clearSession(env, chatId);
-      return MAIN_MENU_ROUTES[msg.text](env, chatId);
-    }
-
     const session = await getSession(env, chatId);
     if (session) {
       // اگر منتظر عکس بودیم و کاربر عکس فرستاد
@@ -592,21 +431,6 @@ export async function handleUpdate(update, env) {
     return sendMainMenu(env, chatId);
   }
 
-=======
-    const session = await getSession(env, chatId);
-    if (session) {
-      // اگر منتظر عکس بودیم و کاربر عکس فرستاد
-      if (msg.photo && session.step === "new_product_image") {
-        return handleImageStep(env, chatId, msg.photo, session);
-      }
-      // اگر متن فرستاد
-      if (msg.text) return handleTextStep(env, chatId, msg.text, session);
-    }
-
-    return sendMainMenu(env, chatId);
-  }
-
->>>>>>> affde574ec8b1ad56093a632f0a5d9e66f7e3b6a
   if (update.callback_query) {
     const cq = update.callback_query;
     const chatId = cq.message.chat.id;

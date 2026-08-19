@@ -692,61 +692,11 @@ button {
   cursor: pointer;
   border-radius: var(--radius);
   background: var(--card-bg);
-<<<<<<< HEAD
-  border: 1px solid rgba(120, 170, 255, 0.14);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  box-shadow:
-    0 0 0 1px rgba(80, 140, 255, 0.08),
-    0 0 22px rgba(70, 130, 255, 0.16),
-    0 8px 24px rgba(0, 0, 0, 0.25);
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s ease;
-=======
   transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
->>>>>>> affde574ec8b1ad56093a632f0a5d9e66f7e3b6a
 }
 
 .product-card:hover {
   transform: translateY(-4px);
-<<<<<<< HEAD
-  box-shadow:
-    0 0 0 1px rgba(80, 140, 255, 0.18),
-    0 0 32px rgba(70, 130, 255, 0.28),
-    0 14px 32px rgba(0, 0, 0, 0.3);
-}
-
-/* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته بندی — رنگ روی کارت کدر ترکیب می‌شه، جایگزینش نمی‌کنه */
-.product-card:has(.cat-dot[data-cat="coffee"]) {
-  background: linear-gradient(rgba(181, 136, 99, 0.16), rgba(181, 136, 99, 0.16)), var(--card-bg);
-}
-
-.product-card:has(.cat-dot[data-cat="breakfast"]) {
-  background: linear-gradient(rgba(232, 169, 62, 0.16), rgba(232, 169, 62, 0.16)), var(--card-bg);
-}
-
-.product-card:has(.cat-dot[data-cat="dessert"]) {
-  background: linear-gradient(rgba(157, 186, 143, 0.16), rgba(157, 186, 143, 0.16)), var(--card-bg);
-}
-
-.product-card:has(.cat-dot[data-cat="sweets"]) {
-  background: linear-gradient(rgba(212, 145, 143, 0.16), rgba(212, 145, 143, 0.16)), var(--card-bg);
-}
-
-:root[data-theme="light"] .product-card:has(.cat-dot[data-cat="coffee"]) {
-  background: linear-gradient(rgba(181, 136, 99, 0.1), rgba(181, 136, 99, 0.1)), var(--card-bg);
-}
-
-:root[data-theme="light"] .product-card:has(.cat-dot[data-cat="breakfast"]) {
-  background: linear-gradient(rgba(232, 169, 62, 0.1), rgba(232, 169, 62, 0.1)), var(--card-bg);
-}
-
-:root[data-theme="light"] .product-card:has(.cat-dot[data-cat="dessert"]) {
-  background: linear-gradient(rgba(157, 186, 143, 0.12), rgba(157, 186, 143, 0.12)), var(--card-bg);
-}
-
-:root[data-theme="light"] .product-card:has(.cat-dot[data-cat="sweets"]) {
-  background: linear-gradient(rgba(212, 145, 143, 0.12), rgba(212, 145, 143, 0.12)), var(--card-bg);
-=======
 }
 
 /* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته بندی */
@@ -780,7 +730,6 @@ button {
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="sweets"]) {
   background: rgba(212, 145, 143, 0.1);
->>>>>>> affde574ec8b1ad56093a632f0a5d9e66f7e3b6a
 }
 
 /* نئونی که دقیقاً روی خط لبه‌ی کادر (دور تا دور مستطیل) حرکت می‌کنه، نه چرخش از وسط */
