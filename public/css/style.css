@@ -547,9 +547,18 @@ button {
   position: sticky;
   top: 64px;
   z-index: 40;
-  background: var(--bg);
+  background: rgba(15, 13, 11, 0.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   padding: 14px 0 16px;
-  border-bottom: 1px solid var(--line);
+  margin-inline: -16px;
+  padding-inline: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="light"] .menu-controls {
+  background: rgba(250, 248, 245, 0.82);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* فیکس اسکرول افقی تب‌ها */
@@ -626,31 +635,79 @@ button {
   color: var(--ink);
 }
 
-.sort-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background-color: var(--card-bg);
-  border: 1px solid var(--line);
-  color: var(--ink);
-  padding: 8px 36px 8px 16px;
-  border-radius: 50px;
-  font-family: var(--font-fa);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-sm);
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A39B92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: left 12px center;
-  background-size: 14px;
+.sort-menu-wrap {
+  position: relative;
   flex-shrink: 0;
 }
 
-.sort-select:hover,
-.sort-select:focus {
+.sort-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card-bg);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.sort-icon-btn:hover,
+.sort-icon-btn.active {
   border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sort-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 160px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition: all 0.2s ease;
+  z-index: 60;
+}
+
+.sort-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.sort-option {
+  background: transparent;
+  border: none;
+  text-align: right;
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-family: var(--font-fa);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sort-option:hover {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.sort-option.active {
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -699,37 +756,37 @@ button {
   transform: translateY(-4px);
 }
 
-/* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته بندی؛ روی رنگ solid کارت لایه می‌شه تا پترن پشت صفحه زیاد دیده نشه */
+/* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته بندی */
 .product-card:has(.cat-dot[data-cat="coffee"]) {
-  background: linear-gradient(rgba(181, 136, 99, 0.14), rgba(181, 136, 99, 0.14)), var(--card-bg);
+  background: rgba(181, 136, 99, 0.06);
 }
 
 .product-card:has(.cat-dot[data-cat="breakfast"]) {
-  background: linear-gradient(rgba(232, 169, 62, 0.14), rgba(232, 169, 62, 0.14)), var(--card-bg);
+  background: rgba(232, 169, 62, 0.06);
 }
 
 .product-card:has(.cat-dot[data-cat="dessert"]) {
-  background: linear-gradient(rgba(157, 186, 143, 0.14), rgba(157, 186, 143, 0.14)), var(--card-bg);
+  background: rgba(157, 186, 143, 0.06);
 }
 
 .product-card:has(.cat-dot[data-cat="sweets"]) {
-  background: linear-gradient(rgba(212, 145, 143, 0.14), rgba(212, 145, 143, 0.14)), var(--card-bg);
+  background: rgba(212, 145, 143, 0.06);
 }
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="coffee"]) {
-  background: linear-gradient(rgba(181, 136, 99, 0.1), rgba(181, 136, 99, 0.1)), var(--card-bg);
+  background: rgba(181, 136, 99, 0.08);
 }
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="breakfast"]) {
-  background: linear-gradient(rgba(232, 169, 62, 0.1), rgba(232, 169, 62, 0.1)), var(--card-bg);
+  background: rgba(232, 169, 62, 0.08);
 }
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="dessert"]) {
-  background: linear-gradient(rgba(157, 186, 143, 0.12), rgba(157, 186, 143, 0.12)), var(--card-bg);
+  background: rgba(157, 186, 143, 0.1);
 }
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="sweets"]) {
-  background: linear-gradient(rgba(212, 145, 143, 0.12), rgba(212, 145, 143, 0.12)), var(--card-bg);
+  background: rgba(212, 145, 143, 0.1);
 }
 
 /* نئونی که دقیقاً روی خط لبه‌ی کادر (دور تا دور مستطیل) حرکت می‌کنه، نه چرخش از وسط */
@@ -849,8 +906,8 @@ button {
 /* استایل ثابت برای قیمت و دکمه (برای همه دسته بندی ها یکسان) */
 .product-card .product-price {
   font-family: var(--font-fa);
-  font-weight: 800;
-  font-size: 1.2rem;
+  font-weight: 700;
+  font-size: 1.02rem;
   color: var(--accent);
   display: inline-flex;
   align-items: baseline;
@@ -1123,10 +1180,10 @@ button {
   background: var(--accent);
 }
 
-/* عکس ۱ در ۱ در مودال، هماهنگ با کارت محصول */
+/* عکس ۳ در ۴ در مودال */
 .modal-image {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 4;
   max-height: 55vh;
   background: var(--bg-alt);
   position: relative;
@@ -1189,20 +1246,6 @@ button {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-}
-
-.modal-price-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 4px;
-}
-
-.modal-add-btn {
-  padding: 10px 22px;
-  font-size: 0.9rem;
-  flex-shrink: 0;
 }
 
 /* ============ CART DRAWER ============ */

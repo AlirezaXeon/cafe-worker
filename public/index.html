@@ -36,7 +36,6 @@
     </div>
   </div>
 
-
   <header class="site-header">
     <div class="wrap header-inner">
       <a href="#top" class="logo">
@@ -85,11 +84,20 @@
         </div>
         <div class="menu-controls">
           <div class="tabs" id="categoryTabs"></div>
-          <select id="sortPrice" class="sort-select" aria-label="مرتب‌سازی">
-            <option value="default">مرتب‌سازی: پیش‌فرض</option>
-            <option value="low-high">ارزان‌ترین</option>
-            <option value="high-low">گران‌ترین</option>
-          </select>
+          <div class="sort-menu-wrap">
+            <button id="sortToggle" class="sort-icon-btn" aria-label="مرتب‌سازی" aria-haspopup="true"
+              aria-expanded="false">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M6 12h12M10 18h4"></path>
+              </svg>
+            </button>
+            <div class="sort-menu" id="sortMenu" role="menu">
+              <button class="sort-option active" data-sort="default" role="menuitem">پیش‌فرض</button>
+              <button class="sort-option" data-sort="low-high" role="menuitem">ارزان‌ترین</button>
+              <button class="sort-option" data-sort="high-low" role="menuitem">گران‌ترین</button>
+            </div>
+          </div>
         </div>
         <div class="menu-groups" id="productGrid"></div>
       </div>
@@ -160,10 +168,7 @@
         <span class="modal-cat" id="modalCat"></span>
         <h3 id="modalName"></h3>
         <p class="modal-note" id="modalNote"></p>
-        <div class="modal-price-row">
-          <span class="modal-price mono" id="modalPrice"></span>
-          <button class="add-to-cart-btn modal-add-btn" id="modalAddBtn">افزودن +</button>
-        </div>
+        <span class="modal-price mono" id="modalPrice"></span>
       </div>
     </div>
   </div>
