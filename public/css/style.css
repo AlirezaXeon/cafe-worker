@@ -699,37 +699,37 @@ button {
   transform: translateY(-4px);
 }
 
-/* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته بندی */
+/* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته بندی؛ روی رنگ solid کارت لایه می‌شه تا پترن پشت صفحه زیاد دیده نشه */
 .product-card:has(.cat-dot[data-cat="coffee"]) {
-  background: rgba(181, 136, 99, 0.06);
+  background: linear-gradient(rgba(181, 136, 99, 0.14), rgba(181, 136, 99, 0.14)), var(--card-bg);
 }
 
 .product-card:has(.cat-dot[data-cat="breakfast"]) {
-  background: rgba(232, 169, 62, 0.06);
+  background: linear-gradient(rgba(232, 169, 62, 0.14), rgba(232, 169, 62, 0.14)), var(--card-bg);
 }
 
 .product-card:has(.cat-dot[data-cat="dessert"]) {
-  background: rgba(157, 186, 143, 0.06);
+  background: linear-gradient(rgba(157, 186, 143, 0.14), rgba(157, 186, 143, 0.14)), var(--card-bg);
 }
 
 .product-card:has(.cat-dot[data-cat="sweets"]) {
-  background: rgba(212, 145, 143, 0.06);
+  background: linear-gradient(rgba(212, 145, 143, 0.14), rgba(212, 145, 143, 0.14)), var(--card-bg);
 }
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="coffee"]) {
-  background: rgba(181, 136, 99, 0.08);
+  background: linear-gradient(rgba(181, 136, 99, 0.1), rgba(181, 136, 99, 0.1)), var(--card-bg);
 }
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="breakfast"]) {
-  background: rgba(232, 169, 62, 0.08);
+  background: linear-gradient(rgba(232, 169, 62, 0.1), rgba(232, 169, 62, 0.1)), var(--card-bg);
 }
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="dessert"]) {
-  background: rgba(157, 186, 143, 0.1);
+  background: linear-gradient(rgba(157, 186, 143, 0.12), rgba(157, 186, 143, 0.12)), var(--card-bg);
 }
 
 :root[data-theme="light"] .product-card:has(.cat-dot[data-cat="sweets"]) {
-  background: rgba(212, 145, 143, 0.1);
+  background: linear-gradient(rgba(212, 145, 143, 0.12), rgba(212, 145, 143, 0.12)), var(--card-bg);
 }
 
 /* نئونی که دقیقاً روی خط لبه‌ی کادر (دور تا دور مستطیل) حرکت می‌کنه، نه چرخش از وسط */
@@ -849,8 +849,8 @@ button {
 /* استایل ثابت برای قیمت و دکمه (برای همه دسته بندی ها یکسان) */
 .product-card .product-price {
   font-family: var(--font-fa);
-  font-weight: 700;
-  font-size: 1.02rem;
+  font-weight: 800;
+  font-size: 1.2rem;
   color: var(--accent);
   display: inline-flex;
   align-items: baseline;
@@ -1123,10 +1123,10 @@ button {
   background: var(--accent);
 }
 
-/* عکس ۳ در ۴ در مودال */
+/* عکس ۱ در ۱ در مودال، هماهنگ با کارت محصول */
 .modal-image {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1;
   max-height: 55vh;
   background: var(--bg-alt);
   position: relative;
@@ -1189,6 +1189,20 @@ button {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
+}
+
+.modal-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.modal-add-btn {
+  padding: 10px 22px;
+  font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 /* ============ CART DRAWER ============ */

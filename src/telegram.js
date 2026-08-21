@@ -6,11 +6,13 @@ import {
   previewCategoryPercent,
   applyCategoryPercent,
   setProductPrice,
+  setProductImage,
   setProductDiscount,
   removeProductDiscount,
   addProduct,
   deleteProduct,
   addCategory,
+  setCategoryImage,
   deleteCategory,
   nextProductId,
 } from "./products.js";
@@ -120,8 +122,10 @@ async function sendProductDetail(env, chatId, productId) {
   const rows = [
     [{ text: "✏️ ویرایش قیمت", callback_data: `editprice:${p.id}` }],
     [{ text: "🏷 اعمال تخفیف", callback_data: `discount:${p.id}` }],
+    [{ text: "🖼 تغییر عکس", callback_data: `editimg:${p.id}` }],
   ];
   if (p.originalPrice) rows.push([{ text: "❌ حذف تخفیف", callback_data: `rmdiscount:${p.id}` }]);
+  if (p.image) rows.push([{ text: "🗑 حذف عکس", callback_data: `rmimg:${p.id}` }]);
   rows.push([{ text: "🗑 حذف محصول", callback_data: `delprod:${p.id}` }]);
   rows.push([{ text: "🔙 بازگشت", callback_data: `catpick:browse:${p.category}` }]);
 
@@ -132,6 +136,7 @@ async function sendCategoriesMenu(env, chatId) {
   const data = await getProducts(env);
   const rows = data.categories.map((c) => [
     { text: c.label, callback_data: `catpick:browse:${c.id}` },
+    { text: "🖼 عکس", callback_data: `catimg:${c.id}` },
     { text: "🗑 حذف", callback_data: `delcat:${c.id}` },
   ]);
   rows.push([{ text: "➕ افزودن دسته جدید", callback_data: "newcat" }]);
@@ -180,6 +185,17 @@ export async function handleCallback(env, chatId, data) {
     return sendProductDetail(env, chatId, a);
   }
 
+  if (action === "editimg") {
+    await setSession(env, chatId, { step: "edit_product_image", productId: a });
+    return forceReply(env, chatId, "📷 عکس جدید این محصول رو بفرست:");
+  }
+
+  if (action === "rmimg") {
+    await setProductImage(env, a, null);
+    await sendMessage(env, chatId, "🗑 عکس محصول حذف شد.");
+    return sendProductDetail(env, chatId, a);
+  }
+
   if (action === "delprod") {
     return sendMessage(env, chatId, "مطمئنی می‌خوای این محصول حذف بشه؟", [
       [{ text: "✅ آره، حذف کن", callback_data: `delprodyes:${a}` }],
@@ -198,6 +214,11 @@ export async function handleCallback(env, chatId, data) {
   if (data === "newcat") {
     await setSession(env, chatId, { step: "new_category_id" });
     return forceReply(env, chatId, "یک شناسه‌ی انگلیسی کوتاه برای دسته بفرست (مثلاً drinks):");
+  }
+
+  if (action === "catimg") {
+    await setSession(env, chatId, { step: "edit_category_image", catId: a });
+    return forceReply(env, chatId, "📷 عکس جدید این دسته رو بفرست:");
   }
 
   if (action === "delcat") {
@@ -290,10 +311,26 @@ export async function handleTextStep(env, chatId, text, session) {
   }
 
   if (session.step === "new_category_label") {
-    await addCategory(env, session.id, trimmed);
-    await clearSession(env, chatId);
-    await sendMessage(env, chatId, "✅ دسته جدید اضافه شد.");
-    return sendCategoriesMenu(env, chatId);
+    await setSession(env, chatId, { step: "new_category_image", id: session.id, label: trimmed });
+    return forceReply(env, chatId, "📷 عکس این دسته رو بفرست، یا اگه نمی‌خوای بنویس «بدون عکس»:");
+  }
+
+  if (session.step === "new_category_image") {
+    if (trimmed === "بدون عکس") {
+      await addCategory(env, session.id, session.label);
+      await clearSession(env, chatId);
+      await sendMessage(env, chatId, "✅ دسته جدید اضافه شد (بدون عکس).");
+      return sendCategoriesMenu(env, chatId);
+    }
+    return forceReply(env, chatId, "لطفاً فقط عکس بفرست یا بنویس «بدون عکس»:");
+  }
+
+  if (session.step === "edit_category_image") {
+    return forceReply(env, chatId, "لطفاً فقط عکس بفرست:");
+  }
+
+  if (session.step === "edit_product_image") {
+    return forceReply(env, chatId, "لطفاً فقط عکس بفرست:");
   }
 
   if (session.step === "new_product_name") {
@@ -348,6 +385,42 @@ export async function handleImageStep(env, chatId, photoArray, session) {
     return forceReply(env, chatId, "❌ خطا در دریافت عکس. لطفاً دوباره بفرست یا بنویس «بدون عکس»:");
   }
 
+  // ---- عکس دسته‌بندی (هم موقع ساخت دسته‌ی جدید، هم ویرایش دسته‌ی موجود) ----
+  if (session.step === "new_category_image" || session.step === "edit_category_image") {
+    const catId = session.step === "new_category_image" ? session.id : session.catId;
+    const filename = `cat_${catId}.${fileData.ext}`;
+
+    await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
+      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+    });
+
+    const imagePath = `images/categories/${filename}`;
+
+    if (session.step === "new_category_image") {
+      await addCategory(env, session.id, session.label, imagePath);
+      await clearSession(env, chatId);
+      await sendMessage(env, chatId, "✅ دسته جدید همراه با عکس اضافه شد.");
+    } else {
+      await setCategoryImage(env, catId, imagePath);
+      await clearSession(env, chatId);
+      await sendMessage(env, chatId, "✅ عکس دسته به‌روزرسانی شد.");
+    }
+    return sendCategoriesMenu(env, chatId);
+  }
+
+  // ---- عکس محصول موجود (ویرایش/جایگزینی) ----
+  if (session.step === "edit_product_image") {
+    const filename = `${session.productId}.${fileData.ext}`;
+    await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
+      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+    });
+    await setProductImage(env, session.productId, `images/products/${filename}`);
+    await clearSession(env, chatId);
+    await sendMessage(env, chatId, "✅ عکس محصول به‌روزرسانی شد.");
+    return sendProductDetail(env, chatId, session.productId);
+  }
+
+  // ---- عکس محصول (رفتار قبلی، بدون تغییر) ----
   const filename = `${session.productId}.${fileData.ext}`;
 
   // ذخیره عکس در KV
@@ -389,7 +462,8 @@ export async function handleUpdate(update, env) {
     const session = await getSession(env, chatId);
     if (session) {
       // اگر منتظر عکس بودیم و کاربر عکس فرستاد
-      if (msg.photo && session.step === "new_product_image") {
+      const waitingForPhoto = ["new_product_image", "new_category_image", "edit_category_image", "edit_product_image"];
+      if (msg.photo && waitingForPhoto.includes(session.step)) {
         return handleImageStep(env, chatId, msg.photo, session);
       }
       // اگر متن فرستاد

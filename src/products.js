@@ -78,6 +78,10 @@ export async function setProductPrice(env, productId, price) {
     .run();
 }
 
+export async function setProductImage(env, productId, image) {
+  await env.DB.prepare("UPDATE products SET image = ? WHERE id = ?").bind(image, productId).run();
+}
+
 export async function setProductDiscount(env, productId, percent) {
   const p = await findProduct(env, productId);
   if (!p) return;
@@ -111,8 +115,14 @@ export async function deleteProduct(env, productId) {
   await env.DB.prepare("DELETE FROM products WHERE id = ?").bind(productId).run();
 }
 
-export async function addCategory(env, id, label) {
-  await env.DB.prepare("INSERT INTO categories (id, label) VALUES (?, ?)").bind(id, label).run();
+export async function addCategory(env, id, label, image = null) {
+  await env.DB.prepare("INSERT INTO categories (id, label, image) VALUES (?, ?, ?)")
+    .bind(id, label, image)
+    .run();
+}
+
+export async function setCategoryImage(env, catId, image) {
+  await env.DB.prepare("UPDATE categories SET image = ? WHERE id = ?").bind(image, catId).run();
 }
 
 export async function deleteCategory(env, catId) {

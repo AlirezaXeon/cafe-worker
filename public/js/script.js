@@ -63,6 +63,8 @@ const modalCat = document.getElementById('modalCat');
 const modalName = document.getElementById('modalName');
 const modalNote = document.getElementById('modalNote');
 const modalPrice = document.getElementById('modalPrice');
+const modalAddBtn = document.getElementById('modalAddBtn');
+let modalProductId = null;
 
 const CAT_COLORS = {
   coffee: '#B58863',
@@ -71,6 +73,9 @@ const CAT_COLORS = {
 };
 
 function openModal(product, catLabelText) {
+  modalProductId = product.id;
+  modalAddBtn.textContent = 'افزودن +';
+  modalAddBtn.classList.remove('added');
   modalImage.querySelectorAll('img').forEach(el => el.remove());
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
@@ -121,6 +126,16 @@ function handleClose() {
 }
 
 modalClose.addEventListener('click', handleClose);
+modalAddBtn.addEventListener('click', () => {
+  if (!modalProductId) return;
+  addToCart(modalProductId);
+  modalAddBtn.textContent = 'افزوده شد ✓';
+  modalAddBtn.classList.add('added');
+  setTimeout(() => {
+    modalAddBtn.textContent = 'افزودن +';
+    modalAddBtn.classList.remove('added');
+  }, 1500);
+});
 modal.addEventListener('click', (e) => {
   if (e.target === modal) handleClose();
 });
