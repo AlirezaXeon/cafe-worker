@@ -5,7 +5,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // محصولات رو دیگه از فایل استاتیک نمی‌خونیم، از KV می‌خونیم تا ربات بتونه تغییرشون بده
+    // محصولات رو دیگه از فایل استاتیک نمی‌خونیم، از D1 می‌خونیم تا ربات بتونه تغییرشون بده
     if (url.pathname === "/data/products.json") {
       const data = await getProducts(env);
       return new Response(JSON.stringify(data), {

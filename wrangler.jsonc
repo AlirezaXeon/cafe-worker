@@ -17,5 +17,12 @@
       "binding": "PRODUCTS_KV",
       "id": "19ff67341950489da140d84890ab90c5"
     }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cafe-roshan-db",
+      "database_id": "63f2d03f-34b1-4bf7-aac0-2d79650e162a"
+    }
   ]
 }

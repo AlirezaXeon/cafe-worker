@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "seed": "wrangler kv key put products --binding=PRODUCTS_KV --path=./public/data/products.seed.json --remote"
+    "db:migrate:local": "wrangler d1 migrations apply cafe-roshan-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply cafe-roshan-db --remote"
   },
   "devDependencies": {
     "jsdom": "^30.0.1",

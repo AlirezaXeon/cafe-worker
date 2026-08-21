@@ -1,14 +1,17 @@
 import {
   getProducts,
-  saveProducts,
   productsInCategory,
   findProduct,
   findCategory,
-  roundPrice,
   previewCategoryPercent,
   applyCategoryPercent,
+  setProductPrice,
   setProductDiscount,
   removeProductDiscount,
+  addProduct,
+  deleteProduct,
+  addCategory,
+  deleteCategory,
   nextProductId,
 } from "./products.js";
 import { getSession, setSession, clearSession } from "./session.js";
@@ -88,9 +91,9 @@ async function sendCategoryPicker(env, chatId, mode) {
 }
 
 async function sendProductList(env, chatId, catId) {
-  const data = await getProducts(env);
-  const cat = findCategory(data, catId);
-  const rows = productsInCategory(data, catId).map((p) => [
+  const cat = await findCategory(env, catId);
+  const products = await productsInCategory(env, catId);
+  const rows = products.map((p) => [
     {
       text: p.originalPrice ? `${p.name} — ${formatToman(p.price)} 🏷` : `${p.name} — ${formatToman(p.price)}`,
       callback_data: `prod:${p.id}`,
@@ -102,10 +105,9 @@ async function sendProductList(env, chatId, catId) {
 }
 
 async function sendProductDetail(env, chatId, productId) {
-  const data = await getProducts(env);
-  const p = findProduct(data, productId);
+  const p = await findProduct(env, productId);
   if (!p) return sendMainMenu(env, chatId);
-  const cat = findCategory(data, p.category);
+  const cat = await findCategory(env, p.category);
 
   const priceLine = p.originalPrice
     ? `💰 قیمت: <s>${formatToman(p.originalPrice)}</s> ← ${formatToman(p.price)}`
@@ -174,12 +176,7 @@ export async function handleCallback(env, chatId, data) {
   }
 
   if (action === "rmdiscount") {
-    const data2 = await getProducts(env);
-    const p = findProduct(data2, a);
-    if (p) {
-      removeProductDiscount(p);
-      await saveProducts(env, data2);
-    }
+    await removeProductDiscount(env, a);
     return sendProductDetail(env, chatId, a);
   }
 
@@ -191,11 +188,9 @@ export async function handleCallback(env, chatId, data) {
   }
 
   if (action === "delprodyes") {
-    const data2 = await getProducts(env);
-    const p = findProduct(data2, a);
+    const p = await findProduct(env, a);
     const catId = p ? p.category : null;
-    data2.products = data2.products.filter((x) => x.id !== a);
-    await saveProducts(env, data2);
+    await deleteProduct(env, a);
     await sendMessage(env, chatId, "🗑 محصول حذف شد.");
     return catId ? sendProductList(env, chatId, catId) : sendMainMenu(env, chatId);
   }
@@ -206,8 +201,7 @@ export async function handleCallback(env, chatId, data) {
   }
 
   if (action === "delcat") {
-    const data2 = await getProducts(env);
-    const count = productsInCategory(data2, a).length;
+    const count = (await productsInCategory(env, a)).length;
     if (count > 0) {
       return sendMessage(env, chatId, `این دسته ${toFa(count)} محصول داره. اول محصولاتش رو حذف یا جابه‌جا کن.`);
     }
@@ -218,9 +212,7 @@ export async function handleCallback(env, chatId, data) {
   }
 
   if (action === "delcatyes") {
-    const data2 = await getProducts(env);
-    data2.categories = data2.categories.filter((c) => c.id !== a);
-    await saveProducts(env, data2);
+    await deleteCategory(env, a);
     await sendMessage(env, chatId, "🗑 دسته حذف شد.");
     return sendCategoriesMenu(env, chatId);
   }
@@ -228,9 +220,7 @@ export async function handleCallback(env, chatId, data) {
   if (data === "bulkconfirm") {
     const session = await getSession(env, chatId);
     if (!session || session.step !== "bulk_confirm") return sendMainMenu(env, chatId);
-    const data2 = await getProducts(env);
-    applyCategoryPercent(data2, session.catId, session.percent);
-    await saveProducts(env, data2);
+    await applyCategoryPercent(env, session.catId, session.percent);
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ قیمت‌ها به‌روزرسانی شدن.");
     return sendMainMenu(env, chatId);
@@ -255,8 +245,7 @@ export async function handleTextStep(env, chatId, text, session) {
     if (isNaN(percent) || percent === 0) {
       return forceReply(env, chatId, "یه عدد معتبر بفرست (مثلاً 20 یا -10):");
     }
-    const data = await getProducts(env);
-    const preview = previewCategoryPercent(data, session.catId, percent);
+    const preview = await previewCategoryPercent(env, session.catId, percent);
     if (preview.length === 0) {
       await clearSession(env, chatId);
       return sendMessage(env, chatId, "این دسته محصولی نداره.");
@@ -274,13 +263,7 @@ export async function handleTextStep(env, chatId, text, session) {
   if (session.step === "edit_price") {
     const price = parseInt(trimmed.replace(/[^\d]/g, ""), 10);
     if (!price) return forceReply(env, chatId, "یه عدد معتبر برای قیمت بفرست:");
-    const data = await getProducts(env);
-    const p = findProduct(data, session.productId);
-    if (p) {
-      p.price = roundPrice(price);
-      p.originalPrice = null;
-      await saveProducts(env, data);
-    }
+    await setProductPrice(env, session.productId, price);
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ قیمت به‌روزرسانی شد.");
     return sendProductDetail(env, chatId, session.productId);
@@ -291,12 +274,7 @@ export async function handleTextStep(env, chatId, text, session) {
     if (isNaN(percent) || percent <= 0 || percent >= 100) {
       return forceReply(env, chatId, "درصد باید بین ۱ تا ۹۹ باشه:");
     }
-    const data = await getProducts(env);
-    const p = findProduct(data, session.productId);
-    if (p) {
-      setProductDiscount(p, percent);
-      await saveProducts(env, data);
-    }
+    await setProductDiscount(env, session.productId, percent);
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ تخفیف اعمال شد.");
     return sendProductDetail(env, chatId, session.productId);
@@ -312,9 +290,7 @@ export async function handleTextStep(env, chatId, text, session) {
   }
 
   if (session.step === "new_category_label") {
-    const data = await getProducts(env);
-    data.categories.push({ id: session.id, label: trimmed });
-    await saveProducts(env, data);
+    await addCategory(env, session.id, trimmed);
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ دسته جدید اضافه شد.");
     return sendCategoriesMenu(env, chatId);
@@ -333,26 +309,21 @@ export async function handleTextStep(env, chatId, text, session) {
   if (session.step === "new_product_price") {
     const price = parseInt(trimmed.replace(/[^\d]/g, ""), 10);
     if (!price) return forceReply(env, chatId, "یه عدد معتبر بفرست:");
-    const data = await getProducts(env);
-    const newId = nextProductId(data);
+    const newId = await nextProductId(env);
     await setSession(env, chatId, { ...session, step: "new_product_image", price, productId: newId });
     return forceReply(env, chatId, "📷 حالا عکس محصول رو بفرست، یا اگر عکس نداره بنویس «بدون عکس»:");
   }
 
   if (session.step === "new_product_image") {
     if (trimmed === "بدون عکس") {
-      const image = "images/products/placeholder.jpg";
-      const data = await getProducts(env);
-      data.products.push({
+      await addProduct(env, {
         id: session.productId,
         category: session.catId,
         name: session.name,
         note: session.note,
-        price: roundPrice(session.price),
-        originalPrice: null,
-        image,
+        price: session.price,
+        image: "images/products/placeholder.jpg",
       });
-      await saveProducts(env, data);
       await clearSession(env, chatId);
       await sendMessage(env, chatId, "✅ محصول جدید اضافه شد (بدون عکس).");
       return sendProductList(env, chatId, session.catId);
@@ -384,18 +355,15 @@ export async function handleImageStep(env, chatId, photoArray, session) {
     metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
   });
 
-  // ذخیره اطلاعات محصول در دیتابیس
-  const data = await getProducts(env);
-  data.products.push({
+  // ذخیره اطلاعات محصول در D1 (خود عکس همچنان توی KV می‌مونه)
+  await addProduct(env, {
     id: session.productId,
     category: session.catId,
     name: session.name,
     note: session.note,
-    price: roundPrice(session.price),
-    originalPrice: null,
+    price: session.price,
     image: `images/products/${filename}`, // آدرس نسبی برای سایت
   });
-  await saveProducts(env, data);
   await clearSession(env, chatId);
 
   await sendMessage(env, chatId, "✅ محصول جدید همراه با عکس اضافه شد.");
