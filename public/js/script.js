@@ -29,7 +29,12 @@ function unlockScroll() {
     document.body.style.width = '';
     document.documentElement.classList.remove('nav-open');
     document.body.classList.remove('nav-open');
+    // چون scroll-behavior:smooth رو html ست شده، اسکرول مستقیم انیمیشن‌دار میشه
+    // (از بالای صفحه به پایین میاد). برای یه لحظه smooth رو خاموش می‌کنیم تا پرش آنی باشه.
+    const prevBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = 'auto';
     window.scrollTo(0, savedScrollY);
+    document.documentElement.style.scrollBehavior = prevBehavior;
   }
 }
 

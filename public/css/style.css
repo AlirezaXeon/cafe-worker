@@ -64,53 +64,96 @@ body {
   font-family: var(--font-fa);
   background-color: var(--bg);
   background-image:
-    radial-gradient(circle, rgba(212, 175, 55, 0.14), transparent 40%),
-    radial-gradient(circle, rgba(157, 186, 143, 0.13), transparent 42%),
-    radial-gradient(circle, rgba(181, 136, 99, 0.10), transparent 38%),
-    repeating-linear-gradient(45deg,
-      rgba(255, 255, 255, 0.035) 0px,
-      rgba(255, 255, 255, 0.035) 1px,
-      transparent 1px,
-      transparent 26px),
-    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
-  background-size: 130% 130%, 140% 140%, 120% 120%, 38px 38px, 100% 100%;
-  background-position: 8% 10%, 88% 22%, 30% 90%, 0 0, 0 0;
-  background-repeat: no-repeat, no-repeat, no-repeat, repeat, no-repeat;
-  background-attachment: fixed, fixed, fixed, fixed, fixed;
-  animation: ambientDrift 26s ease-in-out infinite alternate;
+    radial-gradient(ellipse at 20% 15%, rgba(212, 175, 55, 0.09), transparent 55%),
+    radial-gradient(ellipse at 85% 80%, rgba(157, 186, 143, 0.08), transparent 55%);
+  background-attachment: fixed, fixed;
   color: var(--ink);
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   max-width: 100%;
+  position: relative;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-@keyframes ambientDrift {
-  0% {
-    background-position: 8% 10%, 88% 22%, 30% 90%, 0 0, 0 0;
+/* بخار قهوه: چند تا رشته‌ی محو که آروم از پایین به بالا شناور میشن و محو میشن */
+/* بخار قهوه: دو لایه با سرعت متفاوت برای عمق بیشتر، آروم از پایین به بالا شناور میشن و محو میشن */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 110px 300px at 8% 100%, rgba(245, 242, 237, 0.22), transparent 70%),
+    radial-gradient(ellipse 90px 260px at 24% 100%, rgba(245, 242, 237, 0.18), transparent 70%),
+    radial-gradient(ellipse 100px 320px at 52% 100%, rgba(212, 175, 55, 0.24), transparent 70%),
+    radial-gradient(ellipse 85px 270px at 71% 100%, rgba(245, 242, 237, 0.18), transparent 70%),
+    radial-gradient(ellipse 95px 290px at 90% 100%, rgba(157, 186, 143, 0.22), transparent 70%);
+  background-repeat: repeat-y;
+  background-size: 100% 900px;
+  animation: steamRise 26s linear infinite;
+  mask-image: linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%);
+}
+
+/* لایه‌ی دوم: کندتر، جابه‌جا، برای حس عمق و پر بودن بیشتر */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 70px 210px at 16% 100%, rgba(212, 175, 55, 0.15), transparent 70%),
+    radial-gradient(ellipse 65px 190px at 38% 100%, rgba(245, 242, 237, 0.14), transparent 70%),
+    radial-gradient(ellipse 75px 230px at 62% 100%, rgba(157, 186, 143, 0.16), transparent 70%),
+    radial-gradient(ellipse 60px 200px at 82% 100%, rgba(245, 242, 237, 0.13), transparent 70%);
+  background-repeat: repeat-y;
+  background-size: 100% 1100px;
+  animation: steamRise 48s linear infinite reverse;
+  mask-image: linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%);
+}
+
+@keyframes steamRise {
+  from {
+    background-position-y: 0;
   }
 
-  50% {
-    background-position: 25% 35%, 65% 55%, 55% 65%, 0 0, 0 0;
+  to {
+    background-position-y: -900px;
   }
+}
 
-  100% {
-    background-position: 15% 45%, 90% 60%, 40% 30%, 0 0, 0 0;
+@media (prefers-reduced-motion: reduce) {
+
+  body::before,
+  body::after {
+    animation: none;
   }
 }
 
 :root[data-theme="light"] body {
   background-image:
-    radial-gradient(circle, rgba(212, 175, 55, 0.1), transparent 40%),
-    radial-gradient(circle, rgba(58, 74, 54, 0.07), transparent 42%),
-    radial-gradient(circle, rgba(181, 136, 99, 0.08), transparent 38%),
-    repeating-linear-gradient(45deg,
-      rgba(44, 37, 32, 0.03) 0px,
-      rgba(44, 37, 32, 0.03) 1px,
-      transparent 1px,
-      transparent 26px),
-    radial-gradient(ellipse at center, transparent 60%, rgba(44, 37, 32, 0.06) 100%);
-  background-size: 130% 130%, 140% 140%, 120% 120%, 38px 38px, 100% 100%;
+    radial-gradient(ellipse at 20% 15%, rgba(212, 175, 55, 0.07), transparent 55%),
+    radial-gradient(ellipse at 85% 80%, rgba(58, 74, 54, 0.05), transparent 55%);
+}
+
+:root[data-theme="light"] body::before {
+  background-image:
+    radial-gradient(ellipse 110px 300px at 8% 100%, rgba(44, 37, 32, 0.13), transparent 70%),
+    radial-gradient(ellipse 90px 260px at 24% 100%, rgba(44, 37, 32, 0.11), transparent 70%),
+    radial-gradient(ellipse 100px 320px at 52% 100%, rgba(181, 136, 99, 0.15), transparent 70%),
+    radial-gradient(ellipse 85px 270px at 71% 100%, rgba(44, 37, 32, 0.11), transparent 70%),
+    radial-gradient(ellipse 95px 290px at 90% 100%, rgba(58, 74, 54, 0.13), transparent 70%);
+}
+
+:root[data-theme="light"] body::after {
+  background-image:
+    radial-gradient(ellipse 70px 210px at 16% 100%, rgba(181, 136, 99, 0.09), transparent 70%),
+    radial-gradient(ellipse 65px 190px at 38% 100%, rgba(44, 37, 32, 0.08), transparent 70%),
+    radial-gradient(ellipse 75px 230px at 62% 100%, rgba(58, 74, 54, 0.1), transparent 70%),
+    radial-gradient(ellipse 60px 200px at 82% 100%, rgba(44, 37, 32, 0.08), transparent 70%);
 }
 
 /* Custom Scrollbar */
@@ -395,7 +438,7 @@ body.nav-open {
   position: relative;
   overflow: hidden;
   padding: 100px 0 120px;
-  background: radial-gradient(circle at 10% 20%, var(--accent-soft) 0%, transparent 50%), var(--bg);
+  background: radial-gradient(circle at 10% 20%, var(--accent-soft) 0%, transparent 50%);
 }
 
 .hero-inner {
