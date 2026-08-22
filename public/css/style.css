@@ -22,6 +22,7 @@
   --light-overlay-bg: rgba(28, 27, 25, 0.55);
   --light-btn-ghost-bg: rgba(247, 246, 242, 0.9);
   --font-fa: 'Vazirmatn', sans-serif;
+  --font-display: 'Lalezar', 'Vazirmatn', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --wrap: 1200px;
   --radius: 16px;
@@ -63,50 +64,53 @@ body {
   font-family: var(--font-fa);
   background-color: var(--bg);
   background-image:
-    radial-gradient(circle, rgba(212, 175, 55, 0.11), transparent 42%),
-    radial-gradient(circle, rgba(157, 186, 143, 0.10), transparent 45%),
+    radial-gradient(circle, rgba(212, 175, 55, 0.14), transparent 40%),
+    radial-gradient(circle, rgba(157, 186, 143, 0.13), transparent 42%),
+    radial-gradient(circle, rgba(181, 136, 99, 0.10), transparent 38%),
     repeating-linear-gradient(45deg,
-      rgba(255, 255, 255, 0.03) 0px,
-      rgba(255, 255, 255, 0.03) 1px,
+      rgba(255, 255, 255, 0.035) 0px,
+      rgba(255, 255, 255, 0.035) 1px,
       transparent 1px,
-      transparent 28px);
-  background-size: 140% 140%, 150% 150%, 40px 40px;
-  background-position: 10% 15%, 85% 80%, 0 0;
-  background-repeat: no-repeat, no-repeat, repeat;
-  background-attachment: fixed, fixed, fixed;
-  animation: ambientDrift 24s ease-in-out infinite alternate;
+      transparent 26px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.35) 100%);
+  background-size: 130% 130%, 140% 140%, 120% 120%, 38px 38px, 100% 100%;
+  background-position: 8% 10%, 88% 22%, 30% 90%, 0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed, fixed, fixed;
+  animation: ambientDrift 26s ease-in-out infinite alternate;
   color: var(--ink);
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
   max-width: 100%;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 @keyframes ambientDrift {
   0% {
-    background-position: 10% 15%, 85% 80%, 0 0;
+    background-position: 8% 10%, 88% 22%, 30% 90%, 0 0, 0 0;
   }
 
   50% {
-    background-position: 35% 30%, 60% 60%, 0 0;
+    background-position: 25% 35%, 65% 55%, 55% 65%, 0 0, 0 0;
   }
 
   100% {
-    background-position: 15% 40%, 90% 55%, 0 0;
+    background-position: 15% 45%, 90% 60%, 40% 30%, 0 0, 0 0;
   }
 }
 
 :root[data-theme="light"] body {
   background-image:
-    radial-gradient(circle, rgba(58, 74, 54, 0.06), transparent 42%),
-    radial-gradient(circle, rgba(212, 175, 55, 0.08), transparent 45%),
+    radial-gradient(circle, rgba(212, 175, 55, 0.1), transparent 40%),
+    radial-gradient(circle, rgba(58, 74, 54, 0.07), transparent 42%),
+    radial-gradient(circle, rgba(181, 136, 99, 0.08), transparent 38%),
     repeating-linear-gradient(45deg,
-      rgba(44, 37, 32, 0.025) 0px,
-      rgba(44, 37, 32, 0.025) 1px,
+      rgba(44, 37, 32, 0.03) 0px,
+      rgba(44, 37, 32, 0.03) 1px,
       transparent 1px,
-      transparent 28px);
-  background-size: 140% 140%, 150% 150%, 40px 40px;
+      transparent 26px),
+    radial-gradient(ellipse at center, transparent 60%, rgba(44, 37, 32, 0.06) 100%);
+  background-size: 130% 130%, 140% 140%, 120% 120%, 38px 38px, 100% 100%;
 }
 
 /* Custom Scrollbar */
@@ -157,6 +161,13 @@ button {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
   border-radius: 4px;
+}
+
+html.nav-open,
+body.nav-open {
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -244,8 +255,7 @@ button {
 
 /* ============ HEADER ============ */
 .site-header {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 50;
   background: rgba(15, 13, 11, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
@@ -282,8 +292,9 @@ button {
 }
 
 .logo-fallback {
-  font-weight: 900;
-  font-size: 1.2rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.3rem;
   display: none;
 }
 
@@ -405,10 +416,11 @@ button {
 }
 
 .hero h1 {
-  font-size: clamp(2.2rem, 6vw, 4rem);
-  font-weight: 900;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 6vw, 4.2rem);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0;
   margin-bottom: 24px;
   color: var(--ink);
 }
@@ -514,6 +526,10 @@ button {
   margin-bottom: 32px;
 }
 
+.menu-section-head {
+  justify-content: space-between;
+}
+
 .section-num {
   font-family: var(--font-mono);
   font-size: 0.75rem;
@@ -527,9 +543,10 @@ button {
 .section-head h2,
 .about-text h2,
 .location-block h2 {
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 /* ============ MENU ============ */
@@ -545,7 +562,7 @@ button {
   margin-bottom: 32px;
   flex-wrap: wrap;
   position: sticky;
-  top: 64px;
+  top: 0;
   z-index: 40;
   background: rgba(15, 13, 11, 0.78);
   backdrop-filter: blur(20px) saturate(180%);
@@ -636,7 +653,6 @@ button {
 }
 
 .sort-menu-wrap {
-  position: relative;
   flex-shrink: 0;
 }
 
@@ -661,40 +677,98 @@ button {
   color: var(--accent);
 }
 
-.sort-menu {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  min-width: 160px;
-  background: var(--card-bg);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: var(--shadow-md);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+/* پاپ‌آپ مرتب‌سازی وسط صفحه + بک‌گراند بلور */
+.sort-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-6px);
-  transition: all 0.2s ease;
-  z-index: 60;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  z-index: 200;
 }
 
-.sort-menu.open {
+.sort-overlay.open {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+}
+
+.sort-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.94);
+  width: min(90vw, 340px);
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
+  z-index: 201;
+}
+
+.sort-modal.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.sort-modal-header {
+  display: grid;
+  grid-template-columns: 32px 1fr 32px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sort-modal-header h3 {
+  grid-column: 2;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.sort-modal-close {
+  grid-column: 1;
+}
+
+.sort-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.sort-modal-close:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sort-modal-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .sort-option {
   background: transparent;
-  border: none;
-  text-align: right;
-  padding: 9px 12px;
-  border-radius: 9px;
+  border: 1px solid var(--line);
+  text-align: center;
+  padding: 13px 16px;
+  border-radius: 12px;
   font-family: var(--font-fa);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--ink-soft);
   cursor: pointer;
@@ -702,12 +776,13 @@ button {
 }
 
 .sort-option:hover {
-  background: var(--accent-soft);
+  border-color: var(--accent);
   color: var(--ink);
 }
 
 .sort-option.active {
   background: var(--accent-soft);
+  border-color: var(--accent);
   color: var(--accent);
 }
 
@@ -723,8 +798,9 @@ button {
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-size: 1.3rem;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
   color: var(--ink);
   background: var(--accent-soft);
   border: 1px solid var(--accent);

@@ -8,12 +8,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&family=Lalezar&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body id="top">
+
+  <!-- بک‌گراند تزئینی: مش گرادیانت ارگانیک (Aurora) + بخار قهوه متحرک -->
+  <div class="bg-decor" aria-hidden="true">
+    <div class="aurora-blob aurora-1"></div>
+    <div class="aurora-blob aurora-2"></div>
+    <div class="aurora-blob aurora-3"></div>
+    <div class="steam-wisp steam-1"></div>
+    <div class="steam-wisp steam-2"></div>
+    <div class="steam-wisp steam-3"></div>
+  </div>
 
   <!-- گرادیانت مشترک برای افکت نئونِ دور کارت محصولات -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -78,26 +88,20 @@
     <!-- MENU -->
     <section class="menu-section" id="menu">
       <div class="wrap">
-        <div class="section-head">
+        <div class="section-head menu-section-head">
           <span class="section-num">منو</span>
           <h2>محصولات کافه</h2>
-        </div>
-        <div class="menu-controls">
-          <div class="tabs" id="categoryTabs"></div>
           <div class="sort-menu-wrap">
-            <button id="sortToggle" class="sort-icon-btn" aria-label="مرتب‌سازی" aria-haspopup="true"
-              aria-expanded="false">
+            <button id="sortToggle" class="sort-icon-btn" aria-label="مرتب‌سازی">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 6h18M6 12h12M10 18h4"></path>
               </svg>
             </button>
-            <div class="sort-menu" id="sortMenu" role="menu">
-              <button class="sort-option active" data-sort="default" role="menuitem">پیش‌فرض</button>
-              <button class="sort-option" data-sort="low-high" role="menuitem">ارزان‌ترین</button>
-              <button class="sort-option" data-sort="high-low" role="menuitem">گران‌ترین</button>
-            </div>
           </div>
+        </div>
+        <div class="menu-controls">
+          <div class="tabs" id="categoryTabs"></div>
         </div>
         <div class="menu-groups" id="productGrid"></div>
       </div>
@@ -170,6 +174,20 @@
         <p class="modal-note" id="modalNote"></p>
         <span class="modal-price mono" id="modalPrice"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- SORT MODAL (پاپ‌آپ وسط صفحه با بک‌گراند بلور) -->
+  <div class="sort-overlay" id="sortOverlay"></div>
+  <div class="sort-modal" id="sortModal" role="dialog" aria-modal="true" aria-labelledby="sortModalTitle">
+    <div class="sort-modal-header">
+      <h3 id="sortModalTitle">مرتب‌سازی</h3>
+      <button class="sort-modal-close" id="sortModalClose" aria-label="بستن">✕</button>
+    </div>
+    <div class="sort-modal-options">
+      <button class="sort-option active" data-sort="default">مرتب‌سازی: پیش‌فرض</button>
+      <button class="sort-option" data-sort="low-high">ارزان‌ترین</button>
+      <button class="sort-option" data-sort="high-low">گران‌ترین</button>
     </div>
   </div>
 

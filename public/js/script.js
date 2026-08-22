@@ -1,3 +1,38 @@
+// ============ SCROLL LOCK (مطمئن، مخصوص موبایل/سافاری) ============
+// فقط overflow:hidden رو body کافی نیست؛ تو سافاری موبایل صفحه‌ی پشت مودال بازم rubber-band
+// اسکرول می‌کنه و باعث بهم‌ریختگی می‌شه. این تابع body رو واقعاً fixed می‌کنه و بعد از بسته شدن
+// دقیقاً به همون نقطه‌ی اسکرول قبلی برمی‌گردونه.
+let scrollLockCount = 0;
+let savedScrollY = 0;
+
+function lockScroll() {
+  if (scrollLockCount === 0) {
+    savedScrollY = window.scrollY || window.pageYOffset;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${savedScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.documentElement.classList.add('nav-open');
+    document.body.classList.add('nav-open');
+  }
+  scrollLockCount++;
+}
+
+function unlockScroll() {
+  scrollLockCount = Math.max(0, scrollLockCount - 1);
+  if (scrollLockCount === 0) {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    document.documentElement.classList.remove('nav-open');
+    document.body.classList.remove('nav-open');
+    window.scrollTo(0, savedScrollY);
+  }
+}
+
 // ============ THEME TOGGLE ============
 const themeToggle = document.getElementById('themeToggle');
 const htmlEl = document.documentElement;
@@ -22,16 +57,16 @@ const navToggle = document.getElementById('navToggle');
 const mainNav = document.getElementById('mainNav');
 
 navToggle.addEventListener('click', () => {
-  mainNav.classList.toggle('open');
-  navToggle.classList.toggle('active');
-  document.body.classList.toggle('nav-open', mainNav.classList.contains('open'));
+  const isOpen = mainNav.classList.toggle('open');
+  navToggle.classList.toggle('active', isOpen);
+  if (isOpen) lockScroll(); else unlockScroll();
 });
 
 mainNav.querySelectorAll('a').forEach(link => {
   link.addEventListener('click', () => {
+    if (mainNav.classList.contains('open')) unlockScroll();
     mainNav.classList.remove('open');
     navToggle.classList.remove('active');
-    document.body.classList.remove('nav-open');
   });
 });
 
@@ -43,16 +78,23 @@ function formatPrice(price) {
   return `<span class="price-amount">${toFa(val)}</span><span class="price-suffix"> ت</span>`;
 }
 // ============ SPLASH SCREEN LOGIC ============
-window.addEventListener('load', () => {
+// از window.load استفاده نمی‌کنیم چون منتظر لود کامل همه‌ی عکس‌های محصولات هم می‌مونه
+// و اگه نت کند باشه، اسپلش می‌تونه چند ثانیه (حتی بیشتر از ۱۰ ثانیه) گیر کنه.
+// به‌جاش با DOMContentLoaded (فقط منتظر خود صفحه) + یه سقف زمانی مطمئن کار می‌کنیم.
+function hideSplash() {
   const splash = document.getElementById('splash');
-  if (splash) {
-    setTimeout(() => {
-      splash.classList.add('hide');
-      // بعد از اتمام انیمیشن محو شدن، کد رو کامل پاک میکنه تا جلوی اسکرول رو نگیره
-      setTimeout(() => splash.remove(), 250);
-    }, 700); // ~0.7 ثانیه نمایش لوگو
-  }
+  if (!splash || splash.dataset.hidden === 'true') return;
+  splash.dataset.hidden = 'true';
+  splash.classList.add('hide');
+  setTimeout(() => splash.remove(), 250);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(hideSplash, 700);
 });
+
+// شبکه‌ی ایمنی: هر اتفاقی بیفته، اسپلش بیشتر از ۲.۵ ثانیه رو صفحه نمی‌مونه
+setTimeout(hideSplash, 2500);
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -101,7 +143,7 @@ function openModal(product, catLabelText) {
 
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('nav-open');
+  lockScroll();
   history.pushState({ modal: true }, "");
 }
 
@@ -109,7 +151,7 @@ function closeModal() {
   if (!modal.classList.contains('open')) return;
   modal.classList.remove('open');
   modal.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('nav-open');
+  unlockScroll();
 }
 
 function handleClose() {
@@ -128,18 +170,22 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (modal.classList.contains('open')) handleClose();
     if (cartDrawer.classList.contains('open')) closeCart();
+    if (sortModal.classList.contains('open')) closeSortModal();
   }
 });
 window.addEventListener('popstate', (e) => {
   closeModal();
   closeCart();
+  closeSortModal();
 });
 
 // ============ MENU RENDER & SORT ============
 const grid = document.getElementById('productGrid');
 const tabsEl = document.getElementById('categoryTabs');
 const sortToggle = document.getElementById('sortToggle');
-const sortMenu = document.getElementById('sortMenu');
+const sortOverlay = document.getElementById('sortOverlay');
+const sortModal = document.getElementById('sortModal');
+const sortModalClose = document.getElementById('sortModalClose');
 
 let productsData = { categories: [], products: [] };
 let activeCategory = 'all';
@@ -194,30 +240,45 @@ function renderTabs() {
   });
 }
 
+function openSortModal() {
+  sortModal.classList.add('open');
+  sortOverlay.classList.add('open');
+  sortToggle.classList.add('active');
+  lockScroll();
+  history.pushState({ sort: true }, "");
+}
+
+function closeSortModal() {
+  if (!sortModal.classList.contains('open')) return;
+  sortModal.classList.remove('open');
+  sortOverlay.classList.remove('open');
+  sortToggle.classList.remove('active');
+  unlockScroll();
+}
+
 sortToggle.addEventListener('click', (e) => {
   e.stopPropagation();
-  const isOpen = sortMenu.classList.toggle('open');
-  sortToggle.classList.toggle('active', isOpen);
-  sortToggle.setAttribute('aria-expanded', String(isOpen));
+  openSortModal();
 });
 
-document.addEventListener('click', (e) => {
-  if (!sortMenu.contains(e.target) && e.target !== sortToggle) {
-    sortMenu.classList.remove('open');
-    sortToggle.classList.remove('active');
-    sortToggle.setAttribute('aria-expanded', 'false');
-  }
+sortModalClose.addEventListener('click', () => {
+  if (history.state && history.state.sort) history.back();
+  else closeSortModal();
 });
 
-sortMenu.querySelectorAll('.sort-option').forEach(btn => {
+sortOverlay.addEventListener('click', () => {
+  if (history.state && history.state.sort) history.back();
+  else closeSortModal();
+});
+
+sortModal.querySelectorAll('.sort-option').forEach(btn => {
   btn.addEventListener('click', () => {
-    sortMenu.querySelectorAll('.sort-option').forEach(b => b.classList.remove('active'));
+    sortModal.querySelectorAll('.sort-option').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentSort = btn.dataset.sort;
-    sortMenu.classList.remove('open');
-    sortToggle.classList.remove('active');
-    sortToggle.setAttribute('aria-expanded', 'false');
     renderProducts();
+    if (history.state && history.state.sort) history.back();
+    else closeSortModal();
   });
 });
 
@@ -329,7 +390,7 @@ let cart = [];
 function openCart() {
   cartDrawer.classList.add('open');
   cartOverlay.classList.add('open');
-  document.body.classList.add('nav-open');
+  lockScroll();
   history.pushState({ cart: true }, "");
 }
 
@@ -337,7 +398,7 @@ function closeCart() {
   if (!cartDrawer.classList.contains('open')) return;
   cartDrawer.classList.remove('open');
   cartOverlay.classList.remove('open');
-  document.body.classList.remove('nav-open');
+  unlockScroll();
 }
 
 // باز شدن پنل با کلیک روی نوار شناور
