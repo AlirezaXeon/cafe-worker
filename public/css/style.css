@@ -1,25 +1,25 @@
 /* ============ TOKENS ============ */
 :root {
-  --bg: #0F0D0B;
-  --bg-alt: #171412;
-  --ink: #F5F2ED;
-  --ink-soft: #9E958C;
-  --line: #2A2522;
-  --accent: #9DBA8F;
-  --accent-soft: #1E2A1E;
-  --gold: #D4AF37;
-  --card-bg: #1A1714;
-  --overlay-bg: rgba(0, 0, 0, 0.75);
-  --btn-ghost-bg: rgba(255, 255, 255, 0.06);
-  --light-bg: #FAF8F5;
-  --light-bg-alt: #F0EBE3;
-  --light-ink: #2C2520;
-  --light-ink-soft: #7A6E63;
-  --light-line: #E5DDD0;
-  --light-accent: #3A4A36;
-  --light-accent-soft: #E8EDE2;
+  --bg: #0B0D12;
+  --bg-alt: #12141B;
+  --ink: #EFEDE8;
+  --ink-soft: #8B8D96;
+  --line: #23262F;
+  --accent: #B4925A;
+  --accent-soft: #1C1911;
+  --gold: #C9A227;
+  --card-bg: #14161E;
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --btn-ghost-bg: rgba(255, 255, 255, 0.05);
+  --light-bg: #F7F5F1;
+  --light-bg-alt: #EFEBE3;
+  --light-ink: #1D1F26;
+  --light-ink-soft: #6B6D76;
+  --light-line: #E1DDD3;
+  --light-accent: #8A6D3D;
+  --light-accent-soft: #F1E9D8;
   --light-card-bg: #FFFFFF;
-  --light-overlay-bg: rgba(28, 27, 25, 0.55);
+  --light-overlay-bg: rgba(20, 20, 24, 0.55);
   --light-btn-ghost-bg: rgba(247, 246, 242, 0.9);
   --font-fa: 'Vazirmatn', sans-serif;
   --font-display: 'Lalezar', 'Vazirmatn', sans-serif;
@@ -29,6 +29,10 @@
   --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.4);
+  --aurora-1: rgba(160, 122, 56, 0.22);
+  --aurora-2: rgba(120, 38, 56, 0.16);
+  --aurora-3: rgba(150, 112, 46, 0.13);
+  --aurora-blur: 120px;
 }
 
 :root[data-theme="light"] {
@@ -45,6 +49,10 @@
   --shadow-sm: 0 4px 20px rgba(44, 37, 32, 0.06);
   --shadow-md: 0 12px 40px rgba(44, 37, 32, 0.1);
   --shadow-lg: 0 24px 60px rgba(44, 37, 32, 0.15);
+  --aurora-1: rgba(199, 122, 55, 0.42);
+  --aurora-2: rgba(130, 42, 62, 0.26);
+  --aurora-3: rgba(196, 148, 45, 0.30);
+  --aurora-blur: 85px;
 }
 
 * {
@@ -63,10 +71,8 @@ html {
 body {
   font-family: var(--font-fa);
   background-color: var(--bg);
-  background-image:
-    radial-gradient(ellipse at 20% 15%, rgba(212, 175, 55, 0.09), transparent 55%),
-    radial-gradient(ellipse at 85% 80%, rgba(157, 186, 143, 0.08), transparent 55%);
-  background-attachment: fixed, fixed;
+  background-image: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(180, 146, 90, 0.06), transparent 70%);
+  background-attachment: fixed;
   color: var(--ink);
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
@@ -75,85 +81,110 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* بخار قهوه: چند تا رشته‌ی محو که آروم از پایین به بالا شناور میشن و محو میشن */
-/* بخار قهوه: دو لایه با سرعت متفاوت برای عمق بیشتر، آروم از پایین به بالا شناور میشن و محو میشن */
+/* بافت ظریف نویز (مثل دون فیلم/مخمل) که سادگی تخت بک‌گراند رو می‌شکنه، بدون شلوغ کردنش */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image:
-    radial-gradient(ellipse 110px 300px at 8% 100%, rgba(245, 242, 237, 0.22), transparent 70%),
-    radial-gradient(ellipse 90px 260px at 24% 100%, rgba(245, 242, 237, 0.18), transparent 70%),
-    radial-gradient(ellipse 100px 320px at 52% 100%, rgba(212, 175, 55, 0.24), transparent 70%),
-    radial-gradient(ellipse 85px 270px at 71% 100%, rgba(245, 242, 237, 0.18), transparent 70%),
-    radial-gradient(ellipse 95px 290px at 90% 100%, rgba(157, 186, 143, 0.22), transparent 70%);
-  background-repeat: repeat-y;
-  background-size: 100% 900px;
-  animation: steamRise 26s linear infinite;
-  mask-image: linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%);
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 180px 180px;
 }
 
-/* لایه‌ی دوم: کندتر، جابه‌جا، برای حس عمق و پر بودن بیشتر */
-body::after {
-  content: "";
+:root[data-theme="light"] body::before {
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+:root[data-theme="light"] body {
+  background-image: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(138, 109, 61, 0.05), transparent 70%);
+}
+
+/* بلاب‌های نوری بزرگ که پشت محتوا شناورن و واضح حرکت می‌کنن — عنصرهاشون از قبل تو index.html هست */
+.bg-decor {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: -2;
+  overflow: hidden;
   pointer-events: none;
-  background-image:
-    radial-gradient(ellipse 70px 210px at 16% 100%, rgba(212, 175, 55, 0.15), transparent 70%),
-    radial-gradient(ellipse 65px 190px at 38% 100%, rgba(245, 242, 237, 0.14), transparent 70%),
-    radial-gradient(ellipse 75px 230px at 62% 100%, rgba(157, 186, 143, 0.16), transparent 70%),
-    radial-gradient(ellipse 60px 200px at 82% 100%, rgba(245, 242, 237, 0.13), transparent 70%);
-  background-repeat: repeat-y;
-  background-size: 100% 1100px;
-  animation: steamRise 48s linear infinite reverse;
-  mask-image: linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, transparent 0%, black 20%, black 80%, transparent 100%);
 }
 
-@keyframes steamRise {
-  from {
-    background-position-y: 0;
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(var(--aurora-blur));
+  will-change: transform;
+}
+
+.aurora-1 {
+  width: 560px;
+  height: 560px;
+  top: -160px;
+  left: -120px;
+  background: var(--aurora-1);
+  animation: auroraDrift1 34s ease-in-out infinite alternate;
+}
+
+.aurora-2 {
+  width: 480px;
+  height: 480px;
+  bottom: -140px;
+  right: -100px;
+  background: var(--aurora-2);
+  animation: auroraDrift2 42s ease-in-out infinite alternate;
+}
+
+.aurora-3 {
+  width: 420px;
+  height: 420px;
+  top: 38%;
+  left: 58%;
+  background: var(--aurora-3);
+  animation: auroraDrift3 50s ease-in-out infinite alternate;
+}
+
+@keyframes auroraDrift1 {
+  0% {
+    transform: translate(0, 0) scale(1);
   }
 
-  to {
-    background-position-y: -900px;
+  100% {
+    transform: translate(140px, 100px) scale(1.15);
+  }
+}
+
+@keyframes auroraDrift2 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate(-110px, -80px) scale(1.1);
+  }
+}
+
+@keyframes auroraDrift3 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  100% {
+    transform: translate(-90px, 70px) scale(0.9);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-
-  body::before,
-  body::after {
+  .aurora-blob {
     animation: none;
   }
 }
 
-:root[data-theme="light"] body {
-  background-image:
-    radial-gradient(ellipse at 20% 15%, rgba(212, 175, 55, 0.07), transparent 55%),
-    radial-gradient(ellipse at 85% 80%, rgba(58, 74, 54, 0.05), transparent 55%);
-}
-
-:root[data-theme="light"] body::before {
-  background-image:
-    radial-gradient(ellipse 110px 300px at 8% 100%, rgba(44, 37, 32, 0.13), transparent 70%),
-    radial-gradient(ellipse 90px 260px at 24% 100%, rgba(44, 37, 32, 0.11), transparent 70%),
-    radial-gradient(ellipse 100px 320px at 52% 100%, rgba(181, 136, 99, 0.15), transparent 70%),
-    radial-gradient(ellipse 85px 270px at 71% 100%, rgba(44, 37, 32, 0.11), transparent 70%),
-    radial-gradient(ellipse 95px 290px at 90% 100%, rgba(58, 74, 54, 0.13), transparent 70%);
-}
-
-:root[data-theme="light"] body::after {
-  background-image:
-    radial-gradient(ellipse 70px 210px at 16% 100%, rgba(181, 136, 99, 0.09), transparent 70%),
-    radial-gradient(ellipse 65px 190px at 38% 100%, rgba(44, 37, 32, 0.08), transparent 70%),
-    radial-gradient(ellipse 75px 230px at 62% 100%, rgba(58, 74, 54, 0.1), transparent 70%),
-    radial-gradient(ellipse 60px 200px at 82% 100%, rgba(44, 37, 32, 0.08), transparent 70%);
+/* بی‌استفاده مونده از نسخه‌ی قبلی؛ فعلاً غیرفعاله */
+.steam-wisp {
+  display: none;
 }
 
 /* Custom Scrollbar */
