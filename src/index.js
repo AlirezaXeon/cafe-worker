@@ -1,5 +1,6 @@
 import { handleUpdate } from "./telegram.js";
 import { getProducts } from "./products.js";
+import { getSiteConfig } from "./site.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -10,6 +11,14 @@ export default {
       const data = await getProducts(env);
       return new Response(JSON.stringify(data), {
         headers: { "content-type": "application/json; charset=utf-8" },
+      });
+    }
+
+    // تنظیمات سایت (لوگو + عکس بالای سایت)؛ اگه از ربات چیزی ست نشده باشه، دیفالت برمی‌گرده
+    if (url.pathname === "/data/site.json") {
+      const data = await getSiteConfig(env);
+      return new Response(JSON.stringify(data), {
+        headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
       });
     }
 

@@ -464,286 +464,86 @@ body.nav-open {
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* ============ HERO ============ */
-.hero {
+/* ============ HEADER (sticky) ============ */
+.site-header {
+  position: sticky;
+  top: 0;
+}
+
+/* لوگوی هدر: تا وقتی اسکرول نکردیم نامرئیه، با رسیدن به پایان عکس بالای سایت پدیدار میشه
+   (var(--intro-progress) از جاوااسکریپت ست میشه؛ اگه جاوااسکریپت خاموش باشه، مقدار دیفالت ۱ یعنی همیشه دیده میشه) */
+.logo-img#headerLogoImg {
+  opacity: var(--intro-progress, 1);
+  transition: opacity 0.12s linear;
+}
+
+/* ============ HERO COVER ============ */
+.hero-cover {
   position: relative;
-  overflow: hidden;
-  padding: 100px 0 120px;
-  background: radial-gradient(circle at 10% 20%, var(--accent-soft) 0%, transparent 50%);
-  /* هر انیمیشنی داخل هیرو فقط همین بخش رو ری‌پینت می‌کنه، نه کل صفحه‌ رو موقع اسکرول */
-  contain: paint;
-}
-
-/* گرادینت گرم دومی که آروم و به‌شکل محسوس نفس می‌کشه، پشت متن‌ها عمق ایجاد می‌کنه */
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(ellipse 620px 420px at 78% 15%, var(--aurora-1), transparent 65%);
-  animation: heroGlowBreathe 11s ease-in-out infinite;
-  pointer-events: none;
-  will-change: transform, opacity;
-}
-
-@keyframes heroGlowBreathe {
-
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero::before {
-    animation: none;
-  }
-}
-
-/* موتیف بخار قهوه: چند لکه‌ی محو و کشیده که آروم از پایین به بالا شناور میشن و محو میشن */
-.hero-decor {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.hero-steam {
-  position: absolute;
-  bottom: -40px;
-  width: 90px;
-  height: 260px;
-  border-radius: 50%;
-  filter: blur(28px);
-  background: linear-gradient(to top, var(--gold), transparent 70%);
-  opacity: 0;
-  animation: heroSteamRise 9s ease-in infinite;
-  will-change: transform, opacity;
-}
-
-.hero-steam-1 {
-  right: 8%;
-  animation-delay: 0s;
-}
-
-.hero-steam-2 {
-  right: 18%;
-  width: 70px;
-  animation-delay: 3s;
-}
-
-.hero-steam-3 {
-  right: 2%;
-  width: 60px;
-  animation-delay: 6s;
-}
-
-@keyframes heroSteamRise {
-  0% {
-    transform: translateY(0) scaleY(0.8);
-    opacity: 0;
-  }
-
-  20% {
-    opacity: 0.16;
-  }
-
-  60% {
-    opacity: 0.1;
-  }
-
-  100% {
-    transform: translateY(-280px) scaleY(1.15);
-    opacity: 0;
-  }
-}
-
-/* موبایل: GPU ضعیف‌تره و سافاری موبایل با لایه‌های blur+animation همزمان زیاد مشکل رندر داره؛
-   برای جلوگیری از هنگ و پرش/محو شدن لحظه‌ای محتوا موقع اسکرول، تعداد رو به یکی کم می‌کنیم */
-@media (max-width: 768px) {
-
-  .hero-steam-2,
-  .hero-steam-3 {
-    display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-steam {
-    animation: none;
-    display: none;
-  }
-}
-
-.hero-inner {
-  max-width: 680px;
-  position: relative;
-  z-index: 2;
-}
-
-/* حالت اولیه‌ی متن‌های هیرو: نامرئی و کمی پایین‌تر، تا وقتی site-loaded ست بشه و پلکانی ظاهر بشن */
-.eyebrow,
-.hero h1,
-.hero-sub,
-.hero-inner .btn {
-  opacity: 0;
-  transform: translateY(18px);
-}
-
-body.site-loaded .eyebrow {
-  animation: heroTextIn 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) 0.05s forwards;
-}
-
-body.site-loaded .hero h1 {
-  animation: heroTextIn 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) 0.2s forwards;
-}
-
-body.site-loaded .hero-sub {
-  animation: heroTextIn 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) 0.36s forwards;
-}
-
-body.site-loaded .hero-inner .btn {
-  animation: heroTextIn 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) 0.5s forwards;
-}
-
-@keyframes heroTextIn {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.eyebrow {
-  display: inline-block;
-  font-size: 0.8rem;
-  color: var(--accent);
-  font-weight: 600;
-  margin-bottom: 20px;
-  background: var(--accent-soft);
-  padding: 5px 14px;
-  border-radius: 20px;
-  position: relative;
-  z-index: 2;
-}
-
-.hero h1 {
-  font-family: var(--font-display);
-  font-size: clamp(2.4rem, 6vw, 4.2rem);
-  font-weight: 400;
-  line-height: 1.25;
-  letter-spacing: 0;
-  margin-bottom: 24px;
-  color: var(--ink);
-  position: relative;
-  z-index: 2;
-}
-
-.hero-sub {
-  font-size: 1.05rem;
-  color: var(--ink-soft);
-  max-width: 520px;
-  margin-bottom: 32px;
-  line-height: 1.9;
-  position: relative;
-  z-index: 2;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: var(--ink);
-  color: var(--bg);
-  padding: 14px 32px;
-  border-radius: 50px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-md);
-  border: none;
-  cursor: pointer;
   width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 640px;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 20%, var(--accent-soft), var(--bg-alt) 70%);
 }
 
-.btn:hover {
-  background: var(--accent);
-  color: #fff;
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
-.hero-visual {
+.hero-cover-media {
   position: absolute;
-  top: -100px;
-  left: -120px;
-  width: 500px;
-  height: 500px;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.3;
+  inset: 0;
 }
 
-.cup-mark {
+.hero-cover-media img {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  position: relative;
-  animation: rotate 80s linear infinite;
+  object-fit: cover;
+  display: block;
 }
 
-.cup-mark::before {
+/* سایه‌ی نرم روی عکس تا لوگو و محتوای زیرش خواناتر بمونه */
+.hero-cover::after {
   content: '';
   position: absolute;
-  inset: 80px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.15) 40%, rgba(0, 0, 0, 0.5) 100%);
+  pointer-events: none;
 }
 
-.cup-mark::after {
-  content: '';
-  position: absolute;
-  inset: 160px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
+/* وقتی هنوز عکسی از ربات آپلود نشده، فقط گرادینت پس‌زمینه دیده میشه */
+.hero-cover.no-cover::after {
+  background: none;
 }
 
-.cup-mark-logo {
+.hero-cover-logo-wrap {
   position: absolute;
-  inset: 160px;
-  width: calc(100% - 320px);
-  height: calc(100% - 320px);
-  margin: auto;
+  inset: 0;
   z-index: 2;
-  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* لوگوی وسط عکس: با اسکرول (که var(--intro-progress) رو از ۰ به ۱ می‌بره) کوچیک و محو میشه،
+   انگار داره به سمت لوگوی هدر پرواز می‌کنه */
+.hero-cover-logo {
+  width: clamp(88px, 18vw, 160px);
+  height: clamp(88px, 18vw, 160px);
   object-fit: contain;
-  padding: 22px;
-  animation: rotate 80s linear infinite reverse;
+  filter: drop-shadow(0 8px 28px rgba(0, 0, 0, 0.45));
+  opacity: calc(1 - var(--intro-progress, 0));
+  transform:
+    scale(calc(1 - 0.35 * var(--intro-progress, 0)))
+    translateY(calc(var(--intro-progress, 0) * -36px));
+  transition: opacity 0.08s linear, transform 0.08s linear;
+  will-change: transform, opacity;
 }
 
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
+@media (prefers-reduced-motion: reduce) {
+  .hero-cover-logo {
+    transform: none;
   }
 }
+
 
 /* ============ SECTION HEAD ============ */
 .section-head {
@@ -1217,11 +1017,19 @@ body.site-loaded .hero-inner .btn {
   gap: 2px;
 }
 
-/* فونت نازک و خوش‌استایل برای حرف "ت" */
+/* حرف "T" بولد و خوانا، هم‌راستا با وزن عدد قیمت */
 .price-suffix {
-  font-weight: 300;
-  font-size: 0.85em;
-  opacity: 0.8;
+  font-family: var(--font-fa);
+  font-weight: 800;
+  font-size: 0.8em;
+  opacity: 1;
+  margin-inline-start: 1px;
+}
+
+/* قیمت‌ها انگلیسی و LTR هستن؛ ایزوله می‌کنیم تا وسط متن راست‌به‌چپ به‌هم نریزن */
+.price-amount {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .add-to-cart-btn {
@@ -1549,6 +1357,40 @@ body.site-loaded .hero-inner .btn {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.modal-add-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 11px 22px;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: var(--font-fa);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.modal-add-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.modal-add-btn.added {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 /* ============ CART DRAWER ============ */
@@ -1921,8 +1763,8 @@ body.site-loaded .hero-inner .btn {
     gap: 24px;
   }
 
-  .hero {
-    padding: 140px 0 160px;
+  .hero-cover {
+    aspect-ratio: 21 / 9;
   }
 
   .menu-section {

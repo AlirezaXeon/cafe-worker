@@ -16,6 +16,7 @@ import {
   deleteCategory,
   nextProductId,
 } from "./products.js";
+import { getSiteConfig, setSiteLogo, setSiteCover } from "./site.js";
 import { getSession, setSession, clearSession } from "./session.js";
 
 const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
@@ -78,7 +79,23 @@ async function sendMainMenu(env, chatId) {
     [{ text: "📦 محصولات", callback_data: "menu:products" }],
     [{ text: "🏷 دسته‌بندی‌ها", callback_data: "menu:categories" }],
     [{ text: "💰 تغییر قیمت دسته‌جمعی", callback_data: "menu:bulk" }],
+    [{ text: "🖼 تصاویر سایت (لوگو / کاور)", callback_data: "menu:siteimages" }],
   ]);
+}
+
+async function sendSiteImagesMenu(env, chatId) {
+  const cfg = await getSiteConfig(env);
+  const coverStatus = cfg.cover ? "✅ تنظیم شده" : "⛔️ هنوز آپلود نشده";
+  await sendMessage(
+    env,
+    chatId,
+    `🖼 <b>تصاویر سایت</b>\n\nلوگو: ✅ تنظیم شده\nعکس بالای سایت: ${coverStatus}`,
+    [
+      [{ text: "🖼 تغییر لوگو", callback_data: "siteimg:logo" }],
+      [{ text: "🖼 تغییر عکس بالای سایت", callback_data: "siteimg:cover" }],
+      [{ text: "🔙 بازگشت", callback_data: "menu:home" }],
+    ]
+  );
 }
 
 async function sendCategoryPicker(env, chatId, mode) {
@@ -153,6 +170,16 @@ export async function handleCallback(env, chatId, data) {
   if (data === "menu:products") return sendCategoryPicker(env, chatId, "browse");
   if (data === "menu:categories") return sendCategoriesMenu(env, chatId);
   if (data === "menu:bulk") return sendCategoryPicker(env, chatId, "bulk");
+  if (data === "menu:siteimages") return sendSiteImagesMenu(env, chatId);
+
+  if (data === "siteimg:logo") {
+    await setSession(env, chatId, { step: "edit_site_logo" });
+    return forceReply(env, chatId, "🖼 عکس جدید لوگو رو بفرست (ترجیحاً مربعی، با پس‌زمینه‌ی شفاف اگه PNG داری):");
+  }
+  if (data === "siteimg:cover") {
+    await setSession(env, chatId, { step: "edit_site_cover" });
+    return forceReply(env, chatId, "🖼 عکس جدید بالای سایت رو بفرست (افقی، عریض، از فضای کافه):");
+  }
 
   if (action === "catpick") {
     const mode = a;
@@ -385,6 +412,28 @@ export async function handleImageStep(env, chatId, photoArray, session) {
     return forceReply(env, chatId, "❌ خطا در دریافت عکس. لطفاً دوباره بفرست یا بنویس «بدون عکس»:");
   }
 
+  // ---- لوگو / عکس بالای سایت ----
+  if (session.step === "edit_site_logo" || session.step === "edit_site_cover") {
+    const kind = session.step === "edit_site_logo" ? "logo" : "cover";
+    const filename = `site-${kind}-${Date.now()}.${fileData.ext}`;
+
+    await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
+      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+    });
+
+    const imagePath = `images/${filename}`;
+    if (kind === "logo") {
+      await setSiteLogo(env, imagePath);
+      await clearSession(env, chatId);
+      await sendMessage(env, chatId, "✅ لوگوی سایت به‌روزرسانی شد.");
+    } else {
+      await setSiteCover(env, imagePath);
+      await clearSession(env, chatId);
+      await sendMessage(env, chatId, "✅ عکس بالای سایت به‌روزرسانی شد.");
+    }
+    return sendSiteImagesMenu(env, chatId);
+  }
+
   // ---- عکس دسته‌بندی (هم موقع ساخت دسته‌ی جدید، هم ویرایش دسته‌ی موجود) ----
   if (session.step === "new_category_image" || session.step === "edit_category_image") {
     const catId = session.step === "new_category_image" ? session.id : session.catId;
@@ -462,7 +511,7 @@ export async function handleUpdate(update, env) {
     const session = await getSession(env, chatId);
     if (session) {
       // اگر منتظر عکس بودیم و کاربر عکس فرستاد
-      const waitingForPhoto = ["new_product_image", "new_category_image", "edit_category_image", "edit_product_image"];
+      const waitingForPhoto = ["new_product_image", "new_category_image", "edit_category_image", "edit_product_image", "edit_site_logo", "edit_site_cover"];
       if (msg.photo && waitingForPhoto.includes(session.step)) {
         return handleImageStep(env, chatId, msg.photo, session);
       }

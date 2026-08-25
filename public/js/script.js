@@ -77,10 +77,9 @@ mainNav.querySelectorAll('a').forEach(link => {
 
 // ============ PRICE FORMAT ============
 function formatPrice(price) {
-  const toFa = (v) => String(v).replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
-  // تقسیم بر 1000 و اضافه کردن حرف ت
+  // عدد انگلیسی + جداکننده‌ی هزارگان + حرف T به‌جای «ت»
   const val = Math.round(price / 1000);
-  return `<span class="price-amount">${toFa(val)}</span><span class="price-suffix"> ت</span>`;
+  return `<span class="price-amount">${val.toLocaleString('en-US')}</span><span class="price-suffix">T</span>`;
 }
 // ============ SPLASH SCREEN LOGIC ============
 // از window.load استفاده نمی‌کنیم چون منتظر لود کامل همه‌ی عکس‌های محصولات هم می‌مونه
@@ -112,6 +111,8 @@ const modalCat = document.getElementById('modalCat');
 const modalName = document.getElementById('modalName');
 const modalNote = document.getElementById('modalNote');
 const modalPrice = document.getElementById('modalPrice');
+const modalAddBtn = document.getElementById('modalAddBtn');
+let modalProductId = null;
 
 const CAT_COLORS = {
   coffee: '#B58863',
@@ -120,6 +121,7 @@ const CAT_COLORS = {
 };
 
 function openModal(product, catLabelText) {
+  modalProductId = product.id;
   modalImage.querySelectorAll('img').forEach(el => el.remove());
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
@@ -172,6 +174,17 @@ function handleClose() {
 modalClose.addEventListener('click', handleClose);
 modal.addEventListener('click', (e) => {
   if (e.target === modal) handleClose();
+});
+modalAddBtn.addEventListener('click', () => {
+  if (!modalProductId) return;
+  addToCart(modalProductId);
+
+  modalAddBtn.textContent = "افزوده شد ✓";
+  modalAddBtn.classList.add('added');
+  setTimeout(() => {
+    modalAddBtn.textContent = "افزودن +";
+    modalAddBtn.classList.remove('added');
+  }, 1500);
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -502,6 +515,61 @@ if (backToTopBtn) {
   });
 }
 
+// ============ تنظیمات سایت: لوگو + عکس بالای سایت (قابل تغییر از ربات تلگرام) ============
+async function loadSiteConfig() {
+  try {
+    const res = await fetch('data/site.json');
+    const cfg = await res.json();
+
+    const headerLogo = document.getElementById('headerLogoImg');
+    const coverLogo = document.getElementById('heroCoverLogo');
+    const coverImg = document.getElementById('heroCoverImg');
+
+    if (cfg.logo) {
+      if (headerLogo) headerLogo.src = cfg.logo;
+      if (coverLogo) coverLogo.src = cfg.logo;
+    }
+
+    if (cfg.cover && coverImg) {
+      coverImg.src = cfg.cover;
+      coverImg.style.display = '';
+      coverImg.closest('.hero-cover')?.classList.remove('no-cover');
+    } else {
+      // هنوز از ربات عکسی آپلود نشده؛ فقط پس‌زمینه‌ی گرادینت دیده میشه
+      document.querySelector('.hero-cover')?.classList.add('no-cover');
+    }
+  } catch (err) {
+    console.error('تنظیمات سایت لود نشد:', err);
+  }
+}
+
+// ============ انیمیشن اسکرول: لوگوی وسط عکس با اسکرول به سمت لوگوی هدر «پرواز» می‌کنه ============
+(function initHeroScrollIntro() {
+  const heroCover = document.querySelector('.hero-cover');
+  if (!heroCover) return;
+
+  let ticking = false;
+
+  function update() {
+    const h = heroCover.offsetHeight || 1;
+    // ۷۵٪ از ارتفاع عکس رو اسکرول کنیم، انیمیشن کامل شده
+    const progress = Math.min(Math.max(window.scrollY / (h * 0.75), 0), 1);
+    document.documentElement.style.setProperty('--intro-progress', progress.toFixed(3));
+    ticking = false;
+  }
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(update);
+      ticking = true;
+    }
+  }, { passive: true });
+
+  window.addEventListener('resize', update);
+  update();
+})();
+
 // Init
 loadProducts();
+loadSiteConfig();
 renderCart();

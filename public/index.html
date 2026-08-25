@@ -11,17 +11,6 @@
     href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&family=Lalezar&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <noscript>
-    <style>
-      .hero .eyebrow,
-      .hero h1,
-      .hero-sub,
-      .hero .btn {
-        opacity: 1 !important;
-        transform: none !important;
-      }
-    </style>
-  </noscript>
 </head>
 
 <body id="top">
@@ -60,7 +49,7 @@
   <header class="site-header">
     <div class="wrap header-inner">
       <a href="#top" class="logo">
-        <img src="images/logo.png" alt="کافه روشن" class="logo-img"
+        <img src="images/logo.png" alt="کافه روشن" class="logo-img" id="headerLogoImg"
           onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='flex';">
         <div id="logoFallback" class="logo-fallback">کافه روشن</div>
       </a>
@@ -80,24 +69,15 @@
   </header>
 
   <main>
-    <!-- HERO -->
-    <section class="hero">
-      <div class="wrap hero-inner">
-        <p class="eyebrow">قهوه، دسر و صبحانه — هر روز، تازه</p>
-        <h1>یک فنجان<br>آرامش خالص</h1>
-        <p class="hero-sub">کافه روشن، جایی برای مکث کردن. قهوه‌ی تخصصی، شیرینی‌های خانگی و صبحانه‌ی ساده، در فضایی روشن
-          و بی‌ادعا.</p>
-        <a href="#menu" class="btn">دیدن منو</a>
+    <!-- HERO COVER: عکس بالای سایت + لوگو وسطش، که با اسکرول میره بالا سمت راست و ادامه‌ی هدر میشه -->
+    <section class="hero-cover">
+      <div class="hero-cover-media">
+        <img src="images/hero-cover.jpg" alt="فضای کافه روشن" id="heroCoverImg"
+          onerror="this.style.display='none'; this.closest('.hero-cover').classList.add('no-cover');">
       </div>
-      <div class="hero-visual" aria-hidden="true">
-        <div class="cup-mark">
-          <img src="images/logo.png" alt="" class="cup-mark-logo" onerror="this.style.display='none'">
-        </div>
-      </div>
-      <div class="hero-decor" aria-hidden="true">
-        <span class="hero-steam hero-steam-1"></span>
-        <span class="hero-steam hero-steam-2"></span>
-        <span class="hero-steam hero-steam-3"></span>
+      <div class="hero-cover-logo-wrap">
+        <img src="images/logo.png" alt="کافه روشن" class="hero-cover-logo" id="heroCoverLogo"
+          onerror="this.style.display='none'">
       </div>
     </section>
 
@@ -188,7 +168,10 @@
         <span class="modal-cat" id="modalCat"></span>
         <h3 id="modalName"></h3>
         <p class="modal-note" id="modalNote"></p>
-        <span class="modal-price mono" id="modalPrice"></span>
+        <div class="modal-footer">
+          <span class="modal-price mono" id="modalPrice"></span>
+          <button class="modal-add-btn" id="modalAddBtn">افزودن +</button>
+        </div>
       </div>
     </div>
   </div>
