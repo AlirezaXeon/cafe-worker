@@ -470,12 +470,159 @@ body.nav-open {
   overflow: hidden;
   padding: 100px 0 120px;
   background: radial-gradient(circle at 10% 20%, var(--accent-soft) 0%, transparent 50%);
+  /* هر انیمیشنی داخل هیرو فقط همین بخش رو ری‌پینت می‌کنه، نه کل صفحه‌ رو موقع اسکرول */
+  contain: paint;
+}
+
+/* گرادینت گرم دومی که آروم و به‌شکل محسوس نفس می‌کشه، پشت متن‌ها عمق ایجاد می‌کنه */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse 620px 420px at 78% 15%, var(--aurora-1), transparent 65%);
+  animation: heroGlowBreathe 11s ease-in-out infinite;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@keyframes heroGlowBreathe {
+
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero::before {
+    animation: none;
+  }
+}
+
+/* موتیف بخار قهوه: چند لکه‌ی محو و کشیده که آروم از پایین به بالا شناور میشن و محو میشن */
+.hero-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-steam {
+  position: absolute;
+  bottom: -40px;
+  width: 90px;
+  height: 260px;
+  border-radius: 50%;
+  filter: blur(28px);
+  background: linear-gradient(to top, var(--gold), transparent 70%);
+  opacity: 0;
+  animation: heroSteamRise 9s ease-in infinite;
+  will-change: transform, opacity;
+}
+
+.hero-steam-1 {
+  right: 8%;
+  animation-delay: 0s;
+}
+
+.hero-steam-2 {
+  right: 18%;
+  width: 70px;
+  animation-delay: 3s;
+}
+
+.hero-steam-3 {
+  right: 2%;
+  width: 60px;
+  animation-delay: 6s;
+}
+
+@keyframes heroSteamRise {
+  0% {
+    transform: translateY(0) scaleY(0.8);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.16;
+  }
+
+  60% {
+    opacity: 0.1;
+  }
+
+  100% {
+    transform: translateY(-280px) scaleY(1.15);
+    opacity: 0;
+  }
+}
+
+/* موبایل: GPU ضعیف‌تره و سافاری موبایل با لایه‌های blur+animation همزمان زیاد مشکل رندر داره؛
+   برای جلوگیری از هنگ و پرش/محو شدن لحظه‌ای محتوا موقع اسکرول، تعداد رو به یکی کم می‌کنیم */
+@media (max-width: 768px) {
+
+  .hero-steam-2,
+  .hero-steam-3 {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-steam {
+    animation: none;
+    display: none;
+  }
 }
 
 .hero-inner {
   max-width: 680px;
   position: relative;
   z-index: 2;
+}
+
+/* حالت اولیه‌ی متن‌های هیرو: نامرئی و کمی پایین‌تر، تا وقتی site-loaded ست بشه و پلکانی ظاهر بشن */
+.eyebrow,
+.hero h1,
+.hero-sub,
+.hero-inner .btn {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+body.site-loaded .eyebrow {
+  animation: heroTextIn 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) 0.05s forwards;
+}
+
+body.site-loaded .hero h1 {
+  animation: heroTextIn 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) 0.2s forwards;
+}
+
+body.site-loaded .hero-sub {
+  animation: heroTextIn 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) 0.36s forwards;
+}
+
+body.site-loaded .hero-inner .btn {
+  animation: heroTextIn 0.8s cubic-bezier(0.16, 0.84, 0.44, 1) 0.5s forwards;
+}
+
+@keyframes heroTextIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .eyebrow {
@@ -487,6 +634,8 @@ body.nav-open {
   background: var(--accent-soft);
   padding: 5px 14px;
   border-radius: 20px;
+  position: relative;
+  z-index: 2;
 }
 
 .hero h1 {
@@ -497,6 +646,8 @@ body.nav-open {
   letter-spacing: 0;
   margin-bottom: 24px;
   color: var(--ink);
+  position: relative;
+  z-index: 2;
 }
 
 .hero-sub {
@@ -505,6 +656,8 @@ body.nav-open {
   max-width: 520px;
   margin-bottom: 32px;
   line-height: 1.9;
+  position: relative;
+  z-index: 2;
 }
 
 .btn {

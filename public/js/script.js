@@ -91,6 +91,8 @@ function hideSplash() {
   if (!splash || splash.dataset.hidden === 'true') return;
   splash.dataset.hidden = 'true';
   splash.classList.add('hide');
+  // درست همین لحظه که اسپلش محو میشه، متن‌های هیرو با انیمیشن پلکانی ظاهر میشن
+  document.body.classList.add('site-loaded');
   setTimeout(() => splash.remove(), 250);
 }
 
