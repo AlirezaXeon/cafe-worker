@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&family=Lalezar&family=JetBrains+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&family=Estedad:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -39,7 +39,7 @@
   <!-- SPLASH SCREEN -->
   <div id="splash">
     <div class="splash-inner">
-      <img src="images/logo.png" alt="کافه روشن" class="splash-logo"
+      <img src="images/logo.png" alt="کافه روشن" class="splash-logo" id="splashLogoImg"
         onerror="this.style.display='none'; document.getElementById('splashFallback').style.display='flex';">
       <div id="splashFallback" class="logo-fallback" style="font-size: 2.5rem; display:none;">کافه روشن</div>
       <div class="splash-progress"><span></span></div>
@@ -76,6 +76,7 @@
           onerror="this.style.display='none'; this.closest('.hero-cover').classList.add('no-cover');">
       </div>
       <div class="hero-cover-logo-wrap">
+        <span class="hero-cover-title">ROSHAN CAFÉ</span>
         <img src="images/logo.png" alt="کافه روشن" class="hero-cover-logo" id="heroCoverLogo"
           onerror="this.style.display='none'">
       </div>

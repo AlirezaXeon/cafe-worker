@@ -22,8 +22,9 @@
   --light-overlay-bg: rgba(20, 20, 24, 0.55);
   --light-btn-ghost-bg: rgba(247, 246, 242, 0.9);
   --font-fa: 'Vazirmatn', sans-serif;
-  --font-display: 'Lalezar', 'Vazirmatn', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Estedad', 'Vazirmatn', sans-serif;
+  --font-mono: 'Vazirmatn', sans-serif;
+  --font-en: 'Cormorant Garamond', serif;
   --wrap: 1200px;
   --radius: 16px;
   --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.2);
@@ -228,6 +229,7 @@ button {
 
 .mono {
   font-family: var(--font-mono);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -367,7 +369,7 @@ body.nav-open {
 
 .logo-fallback {
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 500;
   font-size: 1.3rem;
   display: none;
 }
@@ -531,9 +533,88 @@ body.header-hidden .menu-controls {
   inset: 0;
   z-index: 2;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: clamp(10px, 2.4vw, 20px);
   pointer-events: none;
+}
+
+/* اسم انگلیسی کافه، بالای لوگو، با یه ورود لوکس (باز شدن حروف + محو) و بعدش یه درخشش طلایی ملایم */
+.hero-cover-title {
+  font-family: var(--font-en);
+  font-weight: 500;
+  font-style: italic;
+  font-size: clamp(1.05rem, 3.2vw, 2rem);
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+  color: transparent;
+  background-image: linear-gradient(90deg, var(--gold) 0%, #f3dfa0 25%, #fff6d8 50%, #f3dfa0 75%, var(--gold) 100%);
+  background-size: 220% auto;
+  background-position: 200% center;
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.4));
+  opacity: 0;
+  letter-spacing: 0.02em;
+  animation:
+    heroTitleReveal 1.8s cubic-bezier(0.16, 0.8, 0.24, 1) 0.6s forwards,
+    heroTitleShine 7s linear 2.4s infinite;
+}
+
+@keyframes heroTitleReveal {
+  0% {
+    opacity: 0;
+    letter-spacing: 0.02em;
+    transform: translateY(10px);
+    background-position: 200% center;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+    letter-spacing: 0.5em;
+    transform: translateY(0);
+    background-position: 0% center;
+  }
+}
+
+@keyframes heroTitleShine {
+  0% {
+    background-position: 200% center;
+  }
+
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cover-title {
+    animation: none;
+    opacity: 1;
+    letter-spacing: 0.5em;
+    background-position: 0% center;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-cover-title {
+    letter-spacing: 0.3em;
+  }
+
+  @keyframes heroTitleReveal {
+    100% {
+      opacity: 1;
+      letter-spacing: 0.3em;
+      transform: translateY(0);
+      background-position: 0% center;
+    }
+  }
 }
 
 /* لوگوی وسط عکس: با اسکرول (که var(--intro-progress) رو از ۰ به ۱ می‌بره) کوچیک و محو میشه،
@@ -584,7 +665,7 @@ body.header-hidden .menu-controls {
 .location-block h2 {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 3vw, 2.4rem);
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: 0;
 }
 
@@ -788,7 +869,7 @@ body.header-hidden .menu-controls {
   text-align: center;
   font-family: var(--font-display);
   font-size: 1.3rem;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -858,7 +939,7 @@ body.header-hidden .menu-controls {
   text-align: center;
   font-family: var(--font-display);
   font-size: 1.5rem;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--ink);
   background: var(--accent-soft);
   border: 1px solid var(--accent);

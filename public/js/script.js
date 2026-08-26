@@ -524,10 +524,12 @@ async function loadSiteConfig() {
     const headerLogo = document.getElementById('headerLogoImg');
     const coverLogo = document.getElementById('heroCoverLogo');
     const coverImg = document.getElementById('heroCoverImg');
+    const splashLogo = document.getElementById('splashLogoImg');
 
     if (cfg.logo) {
       if (headerLogo) headerLogo.src = cfg.logo;
       if (coverLogo) coverLogo.src = cfg.logo;
+      if (splashLogo) splashLogo.src = cfg.logo;
     }
 
     if (cfg.cover && coverImg) {

@@ -401,9 +401,17 @@ export async function handleTextStep(env, chatId, text, session) {
 
 // ---------- پردازش عکس ارسالی در تلگرام ----------
 
-export async function handleImageStep(env, chatId, photoArray, session) {
-  // تلگرام عکس رو در چند سایز می‌فرسته، ما بزرگترین رو برمی‌داریم (آخرین آیتم آرایه)
-  const fileId = photoArray[photoArray.length - 1].file_id;
+export async function handleImageStep(env, chatId, msg, session) {
+  // عکس ممکنه فشرده (photo) یا به‌صورت فایل خام (document, مثلاً PNG شفاف بدون فشرده‌سازی) فرستاده شده باشه
+  let fileId;
+  if (msg.photo && msg.photo.length) {
+    // تلگرام عکس رو در چند سایز می‌فرسته، بزرگترین رو برمی‌داریم (آخرین آیتم آرایه)
+    fileId = msg.photo[msg.photo.length - 1].file_id;
+  } else if (msg.document) {
+    fileId = msg.document.file_id;
+  } else {
+    return forceReply(env, chatId, "❌ فرمت فایل شناسایی نشد. یه عکس (یا فایل تصویری) بفرست:");
+  }
 
   await sendMessage(env, chatId, "⏳ در حال آپلود عکس...");
 
@@ -510,10 +518,11 @@ export async function handleUpdate(update, env) {
 
     const session = await getSession(env, chatId);
     if (session) {
-      // اگر منتظر عکس بودیم و کاربر عکس فرستاد
+      // اگر منتظر عکس بودیم و کاربر عکس فرستاد (چه فشرده/photo، چه فایل خام/document)
       const waitingForPhoto = ["new_product_image", "new_category_image", "edit_category_image", "edit_product_image", "edit_site_logo", "edit_site_cover"];
-      if (msg.photo && waitingForPhoto.includes(session.step)) {
-        return handleImageStep(env, chatId, msg.photo, session);
+      const isImageDocument = msg.document && msg.document.mime_type && msg.document.mime_type.startsWith("image/");
+      if ((msg.photo || isImageDocument) && waitingForPhoto.includes(session.step)) {
+        return handleImageStep(env, chatId, msg, session);
       }
       // اگر متن فرستاد
       if (msg.text) return handleTextStep(env, chatId, msg.text, session);
