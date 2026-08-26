@@ -569,6 +569,39 @@ async function loadSiteConfig() {
   update();
 })();
 
+// ============ مخفی/نمایش هدر با جهت اسکرول (فضای بیشتر برای منو تو موبایل) ============
+// اسکرول به پایین → هدر می‌ره بالا و محو میشه. اسکرول به بالا → برمی‌گرده.
+// نزدیک بالای صفحه همیشه نمایش داده میشه تا حس گم‌شدن نده.
+(function initHeaderAutoHide() {
+  let lastScrollY = window.scrollY || 0;
+  let ticking = false;
+  const SHOW_NEAR_TOP = 80; // زیر این مقدار همیشه هدر دیده میشه
+  const HIDE_THRESHOLD = 8; // کمتر از این مقدار جابجایی، نادیده گرفته میشه (لرزش جزئی اسکرول)
+
+  function update() {
+    const currentY = window.scrollY || 0;
+    const delta = currentY - lastScrollY;
+
+    if (currentY <= SHOW_NEAR_TOP) {
+      document.body.classList.remove('header-hidden');
+    } else if (delta > HIDE_THRESHOLD) {
+      document.body.classList.add('header-hidden');
+    } else if (delta < -HIDE_THRESHOLD) {
+      document.body.classList.remove('header-hidden');
+    }
+
+    lastScrollY = currentY;
+    ticking = false;
+  }
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(update);
+      ticking = true;
+    }
+  }, { passive: true });
+})();
+
 // Init
 loadProducts();
 loadSiteConfig();
