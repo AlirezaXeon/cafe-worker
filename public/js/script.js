@@ -234,7 +234,7 @@ function getCategoryImage(catId) {
 function renderTabs() {
   const allBtn = `<button class="cat-card active" data-cat="all">
     <span class="cat-card-img cat-card-img--all">✦</span>
-    <span class="cat-card-label">همه</span>
+    <span class="cat-card-label">All</span>
   </button>`;
 
   const catBtns = productsData.categories.map(c => {

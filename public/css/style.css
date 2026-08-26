@@ -526,8 +526,8 @@ body.nav-open {
 /* لوگوی وسط عکس: با اسکرول (که var(--intro-progress) رو از ۰ به ۱ می‌بره) کوچیک و محو میشه،
    انگار داره به سمت لوگوی هدر پرواز می‌کنه */
 .hero-cover-logo {
-  width: clamp(88px, 18vw, 160px);
-  height: clamp(88px, 18vw, 160px);
+  width: clamp(132px, 27vw, 240px);
+  height: clamp(132px, 27vw, 240px);
   object-fit: contain;
   filter: drop-shadow(0 8px 28px rgba(0, 0, 0, 0.45));
   opacity: calc(1 - var(--intro-progress, 0));
@@ -597,12 +597,26 @@ body.nav-open {
   padding: 14px 0 16px;
   margin-inline: -16px;
   padding-inline: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* خط جداکننده‌ی طلایی زیر باکس دسته‌ها؛ به‌جای یه خط تخت و یکدست، دو طرفش محو می‌شه */
+.menu-controls::after {
+  content: '';
+  position: absolute;
+  right: 16px;
+  left: 16px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
+  opacity: 0.55;
+}
+
+:root[data-theme="light"] .menu-controls::after {
+  opacity: 0.4;
 }
 
 :root[data-theme="light"] .menu-controls {
   background: rgba(250, 248, 245, 0.82);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 /* فیکس اسکرول افقی تب‌ها */
@@ -624,7 +638,7 @@ body.nav-open {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
   flex-shrink: 0;
   width: 78px;
@@ -636,14 +650,14 @@ body.nav-open {
   border-radius: 50%;
   overflow: hidden;
   background: var(--card-bg);
-  border: 2px solid var(--line);
+  border: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--ink-soft);
-  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.35s ease;
 }
 
 .cat-card-img img {
@@ -658,8 +672,11 @@ body.nav-open {
 }
 
 .cat-card-label {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--ink-soft);
   white-space: nowrap;
   transition: color 0.3s ease;
@@ -670,13 +687,12 @@ body.nav-open {
 }
 
 .cat-card.active .cat-card-img {
-  border-color: var(--accent);
-  transform: scale(1.06);
-  box-shadow: var(--shadow-sm);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 4px 16px rgba(201, 162, 39, 0.25);
 }
 
 .cat-card.active .cat-card-label {
-  color: var(--ink);
+  color: var(--gold);
 }
 
 .sort-menu-wrap {
