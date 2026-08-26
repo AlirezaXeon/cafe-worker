@@ -96,7 +96,12 @@ function hideSplash() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(hideSplash, 700);
+  // اسپلش رو تا وقتی تنظیمات سایت (لوگو) لود نشده نگه می‌داریم، تا کاربر هیچ‌وقت
+  // حالت واسط («کافه روشن» متنی که بعد عوض میشه) رو نبینه. یه سقف زمانی هم هست
+  // که اگه نت کند بود یا درخواست گیر کرد، اسپلش برای همیشه نمونه.
+  const minDelay = new Promise((resolve) => setTimeout(resolve, 1900));
+  const safetyTimeout = new Promise((resolve) => setTimeout(resolve, 4500));
+  Promise.race([Promise.all([minDelay, siteConfigPromise]), safetyTimeout]).then(hideSplash);
 });
 
 // شبکه‌ی ایمنی: هر اتفاقی بیفته، اسپلش بیشتر از ۲.۵ ثانیه رو صفحه نمی‌مونه
@@ -527,9 +532,24 @@ async function loadSiteConfig() {
     const splashLogo = document.getElementById('splashLogoImg');
 
     if (cfg.logo) {
-      if (headerLogo) headerLogo.src = cfg.logo;
-      if (coverLogo) coverLogo.src = cfg.logo;
-      if (splashLogo) splashLogo.src = cfg.logo;
+      const logoFallback = document.getElementById('logoFallback');
+      const splashFallback = document.getElementById('splashFallback');
+
+      if (headerLogo) {
+        headerLogo.src = cfg.logo;
+        headerLogo.style.display = '';
+      }
+      if (coverLogo) {
+        coverLogo.src = cfg.logo;
+        coverLogo.style.display = '';
+      }
+      if (splashLogo) {
+        splashLogo.src = cfg.logo;
+        splashLogo.style.display = '';
+      }
+      // چون عکس واقعی (از ربات) داریم، فالبک متنی که موقع 404 اولیه‌ی logo.png نشون داده شده بود رو دوباره مخفی می‌کنیم
+      if (logoFallback) logoFallback.style.display = 'none';
+      if (splashFallback) splashFallback.style.display = 'none';
     }
 
     if (cfg.cover && coverImg) {
@@ -606,5 +626,5 @@ async function loadSiteConfig() {
 
 // Init
 loadProducts();
-loadSiteConfig();
+const siteConfigPromise = loadSiteConfig();
 renderCart();
