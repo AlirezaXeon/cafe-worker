@@ -509,18 +509,31 @@ function renderCart() {
     return;
   }
 
-  cartItemsEl.innerHTML = cart.map(item => `
-    <div class="cart-item">
-      <img src="${item.image}" alt="${item.name}" onerror="this.style.display='none'">
-      <div class="cart-item-info">
-        <span class="cart-item-name">${item.name}</span>
-        <span class="cart-item-price">${formatPrice(item.price * item.quantity)}</span>
+  cartItemsEl.innerHTML = cart.map((item, i) => `
+    <div class="cart-item" style="animation-delay: ${i * 60}ms">
+      <div class="cart-item-thumb">
+        <img src="${item.image}" alt="${item.name}" onerror="this.parentElement.style.display='none'">
       </div>
-      <div class="cart-item-actions">
-        <button class="qty-btn" onclick="changeQty('${item.id}', -1)">-</button>
-        <span class="mono">${item.quantity.toLocaleString('fa-IR')}</span>
-        <button class="qty-btn" onclick="changeQty('${item.id}', 1)">+</button>
-        <button class="remove-item" onclick="removeFromCart('${item.id}')">🗑</button>
+      <div class="cart-item-main">
+        <div class="cart-item-line1">
+          <span class="cart-item-name">${item.name}</span>
+          <button class="remove-item" onclick="removeFromCart('${item.id}')" aria-label="حذف محصول">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+              <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="cart-item-line2">
+          <div class="qty-control">
+            <button class="qty-btn" onclick="changeQty('${item.id}', -1)" aria-label="کم کردن">−</button>
+            <span class="qty-value mono">${item.quantity.toLocaleString('fa-IR')}</span>
+            <button class="qty-btn" onclick="changeQty('${item.id}', 1)" aria-label="اضافه کردن">+</button>
+          </div>
+          <span class="cart-item-price mono">${formatPrice(item.price * item.quantity)}</span>
+        </div>
       </div>
     </div>
   `).join('');

@@ -1694,7 +1694,7 @@ body.header-hidden .menu-controls {
 .cart-items {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 20px;
+  padding: 12px 20px 20px;
 }
 
 .cart-empty {
@@ -1703,84 +1703,187 @@ body.header-hidden .menu-controls {
   margin-top: 40px;
 }
 
+@keyframes cartItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .cart-item {
   display: flex;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+  align-items: center;
+  gap: 14px;
+  padding: 14px 10px;
+  margin-bottom: 8px;
+  border-radius: 16px;
+  transition: background 0.25s ease;
+  animation: cartItemIn 0.35s ease both;
 }
 
-.cart-item img {
-  width: 56px;
-  height: 56px;
-  border-radius: 10px;
-  object-fit: cover;
+.cart-item:hover {
+  background: var(--bg-alt);
+}
+
+.cart-item-thumb {
+  width: 88px;
+  height: 88px;
+  min-width: 88px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-alt);
   border: 1px solid var(--line);
+  transition: transform 0.3s ease;
 }
 
-.cart-item-info {
+.cart-item:hover .cart-item-thumb {
+  transform: scale(1.03);
+}
+
+.cart-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cart-item-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 2px;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cart-item-line1 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .cart-item-name {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.cart-item-line2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .cart-item-price {
   color: var(--accent);
-  font-size: 0.8rem;
-  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
-.cart-item-actions {
+.qty-control {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
+  border-radius: 50px;
+  padding: 4px;
 }
 
 .qty-btn {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--bg-alt);
+  border: none;
+  background: transparent;
   color: var(--ink);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
 }
 
 .qty-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+  transform: scale(1.08);
+}
+
+.qty-btn:active {
+  transform: scale(0.9);
+}
+
+.qty-value {
+  min-width: 20px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .remove-item {
-  color: #E55353;
-  background: none;
-  border: none;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
   cursor: pointer;
-  font-size: 1rem;
+  transition: all 0.25s ease;
+}
+
+.remove-item:hover {
+  color: #fff;
+  background: #E55353;
+  border-color: #E55353;
+  transform: rotate(-8deg) scale(1.08);
+}
+
+.remove-item:active {
+  transform: scale(0.9);
 }
 
 .cart-footer {
-  padding: 20px;
+  padding: 16px 20px 20px;
   border-top: 1px solid var(--line);
 }
 
 .cart-total {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin-bottom: 0;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 16px 20px;
+  transition: box-shadow 0.3s ease;
+}
+
+.cart-total:hover {
+  box-shadow: 0 0 0 4px rgba(157, 186, 143, 0.12);
+}
+
+.cart-total-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.cart-total-value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent);
 }
 
 /* حذف کامل دکمه تسویه */
