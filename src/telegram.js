@@ -386,7 +386,7 @@ export async function handleTextStep(env, chatId, text, session) {
         name: session.name,
         note: session.note,
         price: session.price,
-        image: "images/products/placeholder.jpg",
+        image: null,
       });
       await clearSession(env, chatId);
       await sendMessage(env, chatId, "✅ محصول جدید اضافه شد (بدون عکس).");

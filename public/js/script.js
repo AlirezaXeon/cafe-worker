@@ -96,16 +96,17 @@ function hideSplash() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // اسپلش رو تا وقتی تنظیمات سایت (لوگو) لود نشده نگه می‌داریم، تا کاربر هیچ‌وقت
-  // حالت واسط («کافه روشن» متنی که بعد عوض میشه) رو نبینه. یه سقف زمانی هم هست
-  // که اگه نت کند بود یا درخواست گیر کرد، اسپلش برای همیشه نمونه.
-  const minDelay = new Promise((resolve) => setTimeout(resolve, 1900));
-  const safetyTimeout = new Promise((resolve) => setTimeout(resolve, 4500));
-  Promise.race([Promise.all([minDelay, siteConfigPromise]), safetyTimeout]).then(hideSplash);
+  // اسپلش رو تا وقتی هم منو/محصولات و هم تنظیمات سایت (لوگو) کامل لود نشدن نگه می‌داریم،
+  // تا کاربر هیچ‌وقت سایت نصفه‌کاره یا در حال لود رو نبینه. اگه لود بیشتر از ۳ ثانیه طول کشید
+  // (نت کند، سرور کند، هرچی)، همون سقف ۳ ثانیه‌ای رعایت میشه و از رو اسپلش رد میشیم.
+  const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise]);
+  const hardCap = new Promise((resolve) => setTimeout(resolve, 3000));
+  Promise.race([allLoaded, hardCap]).then(hideSplash);
 });
 
-// شبکه‌ی ایمنی: هر اتفاقی بیفته، اسپلش بیشتر از ۲.۵ ثانیه رو صفحه نمی‌مونه
-setTimeout(hideSplash, 2500);
+// شبکه‌ی ایمنی نهایی: مهم نیست چه اتفاقی بیفته (حتی اگه DOMContentLoaded خودش گیر کنه)،
+// اسپلش بیشتر از ۳ ثانیه رو صفحه نمی‌مونه.
+setTimeout(hideSplash, 3000);
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -579,6 +580,12 @@ async function loadSiteConfig() {
       if (logoFallback) logoFallback.style.display = 'none';
       await revealSplash(true);
     } else {
+      // هنوز از ربات لوگویی آپلود نشده؛ چون <img> از اول src نداره، به‌جای منتظر موندن
+      // برای یه request ناموفق، مستقیم فالبک متنی رو نشون می‌دیم
+      const logoFallback = document.getElementById('logoFallback');
+      if (logoFallback) logoFallback.style.display = 'flex';
+      if (headerLogo) headerLogo.style.display = 'none';
+      if (coverLogo) coverLogo.style.display = 'none';
       await revealSplash(false);
     }
 
@@ -656,6 +663,6 @@ async function loadSiteConfig() {
 })();
 
 // Init
-loadProducts();
+const productsLoadedPromise = loadProducts();
 const siteConfigPromise = loadSiteConfig();
 renderCart();
