@@ -521,6 +521,38 @@ if (backToTopBtn) {
 }
 
 // ============ تنظیمات سایت: لوگو + عکس بالای سایت (قابل تغییر از ربات تلگرام) ============
+
+// اسپلش رو مرحله‌به‌مرحله نشون می‌ده: اول لوگو/فالبک، بعد عنوان، بعد شعار.
+// این تابع فقط وقتی صدا زده میشه که واقعاً بدونیم لوگو هست یا نه — پس هیچ متن
+// اشتباهی قبل از تصمیم نهایی فلش نمی‌زنه.
+function revealSplash(hasLogo) {
+  const splashLogo = document.getElementById('splashLogoImg');
+  const splashFallback = document.getElementById('splashFallback');
+  const splashTitle = document.getElementById('splashTitle');
+  const splashTagline = document.getElementById('splashTagline');
+
+  if (hasLogo && splashLogo) {
+    splashLogo.classList.add('show');
+  } else if (splashFallback) {
+    splashFallback.classList.add('show');
+  }
+  setTimeout(() => splashTitle && splashTitle.classList.add('show'), 350);
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      if (splashTagline) splashTagline.classList.add('show');
+      resolve();
+    }, 900);
+  });
+}
+
+// اگه مسیر واقعی لوگو (اونی که از ربات اومده) هم لود نشد، به فالبک متنی برمی‌گردیم
+window.showSplashFallback = function () {
+  const splashLogo = document.getElementById('splashLogoImg');
+  const splashFallback = document.getElementById('splashFallback');
+  if (splashLogo) splashLogo.classList.remove('show');
+  if (splashFallback) splashFallback.classList.add('show');
+};
+
 async function loadSiteConfig() {
   try {
     const res = await fetch('data/site.json');
@@ -533,7 +565,6 @@ async function loadSiteConfig() {
 
     if (cfg.logo) {
       const logoFallback = document.getElementById('logoFallback');
-      const splashFallback = document.getElementById('splashFallback');
 
       if (headerLogo) {
         headerLogo.src = cfg.logo;
@@ -543,13 +574,12 @@ async function loadSiteConfig() {
         coverLogo.src = cfg.logo;
         coverLogo.style.display = '';
       }
-      if (splashLogo) {
-        splashLogo.src = cfg.logo;
-        splashLogo.style.display = '';
-      }
-      // چون عکس واقعی (از ربات) داریم، فالبک متنی که موقع 404 اولیه‌ی logo.png نشون داده شده بود رو دوباره مخفی می‌کنیم
+      if (splashLogo) splashLogo.src = cfg.logo;
+      // چون عکس واقعی (از ربات) داریم، فالبک متنی هدر (اگه قبلاً به‌خاطر 404 نشون داده شده) رو مخفی می‌کنیم
       if (logoFallback) logoFallback.style.display = 'none';
-      if (splashFallback) splashFallback.style.display = 'none';
+      await revealSplash(true);
+    } else {
+      await revealSplash(false);
     }
 
     if (cfg.cover && coverImg) {
@@ -562,6 +592,7 @@ async function loadSiteConfig() {
     }
   } catch (err) {
     console.error('تنظیمات سایت لود نشد:', err);
+    await revealSplash(false);
   }
 }
 

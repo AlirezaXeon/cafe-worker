@@ -261,7 +261,13 @@ body.nav-open {
 #splash {
   position: fixed;
   inset: 0;
-  background: var(--bg);
+  background-color: #0B0D12;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(circle 520px at 22% 20%, rgba(160, 122, 56, 0.28), transparent 65%),
+    radial-gradient(circle 460px at 80% 78%, rgba(120, 38, 56, 0.22), transparent 65%);
+  background-repeat: repeat, no-repeat, no-repeat;
+  background-size: 180px 180px, auto, auto;
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -282,11 +288,31 @@ body.nav-open {
   gap: 18px;
 }
 
+/* هیچ‌کدوم از این‌ها تا وقتی جاوااسکریپت کلاس show رو اضافه نکنه دیده نمی‌شن؛
+   یعنی تا وقتی مطمئن نشدیم لوگو هست یا نه، هیچ متن/عکس اشتباهی فلش نمی‌زنه */
+.splash-logo,
+.splash-title,
+.splash-tagline {
+  opacity: 0;
+}
+
 .splash-logo {
   height: 170px;
   width: auto;
   object-fit: contain;
+}
+
+.splash-logo.show {
+  animation: splashLogoIn 0.5s ease forwards;
+}
+
+.splash-fallback {
+  display: none;
   opacity: 0;
+}
+
+.splash-fallback.show {
+  display: flex;
   animation: splashLogoIn 0.5s ease forwards;
 }
 
@@ -307,7 +333,7 @@ body.nav-open {
   font-family: var(--font-en);
   font-weight: 500;
   font-style: italic;
-  font-size: clamp(1.3rem, 4vw, 2.1rem);
+  font-size: clamp(1.7rem, 5.5vw, 2.7rem);
   text-transform: uppercase;
   text-align: center;
   white-space: nowrap;
@@ -318,12 +344,14 @@ body.nav-open {
   -webkit-background-clip: text;
   background-clip: text;
   filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.35));
-  opacity: 0;
   letter-spacing: 0.02em;
   margin: 0;
+}
+
+.splash-title.show {
   animation:
-    splashTitleReveal 1.1s cubic-bezier(0.16, 0.8, 0.24, 1) 0.35s forwards,
-    heroTitleShine 6s linear 1.4s infinite;
+    splashTitleReveal 1.1s cubic-bezier(0.16, 0.8, 0.24, 1) forwards,
+    heroTitleShine 6s linear 1.1s infinite;
 }
 
 @keyframes splashTitleReveal {
@@ -348,14 +376,16 @@ body.nav-open {
 
 .splash-tagline {
   font-family: var(--font-en);
-  font-size: 0.68rem;
+  font-size: 0.85rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.32em;
   color: var(--ink-soft);
   margin: 0;
-  opacity: 0;
-  animation: splashFadeIn 0.9s ease 0.9s forwards;
+}
+
+.splash-tagline.show {
+  animation: splashFadeIn 0.9s ease forwards;
 }
 
 @keyframes splashFadeIn {
@@ -372,13 +402,15 @@ body.nav-open {
 
 @media (prefers-reduced-motion: reduce) {
 
-  .splash-title,
-  .splash-tagline {
+  .splash-title.show,
+  .splash-tagline.show,
+  .splash-logo.show,
+  .splash-fallback.show {
     animation: none;
     opacity: 1;
   }
 
-  .splash-title {
+  .splash-title.show {
     letter-spacing: 0.35em;
     background-position: 0% center;
   }
@@ -1343,6 +1375,7 @@ body.header-hidden .menu-controls {
   padding: 24px;
   box-shadow: var(--shadow-sm);
   transition: all 0.3s ease;
+  text-align: center;
 }
 
 .location-block:hover {
@@ -1360,6 +1393,13 @@ body.header-hidden .menu-controls {
   color: var(--ink-soft);
   line-height: 1.8;
   font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.location-hours {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.9rem;
   margin-bottom: 16px;
 }
 
@@ -1377,19 +1417,19 @@ body.header-hidden .menu-controls {
 
 .social-links {
   display: flex;
-  gap: 14px;
+  gap: 28px;
   flex-direction: row;
-  justify-content: space-between;
-  margin-top: 4px;
+  justify-content: center;
+  margin-top: 8px;
 }
 
 .social-links a {
   color: var(--ink);
   background: var(--card-bg);
   border: 1px solid var(--line);
-  width: 88px;
-  height: 88px;
-  border-radius: 20px;
+  width: 110px;
+  height: 110px;
+  border-radius: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1398,8 +1438,8 @@ body.header-hidden .menu-controls {
 }
 
 .social-links a svg {
-  width: 42px;
-  height: 42px;
+  width: 52px;
+  height: 52px;
   transition: transform 0.3s ease;
 }
 

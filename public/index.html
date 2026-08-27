@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body id="top">
+<body id="top" style="background:#0B0D12;">
 
   <!-- بک‌گراند تزئینی: مش گرادیانت ارگانیک (Aurora) + بخار قهوه متحرک -->
   <div class="bg-decor" aria-hidden="true">
@@ -39,11 +39,11 @@
   <!-- SPLASH SCREEN -->
   <div id="splash">
     <div class="splash-inner">
-      <img src="images/logo.png" alt="کافه روشن" class="splash-logo" id="splashLogoImg"
-        onerror="this.style.display='none'; document.getElementById('splashFallback').style.display='flex';">
-      <div id="splashFallback" class="logo-fallback" style="font-size: 2.5rem; display:none;">کافه روشن</div>
-      <p class="splash-title">Roshan Café</p>
-      <p class="splash-tagline">A Moment of Calm</p>
+      <img alt="کافه روشن" class="splash-logo" id="splashLogoImg"
+        onerror="window.showSplashFallback && window.showSplashFallback();">
+      <div id="splashFallback" class="logo-fallback splash-fallback" style="font-size: 2.5rem;">کافه روشن</div>
+      <p class="splash-title" id="splashTitle">Roshan Café</p>
+      <p class="splash-tagline" id="splashTagline">A Moment of Calm</p>
       <div class="splash-progress"><span></span></div>
     </div>
   </div>
@@ -154,6 +154,7 @@
           <span class="section-num">آدرس</span>
           <h2>کجا پیدامون کنید</h2>
           <p class="location-text">خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲</p>
+          <p class="location-hours">هر روز، ۸ صبح تا ۱۱ شب</p>
           <div class="map-container">
             <iframe
               src="https://maps.google.com/maps?q=خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲&t=&z=15&ie=UTF8&iwloc=&output=embed"
