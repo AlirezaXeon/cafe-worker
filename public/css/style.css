@@ -300,6 +300,53 @@ body.nav-open {
   height: 170px;
   width: auto;
   object-fit: contain;
+  position: relative;
+  z-index: 1;
+}
+
+/* کانتینر لوگو: تا حلقه‌ی طلایی دقیقاً پشت لوگو و هم‌مرکز باهاش قرار بگیره */
+.splash-logo-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* حلقه‌ی طلایی بسیار کم‌رنگ پشت لوگو که آروم می‌چرخه؛ کاملاً CSS-only و بدون
+   هیچ فایل/درخواست شبکه‌ی اضافه، پس هیچ تاخیری به لودینگ اسپلش نمی‌زنه */
+.splash-ring {
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-top-color: rgba(201, 162, 39, 0.28);
+  border-left-color: rgba(201, 162, 39, 0.14);
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-ring.show {
+  opacity: 1;
+  animation: splashRingSpin 16s linear infinite;
+  transition: opacity 1.2s ease;
+}
+
+@keyframes splashRingSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-ring.show {
+    animation: none;
+  }
 }
 
 .splash-logo.show {
@@ -309,6 +356,8 @@ body.nav-open {
 .splash-fallback {
   display: none;
   opacity: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .splash-fallback.show {

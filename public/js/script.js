@@ -97,16 +97,16 @@ function hideSplash() {
 
 document.addEventListener('DOMContentLoaded', () => {
   // اسپلش رو تا وقتی هم منو/محصولات و هم تنظیمات سایت (لوگو) کامل لود نشدن نگه می‌داریم،
-  // تا کاربر هیچ‌وقت سایت نصفه‌کاره یا در حال لود رو نبینه. اگه لود بیشتر از ۳ ثانیه طول کشید
-  // (نت کند، سرور کند، هرچی)، همون سقف ۳ ثانیه‌ای رعایت میشه و از رو اسپلش رد میشیم.
+  // تا کاربر هیچ‌وقت سایت نصفه‌کاره یا در حال لود رو نبینه. اگه لود بیشتر از ۴ ثانیه طول کشید
+  // (نت کند، سرور کند، هرچی)، همون سقف ۴ ثانیه‌ای رعایت میشه و از رو اسپلش رد میشیم.
   const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise]);
-  const hardCap = new Promise((resolve) => setTimeout(resolve, 3000));
+  const hardCap = new Promise((resolve) => setTimeout(resolve, 4000));
   Promise.race([allLoaded, hardCap]).then(hideSplash);
 });
 
 // شبکه‌ی ایمنی نهایی: مهم نیست چه اتفاقی بیفته (حتی اگه DOMContentLoaded خودش گیر کنه)،
-// اسپلش بیشتر از ۳ ثانیه رو صفحه نمی‌مونه.
-setTimeout(hideSplash, 3000);
+// اسپلش بیشتر از ۴ ثانیه رو صفحه نمی‌مونه.
+setTimeout(hideSplash, 4000);
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -217,6 +217,35 @@ let productsData = { categories: [], products: [] };
 let activeCategory = 'all';
 let currentSort = 'default';
 
+// ============ اولویت‌بندی لود عکس محصولات: بعد از لوگو و کاور، یکی‌یکی ============
+// تا وقتی گیت باز نشده (یعنی کاور هنوز لود نشده)، عکس محصولات فقط data-src دارن و
+// هیچ درخواست شبکه‌ای براشون نمی‌ره؛ همین که گیت باز شد، یکی‌یکی (نه همه‌شون همزمان) لود میشن.
+let productImageGateOpen = false;
+
+function openProductImageGate() {
+  if (productImageGateOpen) return;
+  productImageGateOpen = true;
+  sequenceProductImages();
+}
+
+function sequenceProductImages() {
+  if (!productImageGateOpen) return;
+  const imgs = Array.from(grid.querySelectorAll('img[data-src]'));
+  if (!imgs.length) return;
+
+  let i = 0;
+  function next() {
+    if (i >= imgs.length) return;
+    const img = imgs[i++];
+    const src = img.getAttribute('data-src');
+    img.removeAttribute('data-src');
+    img.addEventListener('load', next, { once: true });
+    img.addEventListener('error', next, { once: true });
+    img.src = src;
+  }
+  next();
+}
+
 async function loadProducts() {
   try {
     const res = await fetch('data/products.json');
@@ -310,13 +339,17 @@ sortModal.querySelectorAll('.sort-option').forEach(btn => {
 
 function productCardHtml(p) {
   const imgSrc = p.image || getCategoryImage(p.category);
+  // تا وقتی گیت عکس‌ها باز نشده (یعنی لوگو و کاور هنوز در حال لودن)، عکس محصول رو با
+  // data-src می‌سازیم تا هیچ درخواست شبکه‌ای فوری نره؛ بعد از باز شدن گیت یکی‌یکی لود میشن.
+  // اگه گیت از قبل باز بود (مثلاً کاربر داره تب دسته‌بندی عوض می‌کنه)، مستقیم و فوری لود میشه.
+  const imgAttr = productImageGateOpen ? `src="${imgSrc}"` : `data-src="${imgSrc}"`;
   return `
     <article class="product-card" data-id="${p.id}">
       <svg class="card-neon" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <rect x="1" y="1" width="98" height="98" rx="7" ry="7" pathLength="100"></rect>
       </svg>
       <div class="product-image">
-        ${imgSrc ? `<img src="${imgSrc}" alt="${p.name}" onerror="this.remove(); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
+        ${imgSrc ? `<img ${imgAttr} alt="${p.name}" onerror="this.remove(); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
         <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${p.name.charAt(0)}</div>
       </div>
       <div class="product-info">
@@ -531,12 +564,14 @@ function revealSplash(hasLogo) {
   const splashFallback = document.getElementById('splashFallback');
   const splashTitle = document.getElementById('splashTitle');
   const splashTagline = document.getElementById('splashTagline');
+  const splashRing = document.getElementById('splashRing');
 
   if (hasLogo && splashLogo) {
     splashLogo.classList.add('show');
   } else if (splashFallback) {
     splashFallback.classList.add('show');
   }
+  if (splashRing) splashRing.classList.add('show');
   setTimeout(() => splashTitle && splashTitle.classList.add('show'), 350);
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -554,53 +589,79 @@ window.showSplashFallback = function () {
   if (splashFallback) splashFallback.classList.add('show');
 };
 
+// صبر می‌کنه یه <img> واقعاً دانلود/دیکد بشه (نه فقط src ست شده باشه)؛ اگه خطا خورد یا بیشتر
+// از سقف زمانی طول کشید، بازم ادامه میده (که یه‌جا برای همیشه گیر نکنیم)
+function waitForImage(img, timeoutMs) {
+  if (!img || !img.getAttribute('src')) return Promise.resolve();
+  if (img.complete) return Promise.resolve();
+  return Promise.race([
+    new Promise((resolve) => {
+      img.addEventListener('load', resolve, { once: true });
+      img.addEventListener('error', resolve, { once: true });
+    }),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
 async function loadSiteConfig() {
+  let cfg;
   try {
     const res = await fetch('data/site.json');
-    const cfg = await res.json();
+    cfg = await res.json();
+  } catch (err) {
+    console.error('تنظیمات سایت لود نشد:', err);
+    await revealSplash(false);
+    openProductImageGate();
+    return;
+  }
 
-    const headerLogo = document.getElementById('headerLogoImg');
-    const coverLogo = document.getElementById('heroCoverLogo');
-    const coverImg = document.getElementById('heroCoverImg');
-    const splashLogo = document.getElementById('splashLogoImg');
+  const headerLogo = document.getElementById('headerLogoImg');
+  const coverLogo = document.getElementById('heroCoverLogo');
+  const coverImg = document.getElementById('heroCoverImg');
+  const splashLogo = document.getElementById('splashLogoImg');
 
-    if (cfg.logo) {
-      const logoFallback = document.getElementById('logoFallback');
+  if (cfg.logo) {
+    const logoFallback = document.getElementById('logoFallback');
 
-      if (headerLogo) {
-        headerLogo.src = cfg.logo;
-        headerLogo.style.display = '';
-      }
-      if (coverLogo) {
-        coverLogo.src = cfg.logo;
-        coverLogo.style.display = '';
-      }
-      if (splashLogo) splashLogo.src = cfg.logo;
-      // چون عکس واقعی (از ربات) داریم، فالبک متنی هدر (اگه قبلاً به‌خاطر 404 نشون داده شده) رو مخفی می‌کنیم
-      if (logoFallback) logoFallback.style.display = 'none';
-      await revealSplash(true);
-    } else {
-      // هنوز از ربات لوگویی آپلود نشده؛ چون <img> از اول src نداره، به‌جای منتظر موندن
-      // برای یه request ناموفق، مستقیم فالبک متنی رو نشون می‌دیم
-      const logoFallback = document.getElementById('logoFallback');
-      if (logoFallback) logoFallback.style.display = 'flex';
-      if (headerLogo) headerLogo.style.display = 'none';
-      if (coverLogo) coverLogo.style.display = 'none';
-      await revealSplash(false);
+    if (headerLogo) {
+      headerLogo.src = cfg.logo;
+      headerLogo.style.display = '';
     }
+    if (coverLogo) {
+      coverLogo.src = cfg.logo;
+      coverLogo.style.display = '';
+    }
+    if (splashLogo) splashLogo.src = cfg.logo;
+    // چون عکس واقعی (از ربات) داریم، فالبک متنی هدر (اگه قبلاً به‌خاطر 404 نشون داده شده) رو مخفی می‌کنیم
+    if (logoFallback) logoFallback.style.display = 'none';
+    // قبل از اجرای انیمیشن ورود، صبر می‌کنیم عکس واقعی لوگو کامل دانلود بشه؛ وگرنه
+    // فید-این روی یه لوگوی نصفه/خالی اجرا می‌شد و بعد یهو عکس واقعی می‌پرید توش
+    await waitForImage(splashLogo, 2000);
+    await revealSplash(true);
+  } else {
+    // هنوز از ربات لوگویی آپلود نشده؛ چون <img> از اول src نداره، به‌جای منتظر موندن
+    // برای یه request ناموفق، مستقیم فالبک متنی رو نشون می‌دیم
+    const logoFallback = document.getElementById('logoFallback');
+    if (logoFallback) logoFallback.style.display = 'flex';
+    if (headerLogo) headerLogo.style.display = 'none';
+    if (coverLogo) coverLogo.style.display = 'none';
+    await revealSplash(false);
+  }
 
+  // از این‌جا به بعد (کاور + عکس محصولات) دیگه اسپلش رو معطل نمی‌کنه — اسپلش با همون
+  // سرعت قبلی محو میشه و اولویت‌بندی زیر در پس‌زمینه ادامه پیدا می‌کنه:
+  // اول کاور کامل لود میشه، بعدش تازه نوبت عکس محصولات (یکی‌یکی) میرسه.
+  (async () => {
     if (cfg.cover && coverImg) {
       coverImg.src = cfg.cover;
       coverImg.style.display = '';
       coverImg.closest('.hero-cover')?.classList.remove('no-cover');
+      await waitForImage(coverImg, 2500);
     } else {
-      // هنوز از ربات عکسی آپلود نشده؛ فقط پس‌زمینه‌ی گرادینت دیده میشه
       document.querySelector('.hero-cover')?.classList.add('no-cover');
     }
-  } catch (err) {
-    console.error('تنظیمات سایت لود نشد:', err);
-    await revealSplash(false);
-  }
+    openProductImageGate();
+  })();
 }
 
 // ============ انیمیشن اسکرول: لوگوی وسط عکس با اسکرول به سمت لوگوی هدر «پرواز» می‌کنه ============
