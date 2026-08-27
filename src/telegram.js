@@ -218,7 +218,12 @@ export async function handleCallback(env, chatId, data) {
   }
 
   if (action === "rmimg") {
+    const p = await findProduct(env, a);
     await setProductImage(env, a, null);
+    if (p && p.image) {
+      const oldFilename = p.image.split("/").pop();
+      if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+    }
     await sendMessage(env, chatId, "🗑 عکس محصول حذف شد.");
     return sendProductDetail(env, chatId, a);
   }
@@ -234,6 +239,10 @@ export async function handleCallback(env, chatId, data) {
     const p = await findProduct(env, a);
     const catId = p ? p.category : null;
     await deleteProduct(env, a);
+    if (p && p.image) {
+      const oldFilename = p.image.split("/").pop();
+      if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+    }
     await sendMessage(env, chatId, "🗑 محصول حذف شد.");
     return catId ? sendProductList(env, chatId, catId) : sendMainMenu(env, chatId);
   }
@@ -260,7 +269,12 @@ export async function handleCallback(env, chatId, data) {
   }
 
   if (action === "delcatyes") {
+    const cat = await findCategory(env, a);
     await deleteCategory(env, a);
+    if (cat && cat.image) {
+      const oldFilename = cat.image.split("/").pop();
+      if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+    }
     await sendMessage(env, chatId, "🗑 دسته حذف شد.");
     return sendCategoriesMenu(env, chatId);
   }
@@ -430,22 +444,35 @@ export async function handleImageStep(env, chatId, msg, session) {
     });
 
     const imagePath = `images/${filename}`;
+    const oldConfig = await getSiteConfig(env);
+    const oldPath = kind === "logo" ? oldConfig.logo : oldConfig.cover;
+
     if (kind === "logo") {
       await setSiteLogo(env, imagePath);
-      await clearSession(env, chatId);
       await sendMessage(env, chatId, "✅ لوگوی سایت به‌روزرسانی شد.");
     } else {
       await setSiteCover(env, imagePath);
-      await clearSession(env, chatId);
       await sendMessage(env, chatId, "✅ عکس بالای سایت به‌روزرسانی شد.");
     }
+
+    // پاک کردن عکس قدیمی از KV تا هم جا اشغال نکنه، هم یتیم نمونه
+    if (oldPath) {
+      const oldFilename = oldPath.split("/").pop();
+      if (oldFilename && oldFilename !== filename) {
+        await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+      }
+    }
+
+    await clearSession(env, chatId);
     return sendSiteImagesMenu(env, chatId);
   }
 
   // ---- عکس دسته‌بندی (هم موقع ساخت دسته‌ی جدید، هم ویرایش دسته‌ی موجود) ----
   if (session.step === "new_category_image" || session.step === "edit_category_image") {
     const catId = session.step === "new_category_image" ? session.id : session.catId;
-    const filename = `cat_${catId}.${fileData.ext}`;
+    // تایم‌استمپ توی اسم فایل لازمه: چون آدرس عکس رو "immutable" کش کردیم،
+    // اگه اسم فایل موقع ویرایش عوض نشه مرورگر همیشه نسخه‌ی قدیمی رو نشون میده
+    const filename = `cat_${catId}_${Date.now()}.${fileData.ext}`;
 
     await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
       metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
@@ -455,25 +482,39 @@ export async function handleImageStep(env, chatId, msg, session) {
 
     if (session.step === "new_category_image") {
       await addCategory(env, session.id, session.label, imagePath);
-      await clearSession(env, chatId);
       await sendMessage(env, chatId, "✅ دسته جدید همراه با عکس اضافه شد.");
     } else {
+      const oldCat = await findCategory(env, catId);
       await setCategoryImage(env, catId, imagePath);
-      await clearSession(env, chatId);
       await sendMessage(env, chatId, "✅ عکس دسته به‌روزرسانی شد.");
+      if (oldCat && oldCat.image) {
+        const oldFilename = oldCat.image.split("/").pop();
+        if (oldFilename && oldFilename !== filename) {
+          await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+        }
+      }
     }
+    await clearSession(env, chatId);
     return sendCategoriesMenu(env, chatId);
   }
 
   // ---- عکس محصول موجود (ویرایش/جایگزینی) ----
   if (session.step === "edit_product_image") {
-    const filename = `${session.productId}.${fileData.ext}`;
+    // همینطور تایم‌استمپ‌دار، به همون دلیل بالا (کش immutable)
+    const filename = `${session.productId}_${Date.now()}.${fileData.ext}`;
     await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
       metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
     });
+    const oldProduct = await findProduct(env, session.productId);
     await setProductImage(env, session.productId, `images/products/${filename}`);
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ عکس محصول به‌روزرسانی شد.");
+    if (oldProduct && oldProduct.image) {
+      const oldFilename = oldProduct.image.split("/").pop();
+      if (oldFilename && oldFilename !== filename) {
+        await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+      }
+    }
     return sendProductDetail(env, chatId, session.productId);
   }
 

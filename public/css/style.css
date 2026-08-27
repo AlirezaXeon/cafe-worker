@@ -36,26 +36,6 @@
   --aurora-blur: 120px;
 }
 
-:root[data-theme="light"] {
-  --bg: var(--light-bg);
-  --bg-alt: var(--light-bg-alt);
-  --ink: var(--light-ink);
-  --ink-soft: var(--light-ink-soft);
-  --line: var(--light-line);
-  --accent: var(--light-accent);
-  --accent-soft: var(--light-accent-soft);
-  --card-bg: var(--light-card-bg);
-  --overlay-bg: var(--light-overlay-bg);
-  --btn-ghost-bg: var(--light-btn-ghost-bg);
-  --shadow-sm: 0 4px 20px rgba(44, 37, 32, 0.06);
-  --shadow-md: 0 12px 40px rgba(44, 37, 32, 0.1);
-  --shadow-lg: 0 24px 60px rgba(44, 37, 32, 0.15);
-  --aurora-1: rgba(199, 122, 55, 0.42);
-  --aurora-2: rgba(130, 42, 62, 0.26);
-  --aurora-3: rgba(196, 148, 45, 0.30);
-  --aurora-blur: 85px;
-}
-
 * {
   box-sizing: border-box;
   margin: 0;
@@ -93,15 +73,6 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 180px 180px;
-}
-
-:root[data-theme="light"] body::before {
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-:root[data-theme="light"] body {
-  background-image: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(138, 109, 61, 0.05), transparent 70%);
 }
 
 /* بلاب‌های نوری بزرگ که پشت محتوا شناورن و واضح حرکت می‌کنن — عنصرهاشون از قبل تو index.html هست */
@@ -517,11 +488,6 @@ body.nav-open {
   transition: background 0.3s ease;
 }
 
-:root[data-theme="light"] .site-header {
-  background: rgba(250, 248, 245, 0.85);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
 .header-inner {
   display: flex;
   align-items: center;
@@ -588,27 +554,6 @@ body.nav-open {
 
 .main-nav a:hover::after {
   width: 100%;
-}
-
-.theme-toggle {
-  background: var(--btn-ghost-bg);
-  border: 1px solid var(--line);
-  color: var(--ink);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-}
-
-.theme-toggle:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: rotate(15deg);
 }
 
 .nav-toggle {
@@ -884,14 +829,6 @@ body.header-hidden .menu-controls {
   opacity: 0.55;
 }
 
-:root[data-theme="light"] .menu-controls::after {
-  opacity: 0.4;
-}
-
-:root[data-theme="light"] .menu-controls {
-  background: rgba(250, 248, 245, 0.82);
-}
-
 /* فیکس اسکرول افقی تب‌ها */
 .tabs {
   display: flex;
@@ -1165,22 +1102,6 @@ body.header-hidden .menu-controls {
   background: rgba(212, 145, 143, 0.06);
 }
 
-:root[data-theme="light"] .product-card:has(.cat-dot[data-cat="coffee"]) {
-  background: rgba(181, 136, 99, 0.08);
-}
-
-:root[data-theme="light"] .product-card:has(.cat-dot[data-cat="breakfast"]) {
-  background: rgba(232, 169, 62, 0.08);
-}
-
-:root[data-theme="light"] .product-card:has(.cat-dot[data-cat="dessert"]) {
-  background: rgba(157, 186, 143, 0.1);
-}
-
-:root[data-theme="light"] .product-card:has(.cat-dot[data-cat="sweets"]) {
-  background: rgba(212, 145, 143, 0.1);
-}
-
 /* نئونی که دقیقاً روی خط لبه‌ی کادر (دور تا دور مستطیل) حرکت می‌کنه، نه چرخش از وسط */
 .card-neon {
   position: absolute;
@@ -1344,11 +1265,7 @@ body.header-hidden .menu-controls {
 
 /* ============ ABOUT ============ */
 .about-section {
-  background: var(--bg-alt);
   padding: 80px 0;
-  border-radius: 24px;
-  margin: 0 16px;
-  overflow: hidden;
 }
 
 .about-inner {
@@ -1528,10 +1445,6 @@ body.header-hidden .menu-controls {
   width: 100%;
   height: 100%;
   filter: grayscale(20%) contrast(1.1);
-}
-
-:root[data-theme="light"] .map-container iframe {
-  filter: none;
 }
 
 /* ============ FOOTER ============ */
@@ -1900,13 +1813,6 @@ body.header-hidden .menu-controls {
   visibility: hidden;
   transform: translateY(100px) scale(0.9);
   transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-:root[data-theme="light"] .floating-cart {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 16px 40px rgba(44, 37, 32, 0.15);
-  color: var(--light-ink);
 }
 
 .floating-cart.active {

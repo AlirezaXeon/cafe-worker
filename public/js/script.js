@@ -38,24 +38,7 @@ function unlockScroll() {
   }
 }
 
-// ============ THEME TOGGLE ============
-const themeToggle = document.getElementById('themeToggle');
-const htmlEl = document.documentElement;
-const savedTheme = localStorage.getItem('theme') || 'dark';
-htmlEl.setAttribute('data-theme', savedTheme);
-updateThemeIcon(savedTheme);
-
-themeToggle.addEventListener('click', () => {
-  const currentTheme = htmlEl.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  htmlEl.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-  updateThemeIcon(newTheme);
-});
-
-function updateThemeIcon(theme) {
-  themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
-}
+// تم روشن حذف شد (باگ داشت) — سایت همیشه تیره‌ست، نیازی به تنظیم data-theme نیست
 
 // ============ MOBILE NAV ============
 const navToggle = document.getElementById('navToggle');
