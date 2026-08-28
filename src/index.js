@@ -73,6 +73,21 @@ export default {
     }
 
     // ۲. اگر عکس تو KV نبود (یعنی عکس‌های پیش‌فرض و استاتیک سایت هستند)، میدیم به کلودفلر از فایل‌های هارد بخونه
-    return env.ASSETS.fetch(request);
+    const assetResponse = await env.ASSETS.fetch(request);
+
+    // برای HTML/JS/CSS: به‌جای کش کورکورانه‌ی طولانی، مرورگر/Cloudflare هر بار چک کنن نسخه عوض شده یا نه
+    // (no-cache یعنی بازم کش می‌کنه، ولی قبل از استفاده باید Revalidate کنه، نه اینکه کورکورانه قبول کنه).
+    // این همون کلاس باگی بود که برای products.json داشتیم (سرورهای مختلف Cloudflare هرکدوم یه
+    // نسخه‌ی قدیمی رو جدا کش کرده بودن)؛ این‌جا برای خودِ فایل‌های سایت هم پیش‌گیری‌ش می‌کنیم.
+    // بر اساس content-type چک می‌کنیم (نه پسوند مسیر)، چون index.html هم باید همین رفتار رو داشته باشه
+    // وگرنه اگه خودِ HTML قدیمی کش بمونه، بازم به آدرس قدیمی script.js اشاره می‌کنه.
+    const contentType = assetResponse.headers.get('content-type') || '';
+    if (contentType.includes('text/html') || contentType.includes('javascript') || contentType.includes('text/css')) {
+      const response = new Response(assetResponse.body, assetResponse);
+      response.headers.set('Cache-Control', 'no-cache');
+      return response;
+    }
+
+    return assetResponse;
   },
 };
