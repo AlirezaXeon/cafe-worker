@@ -7,6 +7,7 @@ import {
   applyCategoryPercent,
   setProductPrice,
   setProductImage,
+  toggleProductAvailability,
   setProductDiscount,
   removeProductDiscount,
   addProduct,
@@ -35,6 +36,28 @@ async function tg(env, method, payload) {
   return res.json();
 }
 
+// ---------- تمیز نگه داشتن چت (پاک کردن پیام‌های قبلی) ----------
+// چون کیبورد پنل هربار یه پیام جدید می‌سازه، بدون این کار چت خیلی زود شلوغ می‌شد.
+// اینجا فقط همیشه آخرین پیام ربات رو نگه می‌داریم و قبل از فرستادن پیام جدید، قبلی رو پاک می‌کنیم.
+async function deleteMessageSafe(env, chatId, messageId) {
+  if (!messageId) return;
+  try {
+    await tg(env, "deleteMessage", { chat_id: chatId, message_id: messageId });
+  } catch {
+    // پیام قدیمی‌تر از ۴۸ ساعت یا از قبل حذف‌شده؛ مهم نیست، نادیده می‌گیریم
+  }
+}
+
+async function sendAndTrack(env, chatId, payload) {
+  const prevId = await env.PRODUCTS_KV.get(`botmsg:${chatId}`);
+  if (prevId) await deleteMessageSafe(env, chatId, Number(prevId));
+  const res = await tg(env, "sendMessage", payload);
+  if (res.ok && res.result?.message_id) {
+    await env.PRODUCTS_KV.put(`botmsg:${chatId}`, String(res.result.message_id));
+  }
+  return res;
+}
+
 // دانلود فایل عکس از سرورهای تلگرام
 async function downloadTelegramFile(env, fileId) {
   // ۱. گرفتن مسیر فایل از تلگرام
@@ -54,15 +77,37 @@ async function downloadTelegramFile(env, fileId) {
 }
 
 const sendMessage = (env, chatId, text, keyboard) =>
-  tg(env, "sendMessage", {
+  sendAndTrack(env, chatId, {
     chat_id: chatId,
     text,
     parse_mode: "HTML",
     reply_markup: keyboard ? { inline_keyboard: keyboard } : undefined,
   });
 
+// برچسب‌های دکمه‌های پنل اصلی؛ چون این دکمه‌ها روی خود کیبورد تلگرام میشینن (نه زیر پیام)،
+// همیشه بالای صفحه‌ی تایپ در دسترسن، حتی وقتی چند تا پیام قبلی رو اسکرول کردی بره بالا.
+const MAIN_PANEL_BUTTONS = [
+  ["📦 محصولات", "🏷 دسته‌بندی‌ها"],
+  ["💰 تغییر قیمت دسته‌جمعی", "🖼 تصاویر سایت"],
+];
+
+const mainPanelKeyboard = () => ({
+  keyboard: MAIN_PANEL_BUTTONS,
+  resize_keyboard: true,
+  is_persistent: true,
+});
+
+// نسخه‌ی sendMessage که به‌جای دکمه‌ی زیر پیام، همون کیبورد ثابت پنل رو ضمیمه می‌کنه
+const sendMessageWithPanel = (env, chatId, text) =>
+  sendAndTrack(env, chatId, {
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    reply_markup: mainPanelKeyboard(),
+  });
+
 const forceReply = (env, chatId, text) =>
-  tg(env, "sendMessage", {
+  sendAndTrack(env, chatId, {
     chat_id: chatId,
     text,
     parse_mode: "HTML",
@@ -75,12 +120,11 @@ const answerCallback = (env, id, text) =>
 // ---------- منوها ----------
 
 async function sendMainMenu(env, chatId) {
-  await sendMessage(env, chatId, "🍰 <b>مدیریت کافه روشن</b>\nیکی رو انتخاب کن:", [
-    [{ text: "📦 محصولات", callback_data: "menu:products" }],
-    [{ text: "🏷 دسته‌بندی‌ها", callback_data: "menu:categories" }],
-    [{ text: "💰 تغییر قیمت دسته‌جمعی", callback_data: "menu:bulk" }],
-    [{ text: "🖼 تصاویر سایت (لوگو / کاور)", callback_data: "menu:siteimages" }],
-  ]);
+  await sendMessageWithPanel(
+    env,
+    chatId,
+    "🍰 <b>مدیریت کافه روشن</b>\nاز کیبورد پایین صفحه یکی رو انتخاب کن 👇"
+  );
 }
 
 async function sendSiteImagesMenu(env, chatId) {
@@ -112,12 +156,16 @@ async function sendCategoryPicker(env, chatId, mode) {
 async function sendProductList(env, chatId, catId) {
   const cat = await findCategory(env, catId);
   const products = await productsInCategory(env, catId);
-  const rows = products.map((p) => [
-    {
-      text: p.originalPrice ? `${p.name} — ${formatToman(p.price)} 🏷` : `${p.name} — ${formatToman(p.price)}`,
-      callback_data: `prod:${p.id}`,
-    },
-  ]);
+  const rows = products.map((p) => {
+    const hiddenMark = p.available ? "" : "🚫 ";
+    const discountMark = p.originalPrice ? " 🏷" : "";
+    return [
+      {
+        text: `${hiddenMark}${p.name} — ${formatToman(p.price)}${discountMark}`,
+        callback_data: `prod:${p.id}`,
+      },
+    ];
+  });
   rows.push([{ text: "➕ افزودن محصول جدید", callback_data: `catpick:newprod:${catId}` }]);
   rows.push([{ text: "🔙 بازگشت", callback_data: "menu:products" }]);
   await sendMessage(env, chatId, `📦 محصولات دسته «${escapeHtml(cat ? cat.label : catId)}»`, rows);
@@ -132,14 +180,23 @@ async function sendProductDetail(env, chatId, productId) {
     ? `💰 قیمت: <s>${formatToman(p.originalPrice)}</s> ← ${formatToman(p.price)}`
     : `💰 قیمت: ${formatToman(p.price)}`;
 
+  const availabilityLine = p.available
+    ? "🟢 وضعیت: رو سایت نمایش داده می‌شه"
+    : "🔴 وضعیت: از سایت پنهانه (موجود نیست)";
+
   const text = `<b>${escapeHtml(p.name)}</b>\nدسته: ${escapeHtml(cat ? cat.label : p.category)}\n${escapeHtml(
     p.note
-  )}\n${priceLine}`;
+  )}\n${priceLine}\n${availabilityLine}`;
 
   const rows = [
     [{ text: "✏️ ویرایش قیمت", callback_data: `editprice:${p.id}` }],
     [{ text: "🏷 اعمال تخفیف", callback_data: `discount:${p.id}` }],
     [{ text: "🖼 تغییر عکس", callback_data: `editimg:${p.id}` }],
+    [
+      p.available
+        ? { text: "🚫 پنهان کن (فعلاً موجود نیست)", callback_data: `toggleavail:${p.id}` }
+        : { text: "✅ برگردون به سایت (موجود شد)", callback_data: `toggleavail:${p.id}` },
+    ],
   ];
   if (p.originalPrice) rows.push([{ text: "❌ حذف تخفیف", callback_data: `rmdiscount:${p.id}` }]);
   if (p.image) rows.push([{ text: "🗑 حذف عکس", callback_data: `rmimg:${p.id}` }]);
@@ -225,6 +282,16 @@ export async function handleCallback(env, chatId, data) {
       if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
     }
     await sendMessage(env, chatId, "🗑 عکس محصول حذف شد.");
+    return sendProductDetail(env, chatId, a);
+  }
+
+  if (action === "toggleavail") {
+    const next = await toggleProductAvailability(env, a);
+    if (next === 1) {
+      await sendMessage(env, chatId, "✅ محصول برگشت رو سایت.");
+    } else if (next === 0) {
+      await sendMessage(env, chatId, "🚫 محصول از سایت پنهان شد (تا وقتی دوباره فعالش کنی، مشتری نمی‌بینتش).");
+    }
     return sendProductDetail(env, chatId, a);
   }
 
@@ -552,9 +619,32 @@ export async function handleUpdate(update, env) {
     const fromId = String(msg.from.id);
     if (!adminIds.includes(fromId)) return; // کاربر غیرمجاز؛ نادیده گرفته میشه
 
+    // پیام خود ادمین رو هم پاک می‌کنیم (چه فشردن دکمه‌ی کیبورد، چه تایپ متن) تا چت شلوغ نشه.
+    // چون قبلش از msg خودمون کپی همه‌چیز (متن/عکس/فایل) رو داریم، حذف پیام تأثیری رو پردازش نداره.
+    await deleteMessageSafe(env, chatId, msg.message_id);
+
     if (msg.text === "/start") {
       await clearSession(env, chatId);
       return sendMainMenu(env, chatId);
+    }
+
+    // دکمه‌های خود کیبورد (نه زیر پیام) به‌صورت متن ساده میان؛ چون این‌ها همیشه در دسترسن،
+    // با فشردنشون هر مرحله‌ی نیمه‌کاره‌ای (منتظر عکس/متن) رو کنار می‌ذاریم و می‌ریم سراغ همون بخش.
+    if (msg.text === "📦 محصولات") {
+      await clearSession(env, chatId);
+      return sendCategoryPicker(env, chatId, "browse");
+    }
+    if (msg.text === "🏷 دسته‌بندی‌ها") {
+      await clearSession(env, chatId);
+      return sendCategoriesMenu(env, chatId);
+    }
+    if (msg.text === "💰 تغییر قیمت دسته‌جمعی") {
+      await clearSession(env, chatId);
+      return sendCategoryPicker(env, chatId, "bulk");
+    }
+    if (msg.text === "🖼 تصاویر سایت") {
+      await clearSession(env, chatId);
+      return sendSiteImagesMenu(env, chatId);
     }
 
     const session = await getSession(env, chatId);

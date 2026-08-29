@@ -10,7 +10,7 @@ export async function getProducts(env) {
     env.DB.prepare("SELECT id, label, image FROM categories").all(),
     env.DB
       .prepare(
-        "SELECT id, category, name, note, price, original_price AS originalPrice, image FROM products"
+        "SELECT id, category, name, note, price, original_price AS originalPrice, image, available FROM products"
       )
       .all(),
   ]);
@@ -26,7 +26,7 @@ export async function findCategory(env, catId) {
 export async function productsInCategory(env, catId) {
   const { results } = await env.DB
     .prepare(
-      "SELECT id, category, name, note, price, original_price AS originalPrice, image FROM products WHERE category = ?"
+      "SELECT id, category, name, note, price, original_price AS originalPrice, image, available FROM products WHERE category = ?"
     )
     .bind(catId)
     .all();
@@ -36,7 +36,7 @@ export async function productsInCategory(env, catId) {
 export async function findProduct(env, productId) {
   return env.DB
     .prepare(
-      "SELECT id, category, name, note, price, original_price AS originalPrice, image FROM products WHERE id = ?"
+      "SELECT id, category, name, note, price, original_price AS originalPrice, image, available FROM products WHERE id = ?"
     )
     .bind(productId)
     .first();
@@ -80,6 +80,15 @@ export async function setProductPrice(env, productId, price) {
 
 export async function setProductImage(env, productId, image) {
   await env.DB.prepare("UPDATE products SET image = ? WHERE id = ?").bind(image, productId).run();
+}
+
+// پنهان/نمایان کردن محصول رو سایت مشتری، بدون حذف کردنش (برای وقتی موقتاً موجود نیست)
+export async function toggleProductAvailability(env, productId) {
+  const p = await env.DB.prepare("SELECT available FROM products WHERE id = ?").bind(productId).first();
+  if (!p) return null;
+  const next = p.available ? 0 : 1;
+  await env.DB.prepare("UPDATE products SET available = ? WHERE id = ?").bind(next, productId).run();
+  return next;
 }
 
 export async function setProductDiscount(env, productId, percent) {
