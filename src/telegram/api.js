@@ -55,6 +55,18 @@ export async function downloadTelegramFile(env, fileId) {
   };
 }
 
+export async function pinMessage(env, chatId, messageId) {
+  try {
+    await tg(env, "pinChatMessage", { chat_id: chatId, message_id: messageId, disable_notification: true });
+  } catch {
+    // پین‌کردن شکست خورد (مثلاً محدودیت تلگرام)؛ مهم نیست، نادیده می‌گیریم
+  }
+}
+
+// پیام خام، خارج از چرخه‌ی sendAndTrack — یعنی با فرستادن پیام بعدی پاک نمی‌شه.
+// برای چیزی مثل راهنمای پین‌شده که باید همیشه در دسترس بمونه.
+export const sendRaw = (env, payload) => tg(env, "sendMessage", payload);
+
 export const sendMessage = (env, chatId, text, keyboard) =>
   sendAndTrack(env, chatId, {
     chat_id: chatId,

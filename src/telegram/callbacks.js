@@ -10,6 +10,7 @@ import {
   deleteCategory,
 } from "../data/products.js";
 import { getSession, setSession, clearSession } from "../data/session.js";
+import { findOrphanImageKeys, deleteOrphanImages } from "../data/maintenance.js";
 import { sendMessage, forceReply } from "./api.js";
 import { toFa } from "./format.js";
 import {
@@ -39,6 +40,30 @@ export async function handleCallback(env, chatId, data) {
   if (data === "siteimg:cover") {
     await setSession(env, chatId, { step: "edit_site_cover" });
     return forceReply(env, chatId, "🖼 عکس جدید بالای سایت رو بفرست (افقی، عریض، از فضای کافه):");
+  }
+
+  if (data === "siteimg:cleanup") {
+    const orphans = await findOrphanImageKeys(env);
+    if (orphans.length === 0) {
+      return sendMessage(env, chatId, "🧹 هیچ عکس اضافی‌ای پیدا نشد؛ همه‌چیز تمیزه.", [
+        [{ text: "🔙 بازگشت", callback_data: "menu:siteimages" }],
+      ]);
+    }
+    return sendMessage(
+      env,
+      chatId,
+      `🧹 ${toFa(orphans.length)} عکس پیدا شد که دیگه به هیچ محصول/دسته/لوگو/کاوری وصل نیستن (باقی‌مونده از قبل). حذفشون کنم؟`,
+      [
+        [{ text: "✅ آره، پاک کن", callback_data: "cleanupyes" }],
+        [{ text: "❌ نه", callback_data: "menu:siteimages" }],
+      ]
+    );
+  }
+
+  if (data === "cleanupyes") {
+    const count = await deleteOrphanImages(env);
+    await sendMessage(env, chatId, `🧹 ${toFa(count)} عکس اضافی پاک شد.`);
+    return sendSiteImagesMenu(env, chatId);
   }
 
   if (action === "catpick") {

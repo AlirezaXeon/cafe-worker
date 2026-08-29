@@ -1,28 +1,47 @@
 import { getProducts, productsInCategory, findProduct, findCategory } from "../data/products.js";
 import { getSiteConfig } from "../data/site.js";
-import { sendMessage, sendMessageWithPanel } from "./api.js";
+import { sendMessage, sendMessageWithPanel, pinMessage, sendRaw } from "./api.js";
 import { formatToman, escapeHtml } from "./format.js";
+
+// راهنمای ساده و همیشه در دسترس؛ برخلاف بقیه‌ی پیام‌ها با پیام بعدی پاک نمی‌شه، چون
+// پین می‌شه و از چرخه‌ی sendAndTrack خارجه. فقط یه‌بار (برای هر چت) فرستاده و پین می‌شه.
+const GUIDE_TEXT =
+  "📌 <b>راهنمای سریع</b>\n" +
+  "برای تغییر قیمت یا عکس هر محصول:\n" +
+  "📦 محصولات ← دسته موردنظر ← محصول موردنظر\n\n" +
+  "🖼 تصاویر سایت ← لوگو یا عکس بالای سایت\n" +
+  "💰 تغییر قیمت دسته‌جمعی ← تخفیف/افزایش قیمت یه دسته کامل\n\n" +
+  "این پیام پین شده، هر وقت لازم شد از بالای چت بازش کن.";
+
+async function ensureGuidePinned(env, chatId) {
+  const already = await env.PRODUCTS_KV.get(`guidepinned:${chatId}`);
+  if (already) return;
+  const res = await sendRaw(env, { chat_id: chatId, text: GUIDE_TEXT, parse_mode: "HTML" });
+  if (res.ok && res.result?.message_id) {
+    await pinMessage(env, chatId, res.result.message_id);
+    await env.PRODUCTS_KV.put(`guidepinned:${chatId}`, String(res.result.message_id));
+  }
+}
 
 // ---------- منوها ----------
 
 export async function sendMainMenu(env, chatId) {
-  await sendMessageWithPanel(
-    env,
-    chatId,
-    "🍰 <b>مدیریت کافه روشن</b>\nاز کیبورد پایین صفحه یکی رو انتخاب کن 👇"
-  );
+  await ensureGuidePinned(env, chatId);
+  await sendMessageWithPanel(env, chatId, "🍰 <b>مدیریت کافه روشن</b>");
 }
 
 export async function sendSiteImagesMenu(env, chatId) {
   const cfg = await getSiteConfig(env);
+  const logoStatus = cfg.logo ? "✅ تنظیم شده" : "⛔️ هنوز آپلود نشده";
   const coverStatus = cfg.cover ? "✅ تنظیم شده" : "⛔️ هنوز آپلود نشده";
   await sendMessage(
     env,
     chatId,
-    `🖼 <b>تصاویر سایت</b>\n\nلوگو: ✅ تنظیم شده\nعکس بالای سایت: ${coverStatus}`,
+    `🖼 <b>تصاویر سایت</b>\n\nلوگو: ${logoStatus}\nعکس بالای سایت: ${coverStatus}`,
     [
       [{ text: "🖼 تغییر لوگو", callback_data: "siteimg:logo" }],
       [{ text: "🖼 تغییر عکس بالای سایت", callback_data: "siteimg:cover" }],
+      [{ text: "🧹 پاکسازی عکس‌های اضافی", callback_data: "siteimg:cleanup" }],
       [{ text: "🔙 بازگشت", callback_data: "menu:home" }],
     ]
   );
