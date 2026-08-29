@@ -1,6 +1,6 @@
 import { handleUpdate } from "./telegram.js";
-import { getProducts } from "./products.js";
-import { getSiteConfig } from "./site.js";
+import { getProducts } from "./data/products.js";
+import { getSiteConfig } from "./data/site.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -13,7 +13,7 @@ export default {
       // خود ربات جدا از این تابع، همه‌ی محصولات (حتی پنهان‌شده‌ها) رو می‌بینه تا بشه دوباره فعالشون کرد.
       data.products = data.products.filter((p) => p.available !== 0);
       return new Response(JSON.stringify(data), {
-        headers: { "content-type": "application/json; charset=utf-8" },
+        headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
       });
     }
 
