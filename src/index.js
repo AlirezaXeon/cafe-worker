@@ -1,16 +1,20 @@
 import { handleUpdate } from "./telegram.js";
 import { getProducts } from "./data/products.js";
 import { getSiteConfig } from "./data/site.js";
+import { handleAdminAPI } from './handlers/admin.js';
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
+    // ✅ اینجا — بالاترین خط، قبل از همه چیز
+    if (url.pathname.startsWith('/admin/api')) {
+      return handleAdminAPI(request, env);
+    }
+
     // محصولات رو دیگه از فایل استاتیک نمی‌خونیم، از D1 می‌خونیم تا ربات بتونه تغییرشون بده
     if (url.pathname === "/data/products.json") {
       const data = await getProducts(env);
-      // محصولاتی که ادمین موقتاً «پنهان» کرده (چون الان تو کافه موجود نیست) رو از سایت مشتری حذف می‌کنیم؛
-      // خود ربات جدا از این تابع، همه‌ی محصولات (حتی پنهان‌شده‌ها) رو می‌بینه تا بشه دوباره فعالشون کرد.
       data.products = data.products.filter((p) => p.available !== 0);
       return new Response(JSON.stringify(data), {
         headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },

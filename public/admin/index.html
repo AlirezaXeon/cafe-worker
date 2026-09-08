@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>پنل مدیریت کافه روشن</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#f5f4f0;--surface:#fff;--border:#e0ddd5;
+    --text:#1a1a18;--muted:#6b6a65;--accent:#c8773a;
+    --accent-dark:#a85e28;--danger:#c0392b;--success:#27ae60;
+    --radius:10px;--shadow:0 2px 12px rgba(0,0,0,.08);
+  }
+  body{font-family:system-ui,'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
+
+  /* ── Login ─────────────────────────────────────────────────────────── */
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
+  .login-card{background:var(--surface);border-radius:16px;padding:2.5rem;width:100%;max-width:380px;box-shadow:var(--shadow);text-align:center}
+  .login-card h1{font-size:1.4rem;margin-bottom:.25rem;color:var(--accent)}
+  .login-card p{color:var(--muted);margin-bottom:2rem;font-size:.85rem}
+  .field{text-align:right;margin-bottom:1rem}
+  .field label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:.3rem}
+  .field input{width:100%;padding:.7rem 1rem;border:1.5px solid var(--border);border-radius:var(--radius);font-size:.95rem;outline:none;transition:.2s}
+  .field input:focus{border-color:var(--accent)}
+  .btn{display:inline-flex;align-items:center;gap:.4rem;padding:.65rem 1.4rem;border:none;border-radius:var(--radius);cursor:pointer;font-size:.9rem;font-weight:600;transition:.18s}
+  .btn-primary{background:var(--accent);color:#fff;width:100%}
+  .btn-primary:hover{background:var(--accent-dark)}
+  .btn-sm{padding:.4rem .9rem;font-size:.8rem}
+  .btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btn-danger{background:#fef0ee;color:var(--danger);border:1.5px solid #f5c5be}
+  .btn-danger:hover{background:var(--danger);color:#fff}
+  .btn-success{background:#edf9f0;color:var(--success);border:1.5px solid #b8edc8}
+  .err-msg{color:var(--danger);font-size:.8rem;margin-top:.5rem;min-height:1.2rem}
+
+  /* ── Layout ─────────────────────────────────────────────────────────── */
+  #app{display:none;min-height:100vh}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:.85rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+  .logo{font-weight:700;color:var(--accent);font-size:1.05rem}
+  header .actions{display:flex;gap:.6rem;align-items:center}
+  nav{display:flex;gap:.25rem;padding:.75rem 1.5rem;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+  .nav-btn{padding:.5rem 1.1rem;border:none;background:none;border-radius:8px;cursor:pointer;font-size:.88rem;color:var(--muted);white-space:nowrap;font-weight:500;transition:.15s}
+  .nav-btn.active{background:var(--accent);color:#fff}
+  .nav-btn:not(.active):hover{background:var(--bg)}
+  main{padding:1.25rem 1.5rem;max-width:1100px;margin:0 auto}
+
+  /* ── Cards / Stats ───────────────────────────────────────────────────── */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem}
+  .stat-card{background:var(--surface);border-radius:var(--radius);padding:1.1rem 1.25rem;box-shadow:var(--shadow);border-right:4px solid var(--accent)}
+  .stat-card .val{font-size:1.8rem;font-weight:700;color:var(--accent)}
+  .stat-card .lbl{color:var(--muted);font-size:.8rem;margin-top:.1rem}
+
+  /* ── Table ───────────────────────────────────────────────────────────── */
+  .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:1.5rem}
+  .card-header{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.25rem;border-bottom:1px solid var(--border)}
+  .card-header h2{font-size:1rem;font-weight:600}
+  table{width:100%;border-collapse:collapse}
+  th{background:var(--bg);padding:.65rem 1rem;text-align:right;font-size:.8rem;color:var(--muted);font-weight:600;white-space:nowrap}
+  td{padding:.75rem 1rem;border-top:1px solid var(--border);vertical-align:middle;font-size:.88rem}
+  tr:hover td{background:#fafaf8}
+  .badge{display:inline-block;padding:.2rem .65rem;border-radius:20px;font-size:.75rem;font-weight:600}
+  .badge-pending{background:#fef9ee;color:#b37a00;border:1px solid #f5e0a0}
+  .badge-done{background:#edf9f0;color:var(--success);border:1px solid #b8edc8}
+  .badge-canceled{background:#fef0ee;color:var(--danger);border:1px solid #f5c5be}
+  .avail-on{color:var(--success);font-weight:600}
+  .avail-off{color:var(--muted)}
+
+  /* ── Modal ───────────────────────────────────────────────────────────── */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:1rem}
+  .overlay.open{display:flex}
+  .modal{background:var(--surface);border-radius:16px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:1.75rem;box-shadow:0 8px 40px rgba(0,0,0,.18)}
+  .modal h3{font-size:1.05rem;margin-bottom:1.25rem;font-weight:600}
+  .modal .field{margin-bottom:.85rem}
+  .modal select,.modal input,.modal textarea{width:100%;padding:.65rem .9rem;border:1.5px solid var(--border);border-radius:var(--radius);font-size:.9rem;outline:none;font-family:inherit;transition:.2s}
+  .modal select:focus,.modal input:focus,.modal textarea:focus{border-color:var(--accent)}
+  .modal textarea{resize:vertical;min-height:80px}
+  .modal-footer{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.25rem}
+  .toggle-wrap{display:flex;align-items:center;gap:.6rem}
+  .toggle{width:40px;height:22px;background:var(--border);border-radius:11px;position:relative;cursor:pointer;transition:.2s;flex-shrink:0}
+  .toggle.on{background:var(--success)}
+  .toggle::after{content:'';position:absolute;top:2px;right:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}
+  .toggle.on::after{right:2px;transform:translateX(-18px)}
+  .empty{text-align:center;padding:2.5rem;color:var(--muted);font-size:.9rem}
+
+  /* ── Filter bar ──────────────────────────────────────────────────────── */
+  .filter-bar{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
+  .filter-bar select,.filter-bar input{padding:.5rem .85rem;border:1.5px solid var(--border);border-radius:var(--radius);font-size:.85rem;background:var(--surface);outline:none}
+  .filter-bar select:focus,.filter-bar input:focus{border-color:var(--accent)}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(max-width:600px){main{padding:.75rem}}
+</style>
+</head>
+<body>
+
+<!-- ── Login ────────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>☕ کافه روشن</h1>
+    <p>پنل مدیریت</p>
+    <div class="field">
+      <label>رمز عبور</label>
+      <input type="password" id="pw" placeholder="رمز عبور ادمین" onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()" id="login-btn">ورود</button>
+    <div class="err-msg" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ── App ──────────────────────────────────────────────────────────────── -->
+<div id="app">
+  <header>
+    <span class="logo">☕ کافه روشن — ادمین</span>
+    <div class="actions">
+      <span id="admin-label" style="color:var(--muted);font-size:.8rem"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">خروج</button>
+    </div>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" onclick="showTab('dashboard',this)">داشبورد</button>
+    <button class="nav-btn" onclick="showTab('products',this)">محصولات</button>
+    <button class="nav-btn" onclick="showTab('orders',this)">سفارش‌ها</button>
+  </nav>
+
+  <main id="main-content"></main>
+</div>
+
+<!-- ── Product Modal ─────────────────────────────────────────────────────── -->
+<div class="overlay" id="product-modal">
+  <div class="modal">
+    <h3 id="modal-title">محصول جدید</h3>
+    <div class="field"><label>نام محصول *</label><input id="p-name" placeholder="مثلاً: لاته کارامل"/></div>
+    <div class="field"><label>دسته‌بندی</label><input id="p-cat" placeholder="مثلاً: قهوه سرد"/></div>
+    <div class="field"><label>قیمت (تومان) *</label><input id="p-price" type="number" placeholder="85000"/></div>
+    <div class="field"><label>توضیحات</label><textarea id="p-desc" placeholder="توضیح کوتاه..."></textarea></div>
+    <div class="field"><label>آدرس تصویر</label><input id="p-img" placeholder="https://..."/></div>
+    <div class="field">
+      <label>وضعیت</label>
+      <div class="toggle-wrap">
+        <div class="toggle on" id="p-avail" onclick="this.classList.toggle('on')"></div>
+        <span id="p-avail-lbl">موجود</span>
+      </div>
+    </div>
+    <div class="err-msg" id="prod-err"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('product-modal')">انصراف</button>
+      <button class="btn btn-primary" onclick="saveProduct()" id="save-prod-btn">ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = '/admin/api';
+let TOKEN = localStorage.getItem('admin_token') || '';
+let editingProductId = null;
+
+// ── Auth ────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const pw  = document.getElementById('pw').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-err');
+  if (!pw) { err.textContent = 'رمز عبور را وارد کنید'; return; }
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${BASE}/login`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({password:pw})
+    });
+    const d = await r.json();
+    if (!r.ok) { err.textContent = d.error; return; }
+    TOKEN = d.token;
+    localStorage.setItem('admin_token', TOKEN);
+    initApp();
+  } catch {
+    err.textContent = 'خطا در اتصال به سرور';
+  } finally {
+    btn.innerHTML = 'ورود';
+    btn.disabled = false;
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('admin_token');
+  TOKEN = '';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pw').value = '';
+}
+
+function api(path, opts={}) {
+  return fetch(`${BASE}${path}`, {
+    ...opts,
+    headers: { 'Authorization':`Bearer ${TOKEN}`, 'Content-Type':'application/json', ...(opts.headers||{}) }
+  }).then(async r => {
+    if (r.status === 401) { doLogout(); throw new Error('unauthorized'); }
+    return r.json();
+  });
+}
+
+function initApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  showTab('dashboard', document.querySelector('.nav-btn'));
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+function showTab(tab, btn) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const m = document.getElementById('main-content');
+  if (tab === 'dashboard') renderDashboard(m);
+  else if (tab === 'products') renderProducts(m);
+  else if (tab === 'orders') renderOrders(m);
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+async function renderDashboard(m) {
+  m.innerHTML = '<div class="stats"><div class="stat-card"><div class="val">…</div><div class="lbl">محصولات</div></div><div class="stat-card"><div class="val">…</div><div class="lbl">کل سفارش‌ها</div></div><div class="stat-card" style="border-color:#e67e22"><div class="val">…</div><div class="lbl">در انتظار</div></div></div><div class="empty">در حال بارگذاری…</div>';
+  try {
+    const s = await api('/stats');
+    const cards = m.querySelectorAll('.stat-card .val');
+    cards[0].textContent = s.totalProducts;
+    cards[1].textContent = s.totalOrders;
+    cards[2].textContent = s.pendingOrders;
+    m.querySelector('.empty').style.display = 'none';
+  } catch(e) {
+    if (e.message !== 'unauthorized') m.querySelector('.empty').textContent = 'خطا در بارگذاری';
+  }
+}
+
+// ── Products ──────────────────────────────────────────────────────────────
+let allProducts = [];
+async function renderProducts(m) {
+  m.innerHTML = '<div class="card"><div class="card-header"><h2>محصولات</h2><button class="btn btn-primary btn-sm" onclick="openProductModal()">+ محصول جدید</button></div><div id="prod-table"><div class="empty">در حال بارگذاری…</div></div></div>';
+  try {
+    allProducts = await api('/products');
+    renderProductTable();
+  } catch(e) {
+    if (e.message !== 'unauthorized') document.getElementById('prod-table').innerHTML = '<div class="empty">خطا در بارگذاری</div>';
+  }
+}
+
+function renderProductTable() {
+  const t = document.getElementById('prod-table');
+  if (!allProducts.length) { t.innerHTML = '<div class="empty">محصولی ثبت نشده</div>'; return; }
+  t.innerHTML = `<table>
+    <thead><tr><th>نام</th><th>دسته</th><th>قیمت</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+    <tbody>${allProducts.map(p=>`
+      <tr>
+        <td><strong>${esc(p.name)}</strong>${p.description ? `<br><span style="color:var(--muted);font-size:.78rem">${esc(p.description.slice(0,50))}</span>` : ''}</td>
+        <td>${esc(p.category||'—')}</td>
+        <td>${Number(p.price).toLocaleString('fa-IR')} ت</td>
+        <td>${p.available ? '<span class="avail-on">✓ موجود</span>' : '<span class="avail-off">✗ ناموجود</span>'}</td>
+        <td style="white-space:nowrap;display:flex;gap:.4rem">
+          <button class="btn btn-ghost btn-sm" onclick="openProductModal(${p.id})">ویرایش</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id},'${esc(p.name)}')">حذف</button>
+        </td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function openProductModal(id) {
+  editingProductId = id || null;
+  document.getElementById('modal-title').textContent = id ? 'ویرایش محصول' : 'محصول جدید';
+  document.getElementById('prod-err').textContent = '';
+  if (id) {
+    const p = allProducts.find(x => x.id == id);
+    document.getElementById('p-name').value  = p.name;
+    document.getElementById('p-cat').value   = p.category || '';
+    document.getElementById('p-price').value = p.price;
+    document.getElementById('p-desc').value  = p.description || '';
+    document.getElementById('p-img').value   = p.image || '';
+    const av = document.getElementById('p-avail');
+    av.classList.toggle('on', !!p.available);
+    syncAvailLabel();
+  } else {
+    ['p-name','p-cat','p-price','p-desc','p-img'].forEach(i => document.getElementById(i).value='');
+    document.getElementById('p-avail').classList.add('on');
+    syncAvailLabel();
+  }
+  openModal('product-modal');
+}
+
+document.getElementById('p-avail').addEventListener('click', syncAvailLabel);
+function syncAvailLabel() {
+  document.getElementById('p-avail-lbl').textContent =
+    document.getElementById('p-avail').classList.contains('on') ? 'موجود' : 'ناموجود';
+}
+
+async function saveProduct() {
+  const name  = document.getElementById('p-name').value.trim();
+  const price = document.getElementById('p-price').value;
+  const err   = document.getElementById('prod-err');
+  if (!name || !price) { err.textContent = 'نام و قیمت اجباری هستند'; return; }
+  const btn = document.getElementById('save-prod-btn');
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+  const body = {
+    name,
+    category:    document.getElementById('p-cat').value.trim(),
+    price:       Number(price),
+    description: document.getElementById('p-desc').value.trim(),
+    image:       document.getElementById('p-img').value.trim(),
+    available:   document.getElementById('p-avail').classList.contains('on') ? 1 : 0,
+  };
+  try {
+    if (editingProductId) await api(`/products/${editingProductId}`, {method:'PUT',body:JSON.stringify(body)});
+    else await api('/products', {method:'POST',body:JSON.stringify(body)});
+    closeModal('product-modal');
+    allProducts = await api('/products');
+    renderProductTable();
+  } catch(e) {
+    if (e.message !== 'unauthorized') err.textContent = 'خطا در ذخیره';
+  } finally {
+    btn.innerHTML = 'ذخیره';
+    btn.disabled = false;
+  }
+}
+
+async function deleteProduct(id, name) {
+  if (!confirm(`آیا مطمئن هستید؟\n«${name}» حذف شود؟`)) return;
+  await api(`/products/${id}`, {method:'DELETE'});
+  allProducts = await api('/products');
+  renderProductTable();
+}
+
+// ── Orders ────────────────────────────────────────────────────────────────
+let allOrders = [], orderFilter = '';
+async function renderOrders(m) {
+  m.innerHTML = `
+    <div class="filter-bar">
+      <select id="order-status-filter" onchange="filterOrders()">
+        <option value="">همه سفارش‌ها</option>
+        <option value="pending">در انتظار</option>
+        <option value="done">تحویل داده شده</option>
+        <option value="canceled">لغو شده</option>
+      </select>
+    </div>
+    <div class="card">
+      <div class="card-header"><h2>سفارش‌ها</h2></div>
+      <div id="order-table"><div class="empty">در حال بارگذاری…</div></div>
+    </div>`;
+  try {
+    allOrders = await api('/orders');
+    renderOrderTable();
+  } catch(e) {
+    if (e.message !== 'unauthorized') document.getElementById('order-table').innerHTML = '<div class="empty">خطا در بارگذاری</div>';
+  }
+}
+
+function filterOrders() {
+  orderFilter = document.getElementById('order-status-filter').value;
+  renderOrderTable();
+}
+
+function renderOrderTable() {
+  const t = document.getElementById('order-table');
+  const rows = orderFilter ? allOrders.filter(o => o.status === orderFilter) : allOrders;
+  if (!rows.length) { t.innerHTML = '<div class="empty">سفارشی یافت نشد</div>'; return; }
+  t.innerHTML = `<table>
+    <thead><tr><th>#</th><th>مشتری</th><th>جزئیات</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead>
+    <tbody>${rows.map(o=>`
+      <tr>
+        <td>${o.id}</td>
+        <td>${esc(o.customer_name||o.user_id||'—')}</td>
+        <td style="max-width:200px;font-size:.8rem">${esc(String(o.items||'').slice(0,80))}</td>
+        <td>${o.total ? Number(o.total).toLocaleString('fa-IR')+' ت' : '—'}</td>
+        <td>${statusBadge(o.status)}</td>
+        <td style="font-size:.78rem;color:var(--muted)">${fmtDate(o.created_at)}</td>
+        <td style="display:flex;gap:.35rem;flex-wrap:wrap">
+          ${o.status==='pending' ? `
+            <button class="btn btn-success btn-sm" onclick="updateOrder(${o.id},'done')">تحویل ✓</button>
+            <button class="btn btn-danger btn-sm" onclick="updateOrder(${o.id},'canceled')">لغو</button>` : '—'}
+        </td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+async function updateOrder(id, status) {
+  await api(`/orders/${id}`, {method:'PUT', body:JSON.stringify({status})});
+  allOrders = await api('/orders');
+  renderOrderTable();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────
+function statusBadge(s) {
+  const map = {pending:'در انتظار',done:'تحویل شد',canceled:'لغو شد'};
+  const cls = {pending:'badge-pending',done:'badge-done',canceled:'badge-canceled'};
+  return `<span class="badge ${cls[s]||''}">${map[s]||s}</span>`;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('fa-IR',{dateStyle:'short',timeStyle:'short'});
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function openModal(id)  { document.getElementById(id).classList.add('open') }
+function closeModal(id) { document.getElementById(id).classList.remove('open') }
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+if (TOKEN) initApp();
+</script>
+</body>
+</html>
