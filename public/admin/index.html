@@ -1,409 +1,1240 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
+
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>پنل مدیریت کافه روشن</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  :root{
-    --bg:#f5f4f0;--surface:#fff;--border:#e0ddd5;
-    --text:#1a1a18;--muted:#6b6a65;--accent:#c8773a;
-    --accent-dark:#a85e28;--danger:#c0392b;--success:#27ae60;
-    --radius:10px;--shadow:0 2px 12px rgba(0,0,0,.08);
-  }
-  body{font-family:system-ui,'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>پنل مدیریت — کافه روشن</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
 
-  /* ── Login ─────────────────────────────────────────────────────────── */
-  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
-  .login-card{background:var(--surface);border-radius:16px;padding:2.5rem;width:100%;max-width:380px;box-shadow:var(--shadow);text-align:center}
-  .login-card h1{font-size:1.4rem;margin-bottom:.25rem;color:var(--accent)}
-  .login-card p{color:var(--muted);margin-bottom:2rem;font-size:.85rem}
-  .field{text-align:right;margin-bottom:1rem}
-  .field label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:.3rem}
-  .field input{width:100%;padding:.7rem 1rem;border:1.5px solid var(--border);border-radius:var(--radius);font-size:.95rem;outline:none;transition:.2s}
-  .field input:focus{border-color:var(--accent)}
-  .btn{display:inline-flex;align-items:center;gap:.4rem;padding:.65rem 1.4rem;border:none;border-radius:var(--radius);cursor:pointer;font-size:.9rem;font-weight:600;transition:.18s}
-  .btn-primary{background:var(--accent);color:#fff;width:100%}
-  .btn-primary:hover{background:var(--accent-dark)}
-  .btn-sm{padding:.4rem .9rem;font-size:.8rem}
-  .btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--text)}
-  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
-  .btn-danger{background:#fef0ee;color:var(--danger);border:1.5px solid #f5c5be}
-  .btn-danger:hover{background:var(--danger);color:#fff}
-  .btn-success{background:#edf9f0;color:var(--success);border:1.5px solid #b8edc8}
-  .err-msg{color:var(--danger);font-size:.8rem;margin-top:.5rem;min-height:1.2rem}
+    :root {
+      --bg: #f0ede8;
+      --surface: #fff;
+      --border: #e2ddd6;
+      --text: #1c1b18;
+      --muted: #88847f;
+      --accent: #c47c3a;
+      --accent-light: #fdf3ea;
+      --accent-dark: #9e5f24;
+      --success: #2e9e60;
+      --success-light: #edfaf3;
+      --danger: #c0392b;
+      --danger-light: #fdf0ee;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 2px 16px rgba(0, 0, 0, .07);
+      --shadow-lg: 0 8px 40px rgba(0, 0, 0, .14);
+    }
 
-  /* ── Layout ─────────────────────────────────────────────────────────── */
-  #app{display:none;min-height:100vh}
-  header{background:var(--surface);border-bottom:1px solid var(--border);padding:.85rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;box-shadow:0 1px 4px rgba(0,0,0,.05)}
-  .logo{font-weight:700;color:var(--accent);font-size:1.05rem}
-  header .actions{display:flex;gap:.6rem;align-items:center}
-  nav{display:flex;gap:.25rem;padding:.75rem 1.5rem;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
-  .nav-btn{padding:.5rem 1.1rem;border:none;background:none;border-radius:8px;cursor:pointer;font-size:.88rem;color:var(--muted);white-space:nowrap;font-weight:500;transition:.15s}
-  .nav-btn.active{background:var(--accent);color:#fff}
-  .nav-btn:not(.active):hover{background:var(--bg)}
-  main{padding:1.25rem 1.5rem;max-width:1100px;margin:0 auto}
+    * {
+      box-sizing: border-box
+    }
 
-  /* ── Cards / Stats ───────────────────────────────────────────────────── */
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem}
-  .stat-card{background:var(--surface);border-radius:var(--radius);padding:1.1rem 1.25rem;box-shadow:var(--shadow);border-right:4px solid var(--accent)}
-  .stat-card .val{font-size:1.8rem;font-weight:700;color:var(--accent)}
-  .stat-card .lbl{color:var(--muted);font-size:.8rem;margin-top:.1rem}
+    body {
+      font-family: system-ui, 'Segoe UI', Tahoma, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.65
+    }
 
-  /* ── Table ───────────────────────────────────────────────────────────── */
-  .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:1.5rem}
-  .card-header{display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.25rem;border-bottom:1px solid var(--border)}
-  .card-header h2{font-size:1rem;font-weight:600}
-  table{width:100%;border-collapse:collapse}
-  th{background:var(--bg);padding:.65rem 1rem;text-align:right;font-size:.8rem;color:var(--muted);font-weight:600;white-space:nowrap}
-  td{padding:.75rem 1rem;border-top:1px solid var(--border);vertical-align:middle;font-size:.88rem}
-  tr:hover td{background:#fafaf8}
-  .badge{display:inline-block;padding:.2rem .65rem;border-radius:20px;font-size:.75rem;font-weight:600}
-  .badge-pending{background:#fef9ee;color:#b37a00;border:1px solid #f5e0a0}
-  .badge-done{background:#edf9f0;color:var(--success);border:1px solid #b8edc8}
-  .badge-canceled{background:#fef0ee;color:var(--danger);border:1px solid #f5c5be}
-  .avail-on{color:var(--success);font-weight:600}
-  .avail-off{color:var(--muted)}
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px
+    }
 
-  /* ── Modal ───────────────────────────────────────────────────────────── */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:1rem}
-  .overlay.open{display:flex}
-  .modal{background:var(--surface);border-radius:16px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:1.75rem;box-shadow:0 8px 40px rgba(0,0,0,.18)}
-  .modal h3{font-size:1.05rem;margin-bottom:1.25rem;font-weight:600}
-  .modal .field{margin-bottom:.85rem}
-  .modal select,.modal input,.modal textarea{width:100%;padding:.65rem .9rem;border:1.5px solid var(--border);border-radius:var(--radius);font-size:.9rem;outline:none;font-family:inherit;transition:.2s}
-  .modal select:focus,.modal input:focus,.modal textarea:focus{border-color:var(--accent)}
-  .modal textarea{resize:vertical;min-height:80px}
-  .modal-footer{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.25rem}
-  .toggle-wrap{display:flex;align-items:center;gap:.6rem}
-  .toggle{width:40px;height:22px;background:var(--border);border-radius:11px;position:relative;cursor:pointer;transition:.2s;flex-shrink:0}
-  .toggle.on{background:var(--success)}
-  .toggle::after{content:'';position:absolute;top:2px;right:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}
-  .toggle.on::after{right:2px;transform:translateX(-18px)}
-  .empty{text-align:center;padding:2.5rem;color:var(--muted);font-size:.9rem}
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px
+    }
 
-  /* ── Filter bar ──────────────────────────────────────────────────────── */
-  .filter-bar{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
-  .filter-bar select,.filter-bar input{padding:.5rem .85rem;border:1.5px solid var(--border);border-radius:var(--radius);font-size:.85rem;background:var(--surface);outline:none}
-  .filter-bar select:focus,.filter-bar input:focus{border-color:var(--accent)}
-  .spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @media(max-width:600px){main{padding:.75rem}}
-</style>
+    /* Login */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #fdf6ef, #f0e9e0)
+    }
+
+    .login-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 2.75rem 2.25rem;
+      width: 100%;
+      max-width: 370px;
+      box-shadow: var(--shadow-lg);
+      text-align: center
+    }
+
+    .login-logo {
+      font-size: 2.5rem;
+      margin-bottom: .5rem
+    }
+
+    .login-card h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: .2rem
+    }
+
+    .login-card p {
+      color: var(--muted);
+      font-size: .85rem;
+      margin-bottom: 2rem
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      padding: .6rem 1.25rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: .88rem;
+      font-weight: 600;
+      transition: all .18s;
+      font-family: inherit;
+      white-space: nowrap
+    }
+
+    .btn:disabled {
+      opacity: .6;
+      cursor: not-allowed
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-dark);
+      box-shadow: 0 4px 12px rgba(196, 124, 58, .3)
+    }
+
+    .btn-block {
+      width: 100%
+    }
+
+    .btn-sm {
+      padding: .38rem .85rem;
+      font-size: .8rem;
+      border-radius: 6px
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1.5px solid var(--border);
+      color: var(--text)
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-light)
+    }
+
+    .btn-danger {
+      background: var(--danger-light);
+      color: var(--danger);
+      border: 1.5px solid #f0c0bb
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger)
+    }
+
+    /* Form */
+    .field {
+      margin-bottom: .9rem
+    }
+
+    .field label {
+      display: block;
+      font-size: .78rem;
+      color: var(--muted);
+      margin-bottom: .35rem;
+      font-weight: 600;
+      letter-spacing: .02em
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: .65rem 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .9rem;
+      outline: none;
+      font-family: inherit;
+      background: var(--surface);
+      color: var(--text);
+      transition: .18s
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(196, 124, 58, .1)
+    }
+
+    .field textarea {
+      resize: vertical;
+      min-height: 70px
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem
+    }
+
+    .err-msg {
+      color: var(--danger);
+      font-size: .8rem;
+      margin-top: .4rem;
+      min-height: 1.1rem
+    }
+
+    .hint {
+      font-size: .75rem;
+      color: var(--muted);
+      margin-top: .25rem
+    }
+
+    /* Layout */
+    #app {
+      display: none;
+      min-height: 100vh
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: .9rem 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 1px 0 var(--border)
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      font-weight: 700;
+      font-size: 1rem
+    }
+
+    .logo-sub {
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 400;
+      display: block
+    }
+
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: .5rem 1.75rem;
+      display: flex;
+      gap: .25rem
+    }
+
+    .nav-btn {
+      padding: .45rem 1.1rem;
+      border: none;
+      background: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: .88rem;
+      color: var(--muted);
+      font-weight: 500;
+      transition: .15s;
+      font-family: inherit
+    }
+
+    .nav-btn.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(196, 124, 58, .25)
+    }
+
+    .nav-btn:not(.active):hover {
+      background: var(--bg);
+      color: var(--text)
+    }
+
+    main {
+      padding: 1.5rem 1.75rem;
+      max-width: 1080px;
+      margin: 0 auto
+    }
+
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.75rem
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.4rem;
+      box-shadow: var(--shadow);
+      border-right: 4px solid var(--accent)
+    }
+
+    .stat-card.green {
+      border-color: var(--success)
+    }
+
+    .stat-card.gray {
+      border-color: var(--muted)
+    }
+
+    .stat-card .val {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1
+    }
+
+    .stat-card.green .val {
+      color: var(--success)
+    }
+
+    .stat-card.gray .val {
+      color: var(--muted)
+    }
+
+    .stat-card .lbl {
+      color: var(--muted);
+      font-size: .8rem;
+      margin-top: .4rem
+    }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border)
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.4rem;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .card-header h2 {
+      font-size: .95rem;
+      font-weight: 700
+    }
+
+    .card-toolbar {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .75rem 1.4rem;
+      border-bottom: 1px solid var(--border);
+      background: #fafaf8
+    }
+
+    .search-input {
+      flex: 1;
+      padding: .5rem .9rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .85rem;
+      outline: none;
+      font-family: inherit;
+      transition: .18s
+    }
+
+    .search-input:focus {
+      border-color: var(--accent)
+    }
+
+    /* Table */
+    .table-wrap {
+      overflow-x: auto
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 480px
+    }
+
+    th {
+      background: #fafaf8;
+      padding: .65rem 1.2rem;
+      text-align: right;
+      font-size: .75rem;
+      color: var(--muted);
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      letter-spacing: .03em
+    }
+
+    td {
+      padding: .8rem 1.2rem;
+      border-top: 1px solid #f3f0ec;
+      vertical-align: middle;
+      font-size: .875rem
+    }
+
+    tbody tr:hover td {
+      background: #fdf9f5
+    }
+
+    .prod-name {
+      font-weight: 600
+    }
+
+    .prod-note {
+      color: var(--muted);
+      font-size: .77rem;
+      margin-top: .15rem
+    }
+
+    .price-orig {
+      color: var(--muted);
+      text-decoration: line-through;
+      font-size: .77rem;
+      display: block
+    }
+
+    .price-main {
+      font-weight: 600
+    }
+
+    .disc-badge {
+      background: #fff3e0;
+      color: #e65100;
+      border: 1px solid #ffcc80;
+      padding: .15rem .45rem;
+      border-radius: 20px;
+      font-size: .72rem;
+      font-weight: 700;
+      margin-right: .3rem
+    }
+
+    .actions {
+      display: flex;
+      gap: .4rem
+    }
+
+    .empty {
+      text-align: center;
+      padding: 3rem;
+      color: var(--muted)
+    }
+
+    .empty-icon {
+      font-size: 2rem;
+      margin-bottom: .5rem
+    }
+
+    .img-preview {
+      width: 44px;
+      height: 44px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border)
+    }
+
+    .img-placeholder {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted)
+    }
+
+    /* Toggle */
+    .toggle {
+      width: 42px;
+      height: 24px;
+      background: var(--border);
+      border-radius: 12px;
+      position: relative;
+      cursor: pointer;
+      transition: .2s;
+      border: none;
+      flex-shrink: 0
+    }
+
+    .toggle.on {
+      background: var(--success)
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      transition: .2s;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .2)
+    }
+
+    .toggle.on::after {
+      transform: translateX(-18px)
+    }
+
+    /* Upload */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1.1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: .2s;
+      position: relative;
+      background: #fafaf8
+    }
+
+    .upload-area:hover {
+      border-color: var(--accent);
+      background: var(--accent-light)
+    }
+
+    .upload-area input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%
+    }
+
+    .upload-area p {
+      font-size: .82rem;
+      color: var(--muted);
+      margin-top: .2rem
+    }
+
+    .upload-preview {
+      margin-top: .5rem;
+      display: none;
+      text-align: center
+    }
+
+    .upload-preview img {
+      max-height: 90px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border)
+    }
+
+    .upload-status {
+      font-size: .78rem;
+      color: var(--muted);
+      margin-top: .25rem
+    }
+
+    /* Modal */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .45);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      backdrop-filter: blur(2px)
+    }
+
+    .overlay.open {
+      display: flex
+    }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 460px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 1.75rem;
+      box-shadow: var(--shadow-lg)
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem
+    }
+
+    .modal-header h3 {
+      font-size: 1rem;
+      font-weight: 700
+    }
+
+    .modal-close {
+      background: var(--bg);
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: .95rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      transition: .15s
+    }
+
+    .modal-close:hover {
+      background: var(--border)
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: .6rem;
+      justify-content: flex-end;
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border)
+    }
+
+    .section-sep {
+      font-size: .7rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: .06em;
+      margin: .75rem 0 .5rem;
+      display: block;
+      text-transform: uppercase
+    }
+
+    /* Cat grid */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: .75rem;
+      padding: 1.25rem
+    }
+
+    .cat-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: .85rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .5rem;
+      background: var(--bg)
+    }
+
+    .cat-item .cat-name {
+      font-weight: 600;
+      font-size: .88rem;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .cat-item .cat-count {
+      color: var(--muted);
+      font-size: .75rem
+    }
+
+    /* Discount preview */
+    .disc-preview {
+      background: var(--accent-light);
+      border: 1px solid #f5d5b0;
+      border-radius: var(--radius-sm);
+      padding: .6rem .9rem;
+      font-size: .83rem;
+      margin-top: .4rem;
+      display: none
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1c1b18;
+      color: #fff;
+      padding: .6rem 1.25rem;
+      border-radius: 30px;
+      font-size: .85rem;
+      z-index: 999;
+      opacity: 0;
+      transition: all .28s;
+      pointer-events: none;
+      white-space: nowrap
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0)
+    }
+
+    #toast.err {
+      background: var(--danger)
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, .35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    @media(max-width:600px) {
+      main {
+        padding: 1rem
+      }
+
+      header,
+      nav {
+        padding-left: 1rem;
+        padding-right: 1rem
+      }
+
+      .row-2 {
+        grid-template-columns: 1fr
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- ── Login ────────────────────────────────────────────────────────────── -->
-<div id="login-screen">
-  <div class="login-card">
-    <h1>☕ کافه روشن</h1>
-    <p>پنل مدیریت</p>
-    <div class="field">
-      <label>رمز عبور</label>
-      <input type="password" id="pw" placeholder="رمز عبور ادمین" onkeydown="if(event.key==='Enter')doLogin()"/>
+  <!-- Login -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">☕</div>
+      <h1>کافه روشن</h1>
+      <p>پنل مدیریت</p>
+      <div class="field">
+        <label>رمز عبور</label>
+        <input type="password" id="pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" />
+      </div>
+      <button class="btn btn-primary btn-block" onclick="doLogin()" id="login-btn">ورود به پنل</button>
+      <div class="err-msg" id="login-err"></div>
     </div>
-    <button class="btn btn-primary" onclick="doLogin()" id="login-btn">ورود</button>
-    <div class="err-msg" id="login-err"></div>
   </div>
-</div>
 
-<!-- ── App ──────────────────────────────────────────────────────────────── -->
-<div id="app">
-  <header>
-    <span class="logo">☕ کافه روشن — ادمین</span>
-    <div class="actions">
-      <span id="admin-label" style="color:var(--muted);font-size:.8rem"></span>
+  <!-- App -->
+  <div id="app">
+    <header>
+      <div class="logo">
+        <span style="font-size:1.4rem">☕</span>
+        <div>
+          <div>کافه روشن</div><span class="logo-sub">پنل مدیریت</span>
+        </div>
+      </div>
       <button class="btn btn-ghost btn-sm" onclick="doLogout()">خروج</button>
-    </div>
-  </header>
+    </header>
+    <nav>
+      <button class="nav-btn active" onclick="showTab('dashboard',this)">🏠 داشبورد</button>
+      <button class="nav-btn" onclick="showTab('products',this)">🍽 محصولات</button>
+      <button class="nav-btn" onclick="showTab('categories',this)">📂 دسته‌بندی‌ها</button>
+    </nav>
+    <main id="main-content"></main>
+  </div>
 
-  <nav>
-    <button class="nav-btn active" onclick="showTab('dashboard',this)">داشبورد</button>
-    <button class="nav-btn" onclick="showTab('products',this)">محصولات</button>
-    <button class="nav-btn" onclick="showTab('orders',this)">سفارش‌ها</button>
-  </nav>
+  <!-- Product Modal -->
+  <div class="overlay" id="product-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">محصول جدید</h3>
+        <button class="modal-close" onclick="closeModal('product-modal')">✕</button>
+      </div>
 
-  <main id="main-content"></main>
-</div>
+      <span class="section-sep">اطلاعات اصلی</span>
+      <div class="field"><label>نام محصول *</label><input id="p-name" placeholder="مثلاً: لاته کارامل" /></div>
+      <div class="field">
+        <label>دسته‌بندی *</label>
+        <select id="p-cat">
+          <option value="">انتخاب کنید...</option>
+        </select>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>قیمت (تومان) *</label>
+          <input id="p-price" type="number" placeholder="85000" oninput="updateDiscPreview()" />
+        </div>
+        <div class="field">
+          <label>تخفیف (%)</label>
+          <input id="p-discount" type="number" min="0" max="99" placeholder="0" oninput="updateDiscPreview()" />
+          <div class="disc-preview" id="disc-preview"></div>
+        </div>
+      </div>
+      <div class="field"><label>یادداشت / توضیحات</label><textarea id="p-note"
+          placeholder="مواد تشکیل‌دهنده، توضیح کوتاه..."></textarea></div>
 
-<!-- ── Product Modal ─────────────────────────────────────────────────────── -->
-<div class="overlay" id="product-modal">
-  <div class="modal">
-    <h3 id="modal-title">محصول جدید</h3>
-    <div class="field"><label>نام محصول *</label><input id="p-name" placeholder="مثلاً: لاته کارامل"/></div>
-    <div class="field"><label>دسته‌بندی</label><input id="p-cat" placeholder="مثلاً: قهوه سرد"/></div>
-    <div class="field"><label>قیمت (تومان) *</label><input id="p-price" type="number" placeholder="85000"/></div>
-    <div class="field"><label>توضیحات</label><textarea id="p-desc" placeholder="توضیح کوتاه..."></textarea></div>
-    <div class="field"><label>آدرس تصویر</label><input id="p-img" placeholder="https://..."/></div>
-    <div class="field">
-      <label>وضعیت</label>
-      <div class="toggle-wrap">
-        <div class="toggle on" id="p-avail" onclick="this.classList.toggle('on')"></div>
+      <span class="section-sep">تصویر</span>
+      <div class="field">
+        <div class="upload-area">
+          <input type="file" accept="image/*" onchange="handleImageSelect(this,'prod')" />
+          <div style="font-size:1.4rem">📷</div>
+          <p>کلیک کنید یا فایل را اینجا بکشید</p>
+          <p style="font-size:.73rem">JPG · PNG · WEBP · حداکثر 5MB</p>
+        </div>
+        <div class="upload-preview" id="prod-upload-preview">
+          <img id="prod-preview-img" src="" alt="" />
+          <div class="upload-status" id="prod-upload-status"></div>
+        </div>
+        <input id="p-img" type="hidden" />
+      </div>
+
+      <span class="section-sep">وضعیت</span>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem">
+        <button class="toggle on" id="p-avail" onclick="this.classList.toggle('on');syncAvailLabel()"></button>
         <span id="p-avail-lbl">موجود</span>
       </div>
-    </div>
-    <div class="err-msg" id="prod-err"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('product-modal')">انصراف</button>
-      <button class="btn btn-primary" onclick="saveProduct()" id="save-prod-btn">ذخیره</button>
+
+      <div class="err-msg" id="prod-err"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('product-modal')">انصراف</button>
+        <button class="btn btn-primary" onclick="saveProduct()" id="save-prod-btn">ذخیره محصول</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script>
-const BASE = '/admin/api';
-let TOKEN = localStorage.getItem('admin_token') || '';
-let editingProductId = null;
-
-// ── Auth ────────────────────────────────────────────────────────────────
-async function doLogin() {
-  const pw  = document.getElementById('pw').value;
-  const btn = document.getElementById('login-btn');
-  const err = document.getElementById('login-err');
-  if (!pw) { err.textContent = 'رمز عبور را وارد کنید'; return; }
-  btn.innerHTML = '<span class="spinner"></span>';
-  btn.disabled = true;
-  try {
-    const r = await fetch(`${BASE}/login`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({password:pw})
-    });
-    const d = await r.json();
-    if (!r.ok) { err.textContent = d.error; return; }
-    TOKEN = d.token;
-    localStorage.setItem('admin_token', TOKEN);
-    initApp();
-  } catch {
-    err.textContent = 'خطا در اتصال به سرور';
-  } finally {
-    btn.innerHTML = 'ورود';
-    btn.disabled = false;
-  }
-}
-
-function doLogout() {
-  localStorage.removeItem('admin_token');
-  TOKEN = '';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('pw').value = '';
-}
-
-function api(path, opts={}) {
-  return fetch(`${BASE}${path}`, {
-    ...opts,
-    headers: { 'Authorization':`Bearer ${TOKEN}`, 'Content-Type':'application/json', ...(opts.headers||{}) }
-  }).then(async r => {
-    if (r.status === 401) { doLogout(); throw new Error('unauthorized'); }
-    return r.json();
-  });
-}
-
-function initApp() {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  showTab('dashboard', document.querySelector('.nav-btn'));
-}
-
-// ── Tabs ─────────────────────────────────────────────────────────────────
-function showTab(tab, btn) {
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const m = document.getElementById('main-content');
-  if (tab === 'dashboard') renderDashboard(m);
-  else if (tab === 'products') renderProducts(m);
-  else if (tab === 'orders') renderOrders(m);
-}
-
-// ── Dashboard ─────────────────────────────────────────────────────────────
-async function renderDashboard(m) {
-  m.innerHTML = '<div class="stats"><div class="stat-card"><div class="val">…</div><div class="lbl">محصولات</div></div><div class="stat-card"><div class="val">…</div><div class="lbl">کل سفارش‌ها</div></div><div class="stat-card" style="border-color:#e67e22"><div class="val">…</div><div class="lbl">در انتظار</div></div></div><div class="empty">در حال بارگذاری…</div>';
-  try {
-    const s = await api('/stats');
-    const cards = m.querySelectorAll('.stat-card .val');
-    cards[0].textContent = s.totalProducts;
-    cards[1].textContent = s.totalOrders;
-    cards[2].textContent = s.pendingOrders;
-    m.querySelector('.empty').style.display = 'none';
-  } catch(e) {
-    if (e.message !== 'unauthorized') m.querySelector('.empty').textContent = 'خطا در بارگذاری';
-  }
-}
-
-// ── Products ──────────────────────────────────────────────────────────────
-let allProducts = [];
-async function renderProducts(m) {
-  m.innerHTML = '<div class="card"><div class="card-header"><h2>محصولات</h2><button class="btn btn-primary btn-sm" onclick="openProductModal()">+ محصول جدید</button></div><div id="prod-table"><div class="empty">در حال بارگذاری…</div></div></div>';
-  try {
-    allProducts = await api('/products');
-    renderProductTable();
-  } catch(e) {
-    if (e.message !== 'unauthorized') document.getElementById('prod-table').innerHTML = '<div class="empty">خطا در بارگذاری</div>';
-  }
-}
-
-function renderProductTable() {
-  const t = document.getElementById('prod-table');
-  if (!allProducts.length) { t.innerHTML = '<div class="empty">محصولی ثبت نشده</div>'; return; }
-  t.innerHTML = `<table>
-    <thead><tr><th>نام</th><th>دسته</th><th>قیمت</th><th>وضعیت</th><th>عملیات</th></tr></thead>
-    <tbody>${allProducts.map(p=>`
-      <tr>
-        <td><strong>${esc(p.name)}</strong>${p.description ? `<br><span style="color:var(--muted);font-size:.78rem">${esc(p.description.slice(0,50))}</span>` : ''}</td>
-        <td>${esc(p.category||'—')}</td>
-        <td>${Number(p.price).toLocaleString('fa-IR')} ت</td>
-        <td>${p.available ? '<span class="avail-on">✓ موجود</span>' : '<span class="avail-off">✗ ناموجود</span>'}</td>
-        <td style="white-space:nowrap;display:flex;gap:.4rem">
-          <button class="btn btn-ghost btn-sm" onclick="openProductModal(${p.id})">ویرایش</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id},'${esc(p.name)}')">حذف</button>
-        </td>
-      </tr>`).join('')}
-    </tbody></table>`;
-}
-
-function openProductModal(id) {
-  editingProductId = id || null;
-  document.getElementById('modal-title').textContent = id ? 'ویرایش محصول' : 'محصول جدید';
-  document.getElementById('prod-err').textContent = '';
-  if (id) {
-    const p = allProducts.find(x => x.id == id);
-    document.getElementById('p-name').value  = p.name;
-    document.getElementById('p-cat').value   = p.category || '';
-    document.getElementById('p-price').value = p.price;
-    document.getElementById('p-desc').value  = p.description || '';
-    document.getElementById('p-img').value   = p.image || '';
-    const av = document.getElementById('p-avail');
-    av.classList.toggle('on', !!p.available);
-    syncAvailLabel();
-  } else {
-    ['p-name','p-cat','p-price','p-desc','p-img'].forEach(i => document.getElementById(i).value='');
-    document.getElementById('p-avail').classList.add('on');
-    syncAvailLabel();
-  }
-  openModal('product-modal');
-}
-
-document.getElementById('p-avail').addEventListener('click', syncAvailLabel);
-function syncAvailLabel() {
-  document.getElementById('p-avail-lbl').textContent =
-    document.getElementById('p-avail').classList.contains('on') ? 'موجود' : 'ناموجود';
-}
-
-async function saveProduct() {
-  const name  = document.getElementById('p-name').value.trim();
-  const price = document.getElementById('p-price').value;
-  const err   = document.getElementById('prod-err');
-  if (!name || !price) { err.textContent = 'نام و قیمت اجباری هستند'; return; }
-  const btn = document.getElementById('save-prod-btn');
-  btn.innerHTML = '<span class="spinner"></span>';
-  btn.disabled = true;
-  const body = {
-    name,
-    category:    document.getElementById('p-cat').value.trim(),
-    price:       Number(price),
-    description: document.getElementById('p-desc').value.trim(),
-    image:       document.getElementById('p-img').value.trim(),
-    available:   document.getElementById('p-avail').classList.contains('on') ? 1 : 0,
-  };
-  try {
-    if (editingProductId) await api(`/products/${editingProductId}`, {method:'PUT',body:JSON.stringify(body)});
-    else await api('/products', {method:'POST',body:JSON.stringify(body)});
-    closeModal('product-modal');
-    allProducts = await api('/products');
-    renderProductTable();
-  } catch(e) {
-    if (e.message !== 'unauthorized') err.textContent = 'خطا در ذخیره';
-  } finally {
-    btn.innerHTML = 'ذخیره';
-    btn.disabled = false;
-  }
-}
-
-async function deleteProduct(id, name) {
-  if (!confirm(`آیا مطمئن هستید؟\n«${name}» حذف شود؟`)) return;
-  await api(`/products/${id}`, {method:'DELETE'});
-  allProducts = await api('/products');
-  renderProductTable();
-}
-
-// ── Orders ────────────────────────────────────────────────────────────────
-let allOrders = [], orderFilter = '';
-async function renderOrders(m) {
-  m.innerHTML = `
-    <div class="filter-bar">
-      <select id="order-status-filter" onchange="filterOrders()">
-        <option value="">همه سفارش‌ها</option>
-        <option value="pending">در انتظار</option>
-        <option value="done">تحویل داده شده</option>
-        <option value="canceled">لغو شده</option>
-      </select>
+  <!-- Category Modal -->
+  <div class="overlay" id="cat-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="cat-modal-title">دسته‌بندی جدید</h3>
+        <button class="modal-close" onclick="closeModal('cat-modal')">✕</button>
+      </div>
+      <div class="field"><label>نام دسته‌بندی *</label><input id="c-label" placeholder="مثلاً: قهوه سرد" /></div>
+      <div class="field">
+        <label>تصویر دسته‌بندی</label>
+        <div class="upload-area">
+          <input type="file" accept="image/*" onchange="handleImageSelect(this,'cat')" />
+          <div style="font-size:1.4rem">🖼</div>
+          <p>کلیک کنید یا فایل را اینجا بکشید</p>
+        </div>
+        <div class="upload-preview" id="cat-upload-preview">
+          <img id="cat-preview-img" src="" alt="" />
+          <div class="upload-status" id="cat-upload-status"></div>
+        </div>
+        <input id="c-img" type="hidden" />
+      </div>
+      <div class="err-msg" id="cat-err"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('cat-modal')">انصراف</button>
+        <button class="btn btn-primary" onclick="saveCat()" id="save-cat-btn">ذخیره</button>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-header"><h2>سفارش‌ها</h2></div>
-      <div id="order-table"><div class="empty">در حال بارگذاری…</div></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    const BASE = '/admin/api';
+    let TOKEN = localStorage.getItem('admin_token') || '';
+    let editingProductId = null;
+    let editingCatId = null;
+    let allProducts = [];
+    let allCategories = [];
+    let searchQ = '';
+
+    // ── Auth ──────────────────────────────────────────────────────────────────
+    async function doLogin() {
+      const pw = document.getElementById('pw').value;
+      const btn = document.getElementById('login-btn');
+      const err = document.getElementById('login-err');
+      if (!pw) { err.textContent = 'رمز عبور را وارد کنید'; return; }
+      btn.innerHTML = '<span class="spinner"></span>';
+      btn.disabled = true; err.textContent = '';
+      try {
+        const r = await fetch(`${BASE}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+        const d = await r.json();
+        if (!r.ok) { err.textContent = d.error; return; }
+        TOKEN = d.token; localStorage.setItem('admin_token', TOKEN); initApp();
+      } catch { err.textContent = 'خطا در اتصال به سرور'; }
+      finally { btn.innerHTML = 'ورود به پنل'; btn.disabled = false; }
+    }
+
+    function doLogout() {
+      localStorage.removeItem('admin_token'); TOKEN = '';
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('pw').value = '';
+    }
+
+    async function api(path, opts = {}) {
+      const isFormData = opts.body instanceof FormData;
+      const r = await fetch(`${BASE}${path}`, {
+        ...opts,
+        headers: {
+          'Authorization': `Bearer ${TOKEN}`,
+          ...(!isFormData && opts.body ? { 'Content-Type': 'application/json' } : {}),
+          ...(opts.headers || {})
+        }
+      });
+      if (r.status === 401) { doLogout(); throw new Error('unauthorized'); }
+      return r.json();
+    }
+
+    function initApp() {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      showTab('dashboard', document.querySelector('.nav-btn'));
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    function toast(msg, isErr = false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg; t.className = 'show' + (isErr ? ' err' : '');
+      setTimeout(() => t.className = '', 3000);
+    }
+
+    // ── Tabs ──────────────────────────────────────────────────────────────────
+    function showTab(tab, btn) {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const m = document.getElementById('main-content');
+      if (tab === 'dashboard') renderDashboard(m);
+      if (tab === 'products') renderProducts(m);
+      if (tab === 'categories') renderCategories(m);
+    }
+
+    // ── Dashboard ─────────────────────────────────────────────────────────────
+    async function renderDashboard(m) {
+      m.innerHTML = `
+    <div class="stats">
+      <div class="stat-card"><div class="val" id="s-total">—</div><div class="lbl">کل محصولات</div></div>
+      <div class="stat-card green"><div class="val" id="s-avail">—</div><div class="lbl">موجود</div></div>
+      <div class="stat-card gray"><div class="val" id="s-cats">—</div><div class="lbl">دسته‌بندی</div></div>
     </div>`;
-  try {
-    allOrders = await api('/orders');
-    renderOrderTable();
-  } catch(e) {
-    if (e.message !== 'unauthorized') document.getElementById('order-table').innerHTML = '<div class="empty">خطا در بارگذاری</div>';
-  }
-}
+      try {
+        const s = await api('/stats');
+        document.getElementById('s-total').textContent = s.totalProducts;
+        document.getElementById('s-avail').textContent = s.availableProducts;
+        document.getElementById('s-cats').textContent = s.totalCategories;
+      } catch (e) { if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار', true); }
+    }
 
-function filterOrders() {
-  orderFilter = document.getElementById('order-status-filter').value;
-  renderOrderTable();
-}
+    // ── Products ──────────────────────────────────────────────────────────────
+    async function renderProducts(m) {
+      m.innerHTML = `
+    <div class="card">
+      <div class="card-header"><h2>🍽 محصولات</h2>
+        <button class="btn btn-primary btn-sm" onclick="openProductModal()">+ محصول جدید</button></div>
+      <div class="card-toolbar">
+        <input class="search-input" placeholder="🔍 جستجو..." oninput="searchQ=this.value;renderProductTable()"/>
+      </div>
+      <div class="table-wrap" id="prod-table"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
+    </div>`;
+      try {
+        [allProducts, allCategories] = await Promise.all([api('/products'), api('/categories')]);
+        renderProductTable();
+      } catch (e) {
+        if (e.message !== 'unauthorized')
+          document.getElementById('prod-table').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری</div>';
+      }
+    }
 
-function renderOrderTable() {
-  const t = document.getElementById('order-table');
-  const rows = orderFilter ? allOrders.filter(o => o.status === orderFilter) : allOrders;
-  if (!rows.length) { t.innerHTML = '<div class="empty">سفارشی یافت نشد</div>'; return; }
-  t.innerHTML = `<table>
-    <thead><tr><th>#</th><th>مشتری</th><th>جزئیات</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead>
-    <tbody>${rows.map(o=>`
+    function renderProductTable() {
+      const t = document.getElementById('prod-table'); if (!t) return;
+      const q = searchQ.toLowerCase();
+      const rows = q ? allProducts.filter(p => p.name.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q)) : allProducts;
+      if (!rows.length) { t.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>محصولی یافت نشد</div>'; return; }
+      t.innerHTML = `<table>
+    <thead><tr><th>تصویر</th><th>محصول</th><th>دسته</th><th>قیمت</th><th>موجودی</th><th>عملیات</th></tr></thead>
+    <tbody>${rows.map(p => `
       <tr>
-        <td>${o.id}</td>
-        <td>${esc(o.customer_name||o.user_id||'—')}</td>
-        <td style="max-width:200px;font-size:.8rem">${esc(String(o.items||'').slice(0,80))}</td>
-        <td>${o.total ? Number(o.total).toLocaleString('fa-IR')+' ت' : '—'}</td>
-        <td>${statusBadge(o.status)}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${fmtDate(o.created_at)}</td>
-        <td style="display:flex;gap:.35rem;flex-wrap:wrap">
-          ${o.status==='pending' ? `
-            <button class="btn btn-success btn-sm" onclick="updateOrder(${o.id},'done')">تحویل ✓</button>
-            <button class="btn btn-danger btn-sm" onclick="updateOrder(${o.id},'canceled')">لغو</button>` : '—'}
+        <td>${p.image ? `<img class="img-preview" src="${esc(p.image)}" alt="" onerror="this.style.display='none'">` : `<div class="img-placeholder">🍽</div>`}</td>
+        <td><div class="prod-name">${esc(p.name)}</div>${p.note ? `<div class="prod-note">${esc(p.note.slice(0, 55))}${p.note.length > 55 ? '…' : ''}</div>` : ''}</td>
+        <td><span style="background:var(--bg);padding:.18rem .55rem;border-radius:20px;font-size:.77rem">${esc(p.category || '—')}</span></td>
+        <td>
+          ${p.original_price ? `<span class="price-orig">${Number(p.original_price).toLocaleString('fa-IR')} ت</span>` : ''}
+          <span class="price-main">${Number(p.price).toLocaleString('fa-IR')} ت</span>
+          ${p.original_price ? `<span class="disc-badge">٪${Math.round((1 - p.price / p.original_price) * 100)} تخفیف</span>` : ''}
         </td>
+        <td><button class="toggle ${p.available ? 'on' : ''}" onclick="toggleAvail('${p.id}',${p.available})" title="${p.available ? 'موجود' : 'ناموجود'}"></button></td>
+        <td><div class="actions">
+          <button class="btn btn-ghost btn-sm" onclick="openProductModal('${p.id}')">ویرایش</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}','${esc(p.name)}')">حذف</button>
+        </div></td>
       </tr>`).join('')}
     </tbody></table>`;
-}
+    }
 
-async function updateOrder(id, status) {
-  await api(`/orders/${id}`, {method:'PUT', body:JSON.stringify({status})});
-  allOrders = await api('/orders');
-  renderOrderTable();
-}
+    async function toggleAvail(id, cur) {
+      const p = allProducts.find(x => x.id == id); if (!p) return;
+      try {
+        await api(`/products/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, available: cur ? 0 : 1, discount: 0 }) });
+        p.available = cur ? 0 : 1; renderProductTable();
+        toast(p.available ? 'محصول موجود شد ✓' : 'محصول ناموجود شد');
+      } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
+    }
 
-// ── Utils ─────────────────────────────────────────────────────────────────
-function statusBadge(s) {
-  const map = {pending:'در انتظار',done:'تحویل شد',canceled:'لغو شد'};
-  const cls = {pending:'badge-pending',done:'badge-done',canceled:'badge-canceled'};
-  return `<span class="badge ${cls[s]||''}">${map[s]||s}</span>`;
-}
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('fa-IR',{dateStyle:'short',timeStyle:'short'});
-}
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function openModal(id)  { document.getElementById(id).classList.add('open') }
-function closeModal(id) { document.getElementById(id).classList.remove('open') }
+    // ── Categories ────────────────────────────────────────────────────────────
+    async function renderCategories(m) {
+      m.innerHTML = `
+    <div class="card">
+      <div class="card-header"><h2>📂 دسته‌بندی‌ها</h2>
+        <button class="btn btn-primary btn-sm" onclick="openCatModal()">+ دسته جدید</button></div>
+      <div id="cat-list"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
+    </div>`;
+      await loadCategories();
+    }
 
-// ── Boot ──────────────────────────────────────────────────────────────────
-if (TOKEN) initApp();
-</script>
+    async function loadCategories() {
+      try {
+        allCategories = await api('/categories');
+        const prodData = await api('/products');
+        allProducts = prodData;
+        renderCategoryList();
+      } catch (e) {
+        if (e.message !== 'unauthorized')
+          document.getElementById('cat-list').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا</div>';
+      }
+    }
+
+    function renderCategoryList() {
+      const el = document.getElementById('cat-list'); if (!el) return;
+      if (!allCategories.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>دسته‌بندی ثبت نشده</div>'; return; }
+      el.innerHTML = `<div class="cat-grid">${allCategories.map(c => {
+        const count = allProducts.filter(p => p.category === c.label).length;
+        return `<div class="cat-item">
+      ${c.image ? `<img src="${esc(c.image)}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border)" alt="">` : '<span style="font-size:1.2rem">📂</span>'}
+      <div style="flex:1;min-width:0">
+        <div class="cat-name">${esc(c.label)}</div>
+        <div class="cat-count">${count} محصول</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteCat('${c.id}','${esc(c.label)}')">×</button>
+    </div>`;
+      }).join('')}</div>`;
+    }
+
+    function openCatModal() {
+      editingCatId = null;
+      document.getElementById('cat-modal-title').textContent = 'دسته‌بندی جدید';
+      document.getElementById('c-label').value = '';
+      document.getElementById('c-img').value = '';
+      document.getElementById('cat-err').textContent = '';
+      document.getElementById('cat-upload-preview').style.display = 'none';
+      openModal('cat-modal');
+    }
+
+    async function saveCat() {
+      const label = document.getElementById('c-label').value.trim();
+      const err = document.getElementById('cat-err');
+      if (!label) { err.textContent = 'نام دسته‌بندی اجباری است'; return; }
+      const btn = document.getElementById('save-cat-btn');
+      btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true;
+      try {
+        await api('/categories', { method: 'POST', body: JSON.stringify({ label, image: document.getElementById('c-img').value }) });
+        closeModal('cat-modal');
+        toast('دسته‌بندی اضافه شد ✓');
+        await loadCategories();
+      } catch (e) {
+        if (e.message !== 'unauthorized') err.textContent = 'خطا در ذخیره';
+      } finally { btn.innerHTML = 'ذخیره'; btn.disabled = false; }
+    }
+
+    async function deleteCat(id, label) {
+      if (!confirm(`حذف دسته‌بندی «${label}»؟`)) return;
+      try {
+        const r = await api(`/categories/${id}`, { method: 'DELETE' });
+        if (r.error) { toast(r.error, true); return; }
+        toast('دسته‌بندی حذف شد');
+        await loadCategories();
+      } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
+    }
+
+    // ── Image Upload ──────────────────────────────────────────────────────────
+    async function handleImageSelect(input, context) {
+      const file = input.files[0]; if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { toast('حجم فایل بیشتر از 5MB است', true); return; }
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById(`${context}-preview-img`).src = e.target.result;
+        document.getElementById(`${context}-upload-preview`).style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+      document.getElementById(`${context}-upload-status`).textContent = '⏳ در حال آپلود...';
+      const fd = new FormData(); fd.append('file', file);
+      try {
+        const r = await fetch(`${BASE}/upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${TOKEN}` }, body: fd });
+        const d = await r.json();
+        if (!r.ok) { toast(d.error || 'خطا در آپلود', true); document.getElementById(`${context}-upload-status`).textContent = '❌ ناموفق'; return; }
+        document.getElementById(context === 'prod' ? 'p-img' : 'c-img').value = d.url;
+        document.getElementById(`${context}-upload-status`).textContent = '✅ آپلود شد';
+        toast('تصویر آپلود شد ✓');
+      } catch { toast('خطا در آپلود', true); document.getElementById(`${context}-upload-status`).textContent = '❌ خطا'; }
+    }
+
+    // ── Product Modal ─────────────────────────────────────────────────────────
+    function openProductModal(id) {
+      editingProductId = id || null;
+      document.getElementById('modal-title').textContent = id ? 'ویرایش محصول' : 'محصول جدید';
+      document.getElementById('prod-err').textContent = '';
+      document.getElementById('prod-upload-preview').style.display = 'none';
+      document.getElementById('disc-preview').style.display = 'none';
+
+      const catSel = document.getElementById('p-cat');
+      catSel.innerHTML = '<option value="">انتخاب کنید...</option>' +
+        allCategories.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('');
+
+      if (id) {
+        const p = allProducts.find(x => x.id == id);
+        document.getElementById('p-name').value = p.name;
+        document.getElementById('p-note').value = p.note || '';
+        document.getElementById('p-img').value = p.image || '';
+        catSel.value = p.category || '';
+
+        // محاسبه تخفیف از original_price
+        if (p.original_price && p.original_price > p.price) {
+          const disc = Math.round((1 - p.price / p.original_price) * 100);
+          document.getElementById('p-price').value = p.original_price; // قیمت اصلی
+          document.getElementById('p-discount').value = disc;
+          updateDiscPreview();
+        } else {
+          document.getElementById('p-price').value = p.price;
+          document.getElementById('p-discount').value = '';
+        }
+
+        if (p.image) {
+          document.getElementById('prod-preview-img').src = p.image;
+          document.getElementById('prod-upload-preview').style.display = 'block';
+          document.getElementById('prod-upload-status').textContent = '✅ تصویر فعلی';
+        }
+        document.getElementById('p-avail').classList.toggle('on', !!p.available);
+      } else {
+        ['p-name', 'p-price', 'p-discount', 'p-note', 'p-img'].forEach(i => document.getElementById(i).value = '');
+        document.getElementById('p-avail').classList.add('on');
+      }
+      syncAvailLabel();
+      openModal('product-modal');
+    }
+
+    function updateDiscPreview() {
+      const price = Number(document.getElementById('p-price').value);
+      const disc = Number(document.getElementById('p-discount').value || 0);
+      const prev = document.getElementById('disc-preview');
+      if (price > 0 && disc > 0 && disc < 100) {
+        const final = Math.round(price * (1 - disc / 100));
+        prev.textContent = `قیمت اصلی: ${price.toLocaleString('fa-IR')} ت  ←  قیمت با تخفیف: ${final.toLocaleString('fa-IR')} ت`;
+        prev.style.display = 'block';
+      } else {
+        prev.style.display = 'none';
+      }
+    }
+
+    function syncAvailLabel() {
+      document.getElementById('p-avail-lbl').textContent =
+        document.getElementById('p-avail').classList.contains('on') ? 'موجود' : 'ناموجود';
+    }
+
+    async function saveProduct() {
+      const name = document.getElementById('p-name').value.trim();
+      const price = document.getElementById('p-price').value;
+      const cat = document.getElementById('p-cat').value;
+      const err = document.getElementById('prod-err');
+      if (!name) { err.textContent = 'نام محصول اجباری است'; return; }
+      if (!price) { err.textContent = 'قیمت اجباری است'; return; }
+      if (!cat) { err.textContent = 'دسته‌بندی اجباری است'; return; }
+
+      const btn = document.getElementById('save-prod-btn');
+      btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true;
+
+      const discVal = Number(document.getElementById('p-discount').value || 0);
+      // قیمتی که user وارد کرده = قیمت اصلی. اگه تخفیف داره، price واقعی = قیمت * (1-disc%)
+      const origPrice = Number(price);
+      const finalPrice = discVal > 0 ? Math.round(origPrice * (1 - discVal / 100)) : origPrice;
+
+      const body = {
+        name, category: cat,
+        price: finalPrice,
+        discount: discVal,
+        note: document.getElementById('p-note').value.trim(),
+        image: document.getElementById('p-img').value.trim(),
+        available: document.getElementById('p-avail').classList.contains('on') ? 1 : 0,
+      };
+
+      try {
+        if (editingProductId) {
+          await api(`/products/${editingProductId}`, { method: 'PUT', body: JSON.stringify(body) });
+          toast('محصول ویرایش شد ✓');
+        } else {
+          await api('/products', { method: 'POST', body: JSON.stringify(body) });
+          toast('محصول اضافه شد ✓');
+        }
+        closeModal('product-modal');
+        allProducts = await api('/products');
+        renderProductTable();
+      } catch (e) {
+        if (e.message !== 'unauthorized') err.textContent = 'خطا در ذخیره';
+      } finally { btn.innerHTML = 'ذخیره محصول'; btn.disabled = false; }
+    }
+
+    async function deleteProduct(id, name) {
+      if (!confirm(`حذف «${name}»؟`)) return;
+      try {
+        await api(`/products/${id}`, { method: 'DELETE' });
+        toast('محصول حذف شد');
+        allProducts = await api('/products');
+        renderProductTable();
+      } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
+    }
+
+    // ── Utils ─────────────────────────────────────────────────────────────────
+    function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+    function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden' }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = '' }
+
+    if (TOKEN) initApp();
+  </script>
 </body>
+
 </html>
