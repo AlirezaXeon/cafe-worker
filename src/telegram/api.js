@@ -96,4 +96,4 @@ export const forceReply = (env, chatId, text) =>
   });
 
 export const answerCallback = (env, id, text) =>
-  tg(env, "answerCallbackQuery", { callback_query_id: id, text, show_alert: false });
+  tg(env, "answerCallbackQuery", { callback_query_id: id, text, show_alert: false }); 

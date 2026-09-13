@@ -59,6 +59,12 @@ mainNav.querySelectorAll('a').forEach(link => {
 });
 
 // ============ PRICE FORMAT ============
+// جلوگیری از XSS: اسم/توضیح محصول از دیتابیس میاد و ممکنه توسط ادمین وارد شده باشه؛
+// قبل از گذاشتن تو innerHTML باید escape بشه (پنل ادمین خودش این تابع رو داره، اینجا هم لازمه)
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function formatPrice(price) {
   // عدد انگلیسی + جداکننده‌ی هزارگان + حرف T به‌جای «ت»
   const val = Math.round(price / 1000);
@@ -258,11 +264,11 @@ function renderTabs() {
   const catBtns = productsData.categories.map(c => {
     const img = getCategoryImage(c.id);
     const imgHtml = img
-      ? `<img src="${img}" alt="${c.label}" onerror="this.remove(); this.parentElement.textContent='${c.label.charAt(0)}';">`
-      : c.label.charAt(0);
+      ? `<img src="${img}" alt="${esc(c.label)}" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
+      : esc(c.label.charAt(0));
     return `<button class="cat-card" data-cat="${c.id}">
       <span class="cat-card-img">${imgHtml}</span>
-      <span class="cat-card-label">${c.label}</span>
+      <span class="cat-card-label">${esc(c.label)}</span>
     </button>`;
   }).join('');
 
@@ -332,16 +338,16 @@ function productCardHtml(p) {
         <rect x="1" y="1" width="98" height="98" rx="7" ry="7" pathLength="100"></rect>
       </svg>
       <div class="product-image">
-        ${imgSrc ? `<img ${imgAttr} alt="${p.name}" onerror="this.remove(); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
-        <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${p.name.charAt(0)}</div>
+        ${imgSrc ? `<img ${imgAttr} alt="${esc(p.name)}" onerror="this.remove(); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
+        <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${esc(p.name.charAt(0))}</div>
       </div>
       <div class="product-info">
         <div class="product-header">
           <span class="cat-dot" data-cat="${p.category}"></span>
-          <div class="product-name">${p.name}</div>
+          <div class="product-name">${esc(p.name)}</div>
           ${p.originalPrice ? '<span class="discount-badge">تخفیف</span>' : ''}
         </div>
-        <div class="product-note">${p.note}</div>
+        <div class="product-note">${esc(p.note)}</div>
         <div class="product-footer">
           <div class="price-group">
             ${p.originalPrice ? `<span class="price-old mono">${formatPrice(p.originalPrice)}</span>` : ''}
@@ -379,7 +385,7 @@ function renderProducts() {
 
     grid.innerHTML = groups.map(g => `
       <div class="menu-group">
-        <h3 class="menu-group-title">${g.cat.label}</h3>
+        <h3 class="menu-group-title">${esc(g.cat.label)}</h3>
         <div class="product-list">
           ${g.items.map(productCardHtml).join('')}
         </div>
@@ -512,11 +518,11 @@ function renderCart() {
   cartItemsEl.innerHTML = cart.map((item, i) => `
     <div class="cart-item" style="animation-delay: ${i * 60}ms">
       <div class="cart-item-thumb">
-        <img src="${item.image}" alt="${item.name}" onerror="this.parentElement.style.display='none'">
+        <img src="${item.image}" alt="${esc(item.name)}" onerror="this.parentElement.style.display='none'">
       </div>
       <div class="cart-item-main">
         <div class="cart-item-line1">
-          <span class="cart-item-name">${item.name}</span>
+          <span class="cart-item-name">${esc(item.name)}</span>
           <button class="remove-item" onclick="removeFromCart('${item.id}')" aria-label="حذف محصول">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round">
