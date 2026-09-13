@@ -5,6 +5,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>پنل مدیریت — کافه روشن</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&family=Estedad:wght@500;700;900&display=swap"
+    rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -13,22 +18,25 @@
     }
 
     :root {
-      --bg: #f0ede8;
-      --surface: #fff;
-      --border: #e2ddd6;
-      --text: #1c1b18;
-      --muted: #88847f;
-      --accent: #c47c3a;
-      --accent-light: #fdf3ea;
-      --accent-dark: #9e5f24;
-      --success: #2e9e60;
-      --success-light: #edfaf3;
-      --danger: #c0392b;
-      --danger-light: #fdf0ee;
-      --radius: 12px;
-      --radius-sm: 8px;
-      --shadow: 0 2px 16px rgba(0, 0, 0, .07);
-      --shadow-lg: 0 8px 40px rgba(0, 0, 0, .14);
+      --bg: #0B0D12;
+      --surface: #14161E;
+      --border: #23262F;
+      --text: #EFEDE8;
+      --muted: #8B8D96;
+      --accent: #C9A227;
+      --accent-light: rgba(201, 162, 39, .14);
+      --accent-dark: #A6841E;
+      --accent-ink: #171307;
+      --success: #3FAE72;
+      --success-light: rgba(63, 174, 114, .14);
+      --danger: #E0685F;
+      --danger-light: rgba(224, 104, 95, .14);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 4px 20px rgba(0, 0, 0, .35);
+      --shadow-lg: 0 20px 60px rgba(0, 0, 0, .5);
+      --font-fa: 'Vazirmatn', sans-serif;
+      --font-display: 'Estedad', 'Vazirmatn', sans-serif;
     }
 
     * {
@@ -36,7 +44,7 @@
     }
 
     body {
-      font-family: system-ui, 'Segoe UI', Tahoma, sans-serif;
+      font-family: var(--font-fa);
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
@@ -47,6 +55,10 @@
     ::-webkit-scrollbar {
       width: 5px;
       height: 5px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
     }
 
     ::-webkit-scrollbar-thumb {
@@ -60,11 +72,14 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      background: linear-gradient(135deg, #fdf6ef, #f0e9e0)
+      background:
+        radial-gradient(circle at 20% 20%, rgba(201, 162, 39, .08), transparent 50%),
+        linear-gradient(135deg, #0B0D12, #14161E)
     }
 
     .login-card {
       background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 20px;
       padding: 2.75rem 2.25rem;
       width: 100%;
@@ -79,6 +94,7 @@
     }
 
     .login-card h1 {
+      font-family: var(--font-display);
       font-size: 1.35rem;
       font-weight: 700;
       margin-bottom: .2rem
@@ -114,12 +130,12 @@
 
     .btn-primary {
       background: var(--accent);
-      color: #fff
+      color: var(--accent-ink)
     }
 
     .btn-primary:hover:not(:disabled) {
       background: var(--accent-dark);
-      box-shadow: 0 4px 12px rgba(196, 124, 58, .3)
+      box-shadow: 0 4px 16px rgba(201, 162, 39, .35)
     }
 
     .btn-block {
@@ -147,7 +163,7 @@
     .btn-danger {
       background: var(--danger-light);
       color: var(--danger);
-      border: 1.5px solid #f0c0bb
+      border: 1.5px solid rgba(224, 104, 95, .35)
     }
 
     .btn-danger:hover {
@@ -180,7 +196,7 @@
       font-size: .9rem;
       outline: none;
       font-family: inherit;
-      background: var(--surface);
+      background: var(--bg);
       color: var(--text);
       transition: .18s
     }
@@ -189,7 +205,7 @@
     .field select:focus,
     .field textarea:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(196, 124, 58, .1)
+      box-shadow: 0 0 0 3px rgba(201, 162, 39, .15)
     }
 
     .field textarea {
@@ -239,6 +255,7 @@
       display: flex;
       align-items: center;
       gap: .6rem;
+      font-family: var(--font-display);
       font-weight: 700;
       font-size: 1rem
     }
@@ -273,8 +290,8 @@
 
     .nav-btn.active {
       background: var(--accent);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(196, 124, 58, .25)
+      color: var(--accent-ink);
+      box-shadow: 0 2px 8px rgba(201, 162, 39, .3)
     }
 
     .nav-btn:not(.active):hover {
@@ -298,6 +315,7 @@
 
     .stat-card {
       background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 1.25rem 1.4rem;
       box-shadow: var(--shadow);
@@ -349,7 +367,7 @@
 
     .dash-greeting {
       background: linear-gradient(120deg, var(--accent-dark), var(--accent));
-      color: #fff;
+      color: var(--accent-ink);
       border-radius: var(--radius);
       padding: 1.5rem 1.75rem;
       margin-bottom: 1.5rem;
@@ -357,6 +375,7 @@
     }
 
     .dash-greeting h2 {
+      font-family: var(--font-display);
       font-size: 1.3rem;
       font-weight: 700;
       margin-bottom: .3rem
@@ -364,7 +383,7 @@
 
     .dash-greeting p {
       font-size: .85rem;
-      opacity: .9
+      opacity: .75
     }
 
     .quick-actions {
@@ -390,6 +409,7 @@
 
     .quick-action:hover {
       box-shadow: var(--shadow);
+      border-color: var(--accent);
       transform: translateY(-2px)
     }
 
@@ -474,6 +494,7 @@
     }
 
     .card-header h2 {
+      font-family: var(--font-display);
       font-size: .95rem;
       font-weight: 700
     }
@@ -484,7 +505,7 @@
       gap: .75rem;
       padding: .75rem 1.4rem;
       border-bottom: 1px solid var(--border);
-      background: #fafaf8
+      background: var(--bg)
     }
 
     .search-input {
@@ -495,6 +516,8 @@
       font-size: .85rem;
       outline: none;
       font-family: inherit;
+      background: var(--bg);
+      color: var(--text);
       transition: .18s
     }
 
@@ -514,7 +537,7 @@
     }
 
     th {
-      background: #fafaf8;
+      background: var(--bg);
       padding: .65rem 1.2rem;
       text-align: right;
       font-size: .75rem;
@@ -527,13 +550,13 @@
 
     td {
       padding: .8rem 1.2rem;
-      border-top: 1px solid #f3f0ec;
+      border-top: 1px solid var(--border);
       vertical-align: middle;
       font-size: .875rem
     }
 
     tbody tr:hover td {
-      background: #fdf9f5
+      background: rgba(201, 162, 39, .05)
     }
 
     .prod-name {
@@ -558,9 +581,9 @@
     }
 
     .disc-badge {
-      background: #fff3e0;
-      color: #e65100;
-      border: 1px solid #ffcc80;
+      background: rgba(201, 162, 39, .14);
+      color: var(--accent);
+      border: 1px solid rgba(201, 162, 39, .35);
       padding: .15rem .45rem;
       border-radius: 20px;
       font-size: .72rem;
@@ -647,7 +670,7 @@
       cursor: pointer;
       transition: .2s;
       position: relative;
-      background: #fafaf8
+      background: var(--bg)
     }
 
     .upload-area:hover {
@@ -692,7 +715,7 @@
     .overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, .45);
+      background: rgba(0, 0, 0, .65);
       z-index: 100;
       display: none;
       align-items: center;
@@ -707,6 +730,7 @@
 
     .modal {
       background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 18px;
       width: 100%;
       max-width: 460px;
@@ -724,6 +748,7 @@
     }
 
     .modal-header h3 {
+      font-family: var(--font-display);
       font-size: 1rem;
       font-weight: 700
     }
@@ -803,7 +828,7 @@
     /* Discount preview */
     .disc-preview {
       background: var(--accent-light);
-      border: 1px solid #f5d5b0;
+      border: 1px solid rgba(201, 162, 39, .35);
       border-radius: var(--radius-sm);
       padding: .6rem .9rem;
       font-size: .83rem;
@@ -817,13 +842,15 @@
       bottom: 1.5rem;
       left: 50%;
       transform: translateX(-50%) translateY(80px);
-      background: #1c1b18;
-      color: #fff;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
       padding: .6rem 1.25rem;
       border-radius: 30px;
       font-size: .85rem;
       z-index: 999;
       opacity: 0;
+      box-shadow: var(--shadow-lg);
       transition: all .28s;
       pointer-events: none;
       white-space: nowrap
@@ -835,15 +862,17 @@
     }
 
     #toast.err {
-      background: var(--danger)
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff
     }
 
     .spinner {
       display: inline-block;
       width: 14px;
       height: 14px;
-      border: 2px solid rgba(255, 255, 255, .35);
-      border-top-color: #fff;
+      border: 2px solid rgba(23, 19, 7, .35);
+      border-top-color: var(--accent-ink);
       border-radius: 50%;
       animation: spin .6s linear infinite
     }
