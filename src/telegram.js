@@ -14,10 +14,8 @@ export async function handleUpdate(update, env) {
     const msg = update.message;
     const chatId = msg.chat.id;
     const fromId = String(msg.from.id);
-    if (!adminIds.includes(fromId)) return; // کاربر غیرمجاز؛ نادیده گرفته میشه
+    if (!adminIds.includes(fromId)) return;
 
-    // پیام خود ادمین رو هم پاک می‌کنیم (چه فشردن دکمه‌ی کیبورد، چه تایپ متن) تا چت شلوغ نشه.
-    // چون قبلش از msg خودمون کپی همه‌چیز (متن/عکس/فایل) رو داریم، حذف پیام تأثیری رو پردازش نداره.
     await deleteMessageSafe(env, chatId, msg.message_id);
 
     if (msg.text === "/start") {
@@ -25,8 +23,7 @@ export async function handleUpdate(update, env) {
       return sendMainMenu(env, chatId);
     }
 
-    // دکمه‌های خود کیبورد (نه زیر پیام) به‌صورت متن ساده میان؛ چون این‌ها همیشه در دسترسن،
-    // با فشردنشون هر مرحله‌ی نیمه‌کاره‌ای (منتظر عکس/متن) رو کنار می‌ذاریم و می‌ریم سراغ همون بخش.
+    // ── دکمه‌های کیبورد اصلی (پاک کردن سشن و رفتن به منو) ────────────
     if (msg.text === "📦 محصولات") {
       await clearSession(env, chatId);
       return sendCategoryPicker(env, chatId, "browse");
@@ -44,15 +41,25 @@ export async function handleUpdate(update, env) {
       return sendSiteImagesMenu(env, chatId);
     }
 
+    // ── لغو متنی — کاربر می‌تونه در هر مرحله‌ای تایپ کنه تا انصراف بده ──
+    // این برای مواردیه که کاربر روی موبایل بک زده و کیبورد اصلی برگشته
+    // ولی سشن هنوز فعاله؛ با فشردن هر دکمه‌ی کیبورد اصلی سشن پاک میشه
+    const cancelTexts = ["لغو", "بازگشت", "❌", "❌ لغو", "/cancel", "cancel"];
+    if (msg.text && cancelTexts.includes(msg.text.trim())) {
+      await clearSession(env, chatId);
+      return sendMainMenu(env, chatId);
+    }
+
     const session = await getSession(env, chatId);
     if (session) {
-      // اگر منتظر عکس بودیم و کاربر عکس فرستاد (چه فشرده/photo، چه فایل خام/document)
-      const waitingForPhoto = ["new_product_image", "new_category_image", "edit_category_image", "edit_product_image", "edit_site_logo", "edit_site_cover"];
+      const waitingForPhoto = [
+        "new_product_image", "new_category_image", "edit_category_image",
+        "edit_product_image", "edit_site_logo", "edit_site_cover"
+      ];
       const isImageDocument = msg.document && msg.document.mime_type && msg.document.mime_type.startsWith("image/");
       if ((msg.photo || isImageDocument) && waitingForPhoto.includes(session.step)) {
         return handleImageStep(env, chatId, msg, session);
       }
-      // اگر متن فرستاد
       if (msg.text) return handleTextStep(env, chatId, msg.text, session);
     }
 
@@ -64,7 +71,6 @@ export async function handleUpdate(update, env) {
     const chatId = cq.message.chat.id;
     const fromId = String(cq.from.id);
     if (!adminIds.includes(fromId)) return answerCallback(env, cq.id, "دسترسی نداری");
-    // خاموش کردن اسپینر دکمه (answerCallback) به نتیجه‌ی handleCallback نیازی نداره، پس هم‌زمان اجراشون می‌کنیم
     const [, result] = await Promise.all([answerCallback(env, cq.id), handleCallback(env, chatId, cq.data)]);
     return result;
   }

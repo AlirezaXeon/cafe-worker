@@ -27,6 +27,14 @@ import {
 export async function handleCallback(env, chatId, data) {
   const [action, a, b] = data.split(":");
 
+  // ── لغو / بازگشت به منو ─────────────────────────────────────────────
+  // این دکمه زیر همه‌ی forceReply‌ها نشون داده میشه تا کاربر بتونه
+  // در هر مرحله‌ای انصراف بده و برگرده به منوی اصلی
+  if (data === "cancel") {
+    await clearSession(env, chatId);
+    return sendMainMenu(env, chatId);
+  }
+
   if (data === "menu:home") return sendMainMenu(env, chatId);
   if (data === "menu:products") return sendCategoryPicker(env, chatId, "browse");
   if (data === "menu:categories") return sendCategoriesMenu(env, chatId);
@@ -52,7 +60,7 @@ export async function handleCallback(env, chatId, data) {
     return sendMessage(
       env,
       chatId,
-      `🧹 ${toFa(orphans.length)} عکس پیدا شد که دیگه به هیچ محصول/دسته/لوگو/کاوری وصل نیستن (باقی‌مونده از قبل). حذفشون کنم؟`,
+      `🧹 ${toFa(orphans.length)} عکس پیدا شد که دیگه به هیچ محصول/دسته/لوگو/کاوری وصل نیستن. حذفشون کنم؟`,
       [
         [{ text: "✅ آره، پاک کن", callback_data: "cleanupyes" }],
         [{ text: "❌ نه", callback_data: "menu:siteimages" }],
@@ -118,7 +126,7 @@ export async function handleCallback(env, chatId, data) {
     if (next === 1) {
       await sendMessage(env, chatId, "✅ محصول برگشت رو سایت.");
     } else if (next === 0) {
-      await sendMessage(env, chatId, "🚫 محصول از سایت پنهان شد (تا وقتی دوباره فعالش کنی، مشتری نمی‌بینتش).");
+      await sendMessage(env, chatId, "🚫 محصول از سایت پنهان شد.");
     }
     return sendProductDetail(env, chatId, a);
   }
