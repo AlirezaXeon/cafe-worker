@@ -1220,8 +1220,13 @@
 
     async function toggleAvail(id, cur) {
       const p = allProducts.find(x => x.id == id); if (!p) return;
+      // اگه محصول از قبل تخفیف داره، همون درصد رو حفظ می‌کنیم؛ وگرنه با discount:0 که قبلاً
+      // این‌جا فرستاده می‌شد، original_price توی بک‌اند پاک می‌شد و تخفیف محصول از بین می‌رفت
+      const currentDiscount = (p.original_price && p.original_price > p.price)
+        ? Math.round((1 - p.price / p.original_price) * 100)
+        : 0;
       try {
-        await api(`/products/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, available: cur ? 0 : 1, discount: 0 }) });
+        await api(`/products/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, available: cur ? 0 : 1, discount: currentDiscount }) });
         p.available = cur ? 0 : 1; renderProductTable();
         toast(p.available ? 'محصول موجود شد ✓' : 'محصول ناموجود شد');
       } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
