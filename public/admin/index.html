@@ -333,6 +333,128 @@
       margin-top: .4rem
     }
 
+    .stat-card.red {
+      border-color: var(--danger)
+    }
+
+    .stat-card.red .val {
+      color: var(--danger)
+    }
+
+    .stat-icon {
+      font-size: 1.3rem;
+      margin-bottom: .5rem;
+      opacity: .85
+    }
+
+    .dash-greeting {
+      background: linear-gradient(120deg, var(--accent-dark), var(--accent));
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow)
+    }
+
+    .dash-greeting h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: .3rem
+    }
+
+    .dash-greeting p {
+      font-size: .85rem;
+      opacity: .9
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: .75rem;
+      margin-bottom: 1.75rem
+    }
+
+    .quick-action {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: .7rem;
+      cursor: pointer;
+      transition: box-shadow .15s, transform .15s;
+      text-decoration: none;
+      color: var(--text)
+    }
+
+    .quick-action:hover {
+      box-shadow: var(--shadow);
+      transform: translateY(-2px)
+    }
+
+    .quick-action .qa-icon {
+      font-size: 1.4rem;
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent-light);
+      border-radius: var(--radius-sm);
+      flex-shrink: 0
+    }
+
+    .quick-action .qa-label {
+      font-weight: 600;
+      font-size: .88rem
+    }
+
+    .dash-section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: .9rem
+    }
+
+    .cat-breakdown-item {
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+      padding: .6rem 0
+    }
+
+    .cat-breakdown-item .cb-label {
+      width: 110px;
+      flex-shrink: 0;
+      font-size: .83rem;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .cat-breakdown-item .cb-bar-track {
+      flex: 1;
+      height: 8px;
+      background: var(--bg);
+      border-radius: 4px;
+      overflow: hidden
+    }
+
+    .cat-breakdown-item .cb-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px
+    }
+
+    .cat-breakdown-item .cb-count {
+      width: 30px;
+      flex-shrink: 0;
+      text-align: left;
+      font-size: .8rem;
+      color: var(--muted)
+    }
+
     /* Card */
     .card {
       background: var(--surface);
@@ -647,7 +769,7 @@
     /* Cat grid */
     .cat-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
       gap: .75rem;
       padding: 1.25rem
     }
@@ -947,19 +1069,78 @@
     }
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
+    function greetingText() {
+      const h = new Date().getHours();
+      if (h < 12) return 'صبح بخیر ☀️';
+      if (h < 17) return 'ظهر بخیر 🌤';
+      if (h < 20) return 'عصر بخیر 🌇';
+      return 'شب بخیر 🌙';
+    }
+
     async function renderDashboard(m) {
       m.innerHTML = `
+    <div class="dash-greeting">
+      <h2>${greetingText()}</h2>
+      <p>خلاصه‌ی وضعیت کافه روشن رو از اینجا می‌بینی.</p>
+    </div>
     <div class="stats">
-      <div class="stat-card"><div class="val" id="s-total">—</div><div class="lbl">کل محصولات</div></div>
-      <div class="stat-card green"><div class="val" id="s-avail">—</div><div class="lbl">موجود</div></div>
-      <div class="stat-card gray"><div class="val" id="s-cats">—</div><div class="lbl">دسته‌بندی</div></div>
+      <div class="stat-card"><div class="stat-icon">🍽</div><div class="val" id="s-total">—</div><div class="lbl">کل محصولات</div></div>
+      <div class="stat-card green"><div class="stat-icon">✅</div><div class="val" id="s-avail">—</div><div class="lbl">موجود</div></div>
+      <div class="stat-card red"><div class="stat-icon">⛔️</div><div class="val" id="s-unavail">—</div><div class="lbl">ناموجود</div></div>
+      <div class="stat-card gray"><div class="stat-icon">📂</div><div class="val" id="s-cats">—</div><div class="lbl">دسته‌بندی</div></div>
+    </div>
+    <div class="quick-actions">
+      <div class="quick-action" onclick="quickAddProduct()">
+        <div class="qa-icon">➕</div><div class="qa-label">محصول جدید</div>
+      </div>
+      <div class="quick-action" onclick="quickAddCategory()">
+        <div class="qa-icon">📂</div><div class="qa-label">دسته‌بندی جدید</div>
+      </div>
+      <a class="quick-action" href="/" target="_blank" rel="noopener">
+        <div class="qa-icon">🔗</div><div class="qa-label">مشاهده‌ی سایت</div>
+      </a>
+    </div>
+    <div class="card">
+      <div class="card-header"><h2>📊 محصولات به تفکیک دسته‌بندی</h2></div>
+      <div id="cat-breakdown" style="padding:1.25rem"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
     </div>`;
       try {
-        const s = await api('/stats');
-        document.getElementById('s-total').textContent = s.totalProducts;
-        document.getElementById('s-avail').textContent = s.availableProducts;
-        document.getElementById('s-cats').textContent = s.totalCategories;
+        [allCategories, allProducts] = await Promise.all([api('/categories'), api('/products')]);
+        const total = allProducts.length;
+        const avail = allProducts.filter(p => p.available).length;
+        document.getElementById('s-total').textContent = total;
+        document.getElementById('s-avail').textContent = avail;
+        document.getElementById('s-unavail').textContent = total - avail;
+        document.getElementById('s-cats').textContent = allCategories.length;
+
+        const breakdown = document.getElementById('cat-breakdown');
+        const counts = allCategories
+          .map(c => ({ label: c.label, count: allProducts.filter(p => p.category === c.id).length }))
+          .sort((a, b) => b.count - a.count);
+        const max = Math.max(1, ...counts.map(c => c.count));
+        breakdown.innerHTML = counts.length
+          ? counts.map(c => `
+            <div class="cat-breakdown-item">
+              <div class="cb-label" title="${esc(c.label)}">${esc(c.label)}</div>
+              <div class="cb-bar-track"><div class="cb-bar-fill" style="width:${(c.count / max) * 100}%"></div></div>
+              <div class="cb-count">${c.count}</div>
+            </div>`).join('')
+          : '<div class="empty"><div class="empty-icon">📭</div>هنوز دسته‌بندی‌ای ثبت نشده</div>';
       } catch (e) { if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار', true); }
+    }
+
+    async function quickAddProduct() {
+      const btns = document.querySelectorAll('.nav-btn');
+      btns.forEach(b => b.classList.remove('active')); btns[1].classList.add('active');
+      await renderProducts(document.getElementById('main-content'));
+      openProductModal();
+    }
+
+    async function quickAddCategory() {
+      const btns = document.querySelectorAll('.nav-btn');
+      btns.forEach(b => b.classList.remove('active')); btns[2].classList.add('active');
+      await renderCategories(document.getElementById('main-content'));
+      openCatModal();
     }
 
     // ── Products ──────────────────────────────────────────────────────────────
@@ -1010,8 +1191,13 @@
 
     async function toggleAvail(id, cur) {
       const p = allProducts.find(x => x.id == id); if (!p) return;
+      // اگه محصول از قبل تخفیف داره، همون درصد رو حفظ می‌کنیم؛ وگرنه با discount:0 که قبلاً
+      // این‌جا فرستاده می‌شد، original_price توی بک‌اند پاک می‌شد و تخفیف محصول از بین می‌رفت
+      const currentDiscount = (p.original_price && p.original_price > p.price)
+        ? Math.round((1 - p.price / p.original_price) * 100)
+        : 0;
       try {
-        await api(`/products/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, available: cur ? 0 : 1, discount: 0 }) });
+        await api(`/products/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, available: cur ? 0 : 1, discount: currentDiscount }) });
         p.available = cur ? 0 : 1; renderProductTable();
         toast(p.available ? 'محصول موجود شد ✓' : 'محصول ناموجود شد');
       } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
@@ -1044,25 +1230,31 @@
       const el = document.getElementById('cat-list'); if (!el) return;
       if (!allCategories.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>دسته‌بندی ثبت نشده</div>'; return; }
       el.innerHTML = `<div class="cat-grid">${allCategories.map(c => {
-        const count = allProducts.filter(p => p.category === c.label).length;
+        const count = allProducts.filter(p => p.category === c.id).length;
         return `<div class="cat-item">
       ${c.image ? `<img src="${esc(c.image)}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border)" alt="">` : '<span style="font-size:1.2rem">📂</span>'}
       <div style="flex:1;min-width:0">
-        <div class="cat-name">${esc(c.label)}</div>
+        <div class="cat-name" title="${esc(c.label)}">${esc(c.label)}</div>
         <div class="cat-count">${count} محصول</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteCat('${c.id}','${esc(c.label)}')">×</button>
+      <div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick="openCatModal('${c.id}')">ویرایش</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCat('${c.id}','${esc(c.label)}')">×</button>
+      </div>
     </div>`;
       }).join('')}</div>`;
     }
 
-    function openCatModal() {
-      editingCatId = null;
-      document.getElementById('cat-modal-title').textContent = 'دسته‌بندی جدید';
-      document.getElementById('c-label').value = '';
-      document.getElementById('c-img').value = '';
+    function openCatModal(id) {
+      editingCatId = id || null;
+      const c = id ? allCategories.find(x => x.id === id) : null;
+      document.getElementById('cat-modal-title').textContent = c ? 'ویرایش دسته‌بندی' : 'دسته‌بندی جدید';
+      document.getElementById('c-label').value = c ? c.label : '';
+      document.getElementById('c-img').value = c ? (c.image || '') : '';
       document.getElementById('cat-err').textContent = '';
-      document.getElementById('cat-upload-preview').style.display = 'none';
+      const prev = document.getElementById('cat-upload-preview');
+      if (c && c.image) { document.getElementById('cat-preview-img').src = c.image; prev.style.display = 'block'; }
+      else { prev.style.display = 'none'; }
       openModal('cat-modal');
     }
 
@@ -1073,9 +1265,15 @@
       const btn = document.getElementById('save-cat-btn');
       btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true;
       try {
-        await api('/categories', { method: 'POST', body: JSON.stringify({ label, image: document.getElementById('c-img').value }) });
+        const image = document.getElementById('c-img').value;
+        if (editingCatId) {
+          await api(`/categories/${editingCatId}`, { method: 'PUT', body: JSON.stringify({ label, image }) });
+          toast('دسته‌بندی ویرایش شد ✓');
+        } else {
+          await api('/categories', { method: 'POST', body: JSON.stringify({ label, image }) });
+          toast('دسته‌بندی اضافه شد ✓');
+        }
         closeModal('cat-modal');
-        toast('دسته‌بندی اضافه شد ✓');
         await loadCategories();
       } catch (e) {
         if (e.message !== 'unauthorized') err.textContent = 'خطا در ذخیره';
