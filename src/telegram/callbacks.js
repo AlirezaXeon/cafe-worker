@@ -151,8 +151,9 @@ export async function handleCallback(env, chatId, data) {
   }
 
   if (data === "newcat") {
-    await setSession(env, chatId, { step: "new_category_id" });
-    return forceReply(env, chatId, "یک شناسه‌ی انگلیسی کوتاه برای دسته بفرست (مثلاً drinks):");
+    // شناسه رو دیگه از ادمین نمی‌پرسیم؛ خودکار ساخته میشه (مثل پنل وب) تا فرمت شناسه‌ها یکی بمونه
+    await setSession(env, chatId, { step: "new_category_label" });
+    return forceReply(env, chatId, "اسم این دسته رو بفرست (مثلاً «نوشیدنی‌ها»):");
   }
 
   if (action === "catimg") {

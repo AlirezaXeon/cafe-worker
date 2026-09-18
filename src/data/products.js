@@ -111,17 +111,79 @@ export async function removeProductDiscount(env, productId) {
     .run();
 }
 
-export async function addProduct(env, { id, category, name, note, price, image }) {
+// قیمت پایه + درصد تخفیف ← قیمتی که باید ذخیره بشه.
+// تنها جایی که منطق تخفیف حساب میشه؛ ربات و پنل وب هر دو از همین رد میشن تا نتیجه‌شون یکی باشه.
+// discount = 0 یعنی بدون تخفیف (original_price پاک میشه).
+export function resolvePrice(basePrice, discountPercent = 0) {
+  const base = roundPrice(basePrice);
+  const d = Number(discountPercent) || 0;
+  if (d <= 0 || d >= 100) return { price: base, originalPrice: null };
+  return { price: roundPrice(base * (1 - d / 100)), originalPrice: base };
+}
+
+export async function addProduct(env, { id, category, name, note, price, image, discount = 0, available = 1 }) {
+  const { price: finalPrice, originalPrice } = resolvePrice(price, discount);
   await env.DB
     .prepare(
-      "INSERT INTO products (id, category, name, note, price, original_price, image) VALUES (?, ?, ?, ?, ?, NULL, ?)"
+      "INSERT INTO products (id, category, name, note, price, original_price, image, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     )
-    .bind(id, category, name, note, roundPrice(price), image)
+    .bind(id, category, name, note ?? "", finalPrice, originalPrice, image ?? null, available)
+    .run();
+}
+
+export async function updateProduct(env, id, { category, name, note, price, image, discount = 0, available = 1 }) {
+  const { price: finalPrice, originalPrice } = resolvePrice(price, discount);
+  await env.DB
+    .prepare(
+      `UPDATE products
+       SET name = ?, category = ?, note = ?, price = ?, original_price = ?, image = ?, available = ?
+       WHERE id = ?`
+    )
+    .bind(name, category, note ?? "", finalPrice, originalPrice, image ?? null, available, id)
     .run();
 }
 
 export async function deleteProduct(env, productId) {
   await env.DB.prepare("DELETE FROM products WHERE id = ?").bind(productId).run();
+}
+
+// ---------- لیست‌ها و شمارش‌ها (برای پنل وب) ----------
+
+export async function listProducts(env) {
+  const { results } = await env.DB
+    .prepare(
+      "SELECT id, category, name, note, price, original_price, image, available FROM products ORDER BY category, name"
+    )
+    .all();
+  return results;
+}
+
+export async function listCategories(env) {
+  const { results } = await env.DB
+    .prepare("SELECT id, label, image FROM categories ORDER BY label")
+    .all();
+  return results;
+}
+
+export async function countProductsInCategory(env, catId) {
+  const row = await env.DB
+    .prepare("SELECT COUNT(*) AS c FROM products WHERE category = ?")
+    .bind(catId)
+    .first();
+  return row?.c ?? 0;
+}
+
+export async function getStats(env) {
+  const [total, avail, cats] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS c FROM products").first(),
+    env.DB.prepare("SELECT COUNT(*) AS c FROM products WHERE available = 1").first(),
+    env.DB.prepare("SELECT COUNT(*) AS c FROM categories").first(),
+  ]);
+  return {
+    totalProducts: total?.c ?? 0,
+    availableProducts: avail?.c ?? 0,
+    totalCategories: cats?.c ?? 0,
+  };
 }
 
 export async function addCategory(env, id, label, image = null) {
@@ -134,14 +196,28 @@ export async function setCategoryImage(env, catId, image) {
   await env.DB.prepare("UPDATE categories SET image = ? WHERE id = ?").bind(image, catId).run();
 }
 
+export async function updateCategory(env, catId, label, image = null) {
+  await env.DB
+    .prepare("UPDATE categories SET label = ?, image = ? WHERE id = ?")
+    .bind(label, image, catId)
+    .run();
+}
+
 export async function deleteCategory(env, catId) {
   await env.DB.prepare("DELETE FROM categories WHERE id = ?").bind(catId).run();
 }
 
-export async function nextProductId(env) {
-  const { results } = await env.DB.prepare("SELECT id FROM products").all();
-  const ids = new Set(results.map((r) => r.id));
-  let n = ids.size + 1;
-  while (ids.has(`p${n}`)) n++;
-  return `p${n}`;
+// ---------- تولید شناسه ----------
+// قبلاً کل جدول محصولات خونده می‌شد تا شماره‌ی بعدی پیدا بشه؛ هم کند بود، هم اگه ربات و
+// پنل وب هم‌زمان محصول می‌ساختن هر دو یه id می‌گرفتن و دومی روی کلید اصلی خطا می‌خورد.
+// حالا از تایم‌استمپ استفاده می‌کنیم: بدون خوندن دیتابیس و بدون برخورد.
+// ربات و پنل وب هر دو از همین دو تابع استفاده می‌کنن تا فرمت شناسه‌ها یکسان بمونه.
+const idSuffix = () => Math.random().toString(36).slice(2, 6);
+
+export function newProductId() {
+  return `p-${Date.now().toString(36)}-${idSuffix()}`;
+}
+
+export function newCategoryId() {
+  return `cat-${Date.now().toString(36)}-${idSuffix()}`;
 }
