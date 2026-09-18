@@ -1,10 +1,28 @@
 import { signToken, requireAdmin } from '../middleware/adminAuth.js';
+import { nextProductId } from '../data/products.js';
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   });
+
+// پیام خطای عمومی برای کلاینت؛ جزئیات واقعی فقط تو لاگ سرور می‌مونه (نه تو جواب HTTP)
+function serverError(e, context) {
+  console.error(`[admin:${context}]`, e);
+  return json({ error: 'خطای داخلی سرور رخ داد. لطفاً دوباره امتحان کنید.' }, 500);
+}
+
+// مقایسه‌ی constant-time برای جلوگیری از timing attack روی رمز عبور
+function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const maxLen = Math.max(a.length, b.length, 32);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < maxLen; i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
 
 export async function handleAdminAPI(request, env) {
   const url = new URL(request.url);
@@ -23,9 +41,23 @@ export async function handleAdminAPI(request, env) {
 
   // ── Login ─────────────────────────────────────────────────────────────
   if (path === '/login' && method === 'POST') {
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const lockKey = `loginfail:${ip}`;
+    const failCountRaw = await env.PRODUCTS_KV.get(lockKey);
+    const failCount = failCountRaw ? Number(failCountRaw) : 0;
+    if (failCount >= 5) {
+      return json({ error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگه امتحان کن.' }, 429);
+    }
+
     const { password } = await request.json().catch(() => ({}));
-    if (!password || password !== env.ADMIN_PASSWORD)
+    if (!password || !safeCompare(password, env.ADMIN_PASSWORD)) {
+      // شمارنده‌ی تلاش ناموفق؛ بعد از ۱۵ دقیقه خودش پاک میشه (expirationTtl)
+      await env.PRODUCTS_KV.put(lockKey, String(failCount + 1), { expirationTtl: 900 });
       return json({ error: 'رمز عبور اشتباه است' }, 401);
+    }
+
+    // ورود موفق؛ شمارنده‌ی تلاش ناموفق این IP رو پاک می‌کنیم
+    await env.PRODUCTS_KV.delete(lockKey);
     const token = await signToken(
       { role: 'admin', exp: Date.now() + 7 * 24 * 60 * 60 * 1000 },
       env.JWT_SECRET
@@ -49,7 +81,7 @@ export async function handleAdminAPI(request, env) {
       const filename = `p${Date.now()}.${ext}`;
       await env.PRODUCTS_KV.put(`image:${filename}`, await file.arrayBuffer());
       return json({ url: `/images/${filename}` });
-    } catch (e) { return json({ error: e.message }, 500); }
+    } catch (e) { return serverError(e, 'upload'); }
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────
@@ -65,7 +97,7 @@ export async function handleAdminAPI(request, env) {
         availableProducts: avail?.c ?? 0,
         totalCategories: cats?.c ?? 0,
       });
-    } catch (e) { return json({ error: e.message }, 500); }
+    } catch (e) { return serverError(e, 'stats'); }
   }
 
   // ── Categories ────────────────────────────────────────────────────────
@@ -74,7 +106,7 @@ export async function handleAdminAPI(request, env) {
       try {
         const { results } = await env.DB.prepare('SELECT * FROM categories ORDER BY label').all();
         return json(results);
-      } catch (e) { return json({ error: e.message }, 500); }
+      } catch (e) { return serverError(e, 'categories:get'); }
     }
     if (method === 'POST') {
       try {
@@ -86,7 +118,7 @@ export async function handleAdminAPI(request, env) {
           .bind(id, b.label.trim(), b.image || '')
           .run();
         return json({ success: true, id }, 201);
-      } catch (e) { return json({ error: e.message }, 500); }
+      } catch (e) { return serverError(e, 'categories:post'); }
     }
   }
 
@@ -96,24 +128,36 @@ export async function handleAdminAPI(request, env) {
     if (method === 'DELETE') {
       try {
         // اگه محصولی با این کتگوری داره، اجازه حذف نمیدیم
+        // (products.category همیشه آیدی دسته رو نگه می‌داره، نه برچسبش)
         const used = await env.DB
-          .prepare("SELECT COUNT(*) as c FROM products WHERE category=(SELECT label FROM categories WHERE id=?)")
+          .prepare("SELECT COUNT(*) as c FROM products WHERE category=?")
           .bind(id).first();
         if (used?.c > 0)
           return json({ error: `این دسته‌بندی ${used.c} محصول دارد. ابتدا محصولات را جابجا کنید.` }, 400);
+        const cat = await env.DB.prepare('SELECT image FROM categories WHERE id=?').bind(id).first();
         await env.DB.prepare('DELETE FROM categories WHERE id=?').bind(id).run();
+        if (cat?.image) {
+          const oldFilename = cat.image.split('/').pop();
+          if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+        }
         return json({ success: true });
-      } catch (e) { return json({ error: e.message }, 500); }
+      } catch (e) { return serverError(e, 'categories:delete'); }
     }
     if (method === 'PUT') {
       try {
         const b = await request.json();
+        if (!b.label) return json({ error: 'نام دسته‌بندی اجباری است' }, 400);
+        const old = await env.DB.prepare('SELECT image FROM categories WHERE id=?').bind(id).first();
         await env.DB
           .prepare('UPDATE categories SET label=?, image=? WHERE id=?')
           .bind(b.label.trim(), b.image || '', id)
           .run();
+        if (old?.image && old.image !== b.image) {
+          const oldFilename = old.image.split('/').pop();
+          if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+        }
         return json({ success: true });
-      } catch (e) { return json({ error: e.message }, 500); }
+      } catch (e) { return serverError(e, 'categories:put'); }
     }
   }
 
@@ -124,7 +168,7 @@ export async function handleAdminAPI(request, env) {
         const { results } = await env.DB
           .prepare('SELECT * FROM products ORDER BY category, name').all();
         return json(results);
-      } catch (e) { return json({ error: e.message }, 500); }
+      } catch (e) { return serverError(e, 'products:get'); }
     }
 
     if (method === 'POST') {
@@ -134,7 +178,7 @@ export async function handleAdminAPI(request, env) {
         if (!b.price) return json({ error: 'قیمت اجباری است' }, 400);
         if (!b.category) return json({ error: 'دسته‌بندی اجباری است' }, 400);
 
-        const id = `p${Date.now()}`;
+        const id = await nextProductId(env);
         const price = Number(b.price);
 
         // اگه تخفیف داره، original_price = قیمت اصلی قبل از تخفیف
@@ -155,7 +199,7 @@ export async function handleAdminAPI(request, env) {
 
         await stmt.run();
         return json({ success: true, id }, 201);
-      } catch (e) { return json({ error: e.message }, 500); }
+      } catch (e) { return serverError(e, 'products:post'); }
     }
   }
 
@@ -166,9 +210,13 @@ export async function handleAdminAPI(request, env) {
     if (method === 'PUT') {
       try {
         const b = await request.json();
+        if (!b.name) return json({ error: 'نام محصول اجباری است' }, 400);
+        if (!b.price) return json({ error: 'قیمت اجباری است' }, 400);
+        if (!b.category) return json({ error: 'دسته‌بندی اجباری است' }, 400);
         const price = Number(b.price);
         const disc = Number(b.discount || 0);
         const orig = disc > 0 ? Math.round(price / (1 - disc / 100)) : null;
+        const old = await env.DB.prepare('SELECT image FROM products WHERE id=?').bind(id).first();
 
         await env.DB
           .prepare(
@@ -178,15 +226,24 @@ export async function handleAdminAPI(request, env) {
           )
           .bind(b.name.trim(), b.category, b.note || '', price, orig, b.image || '', b.available ?? 1, id)
           .run();
+        if (old?.image && old.image !== b.image) {
+          const oldFilename = old.image.split('/').pop();
+          if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+        }
         return json({ success: true });
-      } catch (e) { return json({ error: e.message }, 500); }
+      } catch (e) { return serverError(e, 'products:put'); }
     }
 
     if (method === 'DELETE') {
       try {
+        const prod = await env.DB.prepare('SELECT image FROM products WHERE id=?').bind(id).first();
         await env.DB.prepare('DELETE FROM products WHERE id=?').bind(id).run();
+        if (prod?.image) {
+          const oldFilename = prod.image.split('/').pop();
+          if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+        }
         return json({ success: true });
-      } catch (e) { return json({ error: e.message }, 500); }
+      } catch (e) { return serverError(e, 'products:delete'); }
     }
   }
 
