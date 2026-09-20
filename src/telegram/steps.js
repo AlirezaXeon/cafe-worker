@@ -4,7 +4,8 @@ import {
   setProductDiscount,
   addProduct,
   addCategory,
-  nextProductId,
+  newProductId,
+  newCategoryId,
 } from "../data/products.js";
 import { setSession, clearSession } from "../data/session.js";
 import { sendMessage, forceReply } from "./api.js";
@@ -56,17 +57,13 @@ export async function handleTextStep(env, chatId, text, session) {
     return sendProductDetail(env, chatId, session.productId);
   }
 
-  if (session.step === "new_category_id") {
-    const id = trimmed.toLowerCase().replace(/\s+/g, "-");
-    if (!/^[a-z0-9-]+$/.test(id)) {
-      return forceReply(env, chatId, "فقط حروف انگلیسی، عدد و خط تیره مجازه. دوباره بفرست:");
-    }
-    await setSession(env, chatId, { step: "new_category_label", id });
-    return forceReply(env, chatId, "اسم فارسی این دسته رو بفرست (مثلاً «نوشیدنی‌ها»):");
-  }
-
   if (session.step === "new_category_label") {
-    await setSession(env, chatId, { step: "new_category_image", id: session.id, label: trimmed });
+    // شناسه همین‌جا ساخته میشه (همون تابعی که پنل وب استفاده می‌کنه)
+    await setSession(env, chatId, {
+      step: "new_category_image",
+      id: newCategoryId(),
+      label: trimmed,
+    });
     return forceReply(env, chatId, "📷 عکس این دسته رو بفرست، یا اگه نمی‌خوای بنویس «بدون عکس»:");
   }
 
@@ -101,7 +98,7 @@ export async function handleTextStep(env, chatId, text, session) {
   if (session.step === "new_product_price") {
     const price = parseInt(trimmed.replace(/[^\d]/g, ""), 10);
     if (!price) return forceReply(env, chatId, "یه عدد معتبر بفرست:");
-    const newId = await nextProductId(env);
+    const newId = newProductId();
     await setSession(env, chatId, { ...session, step: "new_product_image", price, productId: newId });
     return forceReply(env, chatId, "📷 حالا عکس محصول رو بفرست، یا اگر عکس نداره بنویس «بدون عکس»:");
   }

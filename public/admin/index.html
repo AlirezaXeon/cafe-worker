@@ -1191,14 +1191,11 @@
 
     async function toggleAvail(id, cur) {
       const p = allProducts.find(x => x.id == id); if (!p) return;
-      // اگه محصول از قبل تخفیف داره، همون درصد رو حفظ می‌کنیم؛ وگرنه با discount:0 که قبلاً
-      // این‌جا فرستاده می‌شد، original_price توی بک‌اند پاک می‌شد و تخفیف محصول از بین می‌رفت
-      const currentDiscount = (p.original_price && p.original_price > p.price)
-        ? Math.round((1 - p.price / p.original_price) * 100)
-        : 0;
+      // فقط ستون available رو عوض می‌کنیم. قبلاً کل محصول با PUT فرستاده می‌شد و درصد تخفیف
+      // از روی قیمت‌ها بازسازی می‌شد؛ چون درصد گرد می‌شد، هر بار toggle قیمت اصلی چند تومن جابه‌جا می‌شد.
       try {
-        await api(`/products/${id}`, { method: 'PUT', body: JSON.stringify({ ...p, available: cur ? 0 : 1, discount: currentDiscount }) });
-        p.available = cur ? 0 : 1; renderProductTable();
+        const res = await api(`/products/${id}/availability`, { method: 'PATCH' });
+        p.available = res.available; renderProductTable();
         toast(p.available ? 'محصول موجود شد ✓' : 'محصول ناموجود شد');
       } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
     }
@@ -1387,13 +1384,11 @@
       btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true;
 
       const discVal = Number(document.getElementById('p-discount').value || 0);
-      // قیمتی که user وارد کرده = قیمت اصلی. اگه تخفیف داره، price واقعی = قیمت * (1-disc%)
-      const origPrice = Number(price);
-      const finalPrice = discVal > 0 ? Math.round(origPrice * (1 - discVal / 100)) : origPrice;
-
+      // قیمتی که user وارد کرده = قیمت پایه (قبل از تخفیف) و همون رو خام می‌فرستیم.
+      // محاسبه‌ی قیمت نهایی و original_price فقط تو بک‌اند انجام میشه تا با رباتِ تلگرام یکی باشه.
       const body = {
         name, category: cat,
-        price: finalPrice,
+        price: Number(price),
         discount: discVal,
         note: document.getElementById('p-note').value.trim(),
         image: document.getElementById('p-img').value.trim(),
