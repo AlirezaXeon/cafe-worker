@@ -905,6 +905,53 @@ body.header-hidden .menu-controls {
   color: var(--gold);
 }
 
+/* ---------- اسکلتون لودینگ (جلوگیری از Layout Shift موقع لود محصولات) ---------- */
+/* تا وقتی fetch محصولات تموم نشده، این‌ها فضای واقعی رو اشغال می‌کنن؛
+   با innerHTML شدن #categoryTabs / #productGrid توسط JS خودشون جایگزین میشن */
+@keyframes skeletonPulse {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.cat-card.skeleton .cat-card-img {
+  background: var(--bg-alt);
+  border-color: var(--line);
+  animation: skeletonPulse 1.6s ease-in-out infinite;
+}
+
+.cat-card.skeleton .cat-card-label {
+  display: block;
+  width: 44px;
+  height: 10px;
+  margin-top: 2px;
+  border-radius: 4px;
+  background: var(--bg-alt);
+  animation: skeletonPulse 1.6s ease-in-out infinite;
+}
+
+.product-card.skeleton {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  animation: skeletonPulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .cat-card.skeleton .cat-card-img,
+  .cat-card.skeleton .cat-card-label,
+  .product-card.skeleton {
+    animation: none;
+  }
+}
+
 .sort-menu-wrap {
   flex-shrink: 0;
 }

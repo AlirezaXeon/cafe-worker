@@ -102,9 +102,29 @@
           </div>
         </div>
         <div class="menu-controls">
-          <div class="tabs" id="categoryTabs"></div>
+          <div class="tabs" id="categoryTabs">
+            <!-- اسکلتون: تا وقتی fetch محصولات تموم بشه، جای دسته‌ها رو نگه می‌داره
+                 تا از ارتفاع صفر به ارتفاع کامل نپره (همون چیزی که باعث لِیآوت‌شیفت می‌شد) -->
+            <div class="cat-card skeleton" aria-hidden="true"><span class="cat-card-img"></span><span
+                class="cat-card-label"></span></div>
+            <div class="cat-card skeleton" aria-hidden="true"><span class="cat-card-img"></span><span
+                class="cat-card-label"></span></div>
+            <div class="cat-card skeleton" aria-hidden="true"><span class="cat-card-img"></span><span
+                class="cat-card-label"></span></div>
+            <div class="cat-card skeleton" aria-hidden="true"><span class="cat-card-img"></span><span
+                class="cat-card-label"></span></div>
+            <div class="cat-card skeleton" aria-hidden="true"><span class="cat-card-img"></span><span
+                class="cat-card-label"></span></div>
+          </div>
         </div>
-        <div class="menu-groups" id="productGrid"></div>
+        <div class="menu-groups" id="productGrid">
+          <!-- همین منطق برای گرید محصولات؛ اندازه‌ش نزدیک به یه دسته‌ی معمولیه -->
+          <div class="product-list" aria-hidden="true">
+            <div class="product-card skeleton"></div>
+            <div class="product-card skeleton"></div>
+            <div class="product-card skeleton"></div>
+          </div>
+        </div>
       </div>
     </section>
 
