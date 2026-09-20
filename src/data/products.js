@@ -1,5 +1,8 @@
 // همه‌ی عملیات محصولات و دسته‌ها روی D1 (env.DB)
 
+import { invalidateCache, PRODUCTS_CACHE_KEY } from "./cache.js";
+const invalidate = (env) => invalidateCache(env, PRODUCTS_CACHE_KEY);
+
 export function roundPrice(n) {
   return Math.round(n / 1000) * 1000;
 }
@@ -69,6 +72,7 @@ export async function applyCategoryPercent(env, catId, percent) {
     );
   });
   await env.DB.batch(stmts);
+  await invalidate(env);
 }
 
 export async function setProductPrice(env, productId, price) {
@@ -76,10 +80,12 @@ export async function setProductPrice(env, productId, price) {
     .prepare("UPDATE products SET price = ?, original_price = NULL WHERE id = ?")
     .bind(roundPrice(price), productId)
     .run();
+  await invalidate(env);
 }
 
 export async function setProductImage(env, productId, image) {
   await env.DB.prepare("UPDATE products SET image = ? WHERE id = ?").bind(image, productId).run();
+  await invalidate(env);
 }
 
 // پنهان/نمایان کردن محصول رو سایت مشتری، بدون حذف کردنش (برای وقتی موقتاً موجود نیست)
@@ -88,6 +94,7 @@ export async function toggleProductAvailability(env, productId) {
   if (!p) return null;
   const next = p.available ? 0 : 1;
   await env.DB.prepare("UPDATE products SET available = ? WHERE id = ?").bind(next, productId).run();
+  await invalidate(env);
   return next;
 }
 
@@ -100,6 +107,7 @@ export async function setProductDiscount(env, productId, percent) {
     .prepare("UPDATE products SET price = ?, original_price = ? WHERE id = ?")
     .bind(newPrice, base, productId)
     .run();
+  await invalidate(env);
 }
 
 export async function removeProductDiscount(env, productId) {
@@ -109,6 +117,7 @@ export async function removeProductDiscount(env, productId) {
     .prepare("UPDATE products SET price = ?, original_price = NULL WHERE id = ?")
     .bind(p.originalPrice, productId)
     .run();
+  await invalidate(env);
 }
 
 // قیمت پایه + درصد تخفیف ← قیمتی که باید ذخیره بشه.
@@ -129,6 +138,7 @@ export async function addProduct(env, { id, category, name, note, price, image, 
     )
     .bind(id, category, name, note ?? "", finalPrice, originalPrice, image ?? null, available)
     .run();
+  await invalidate(env);
 }
 
 export async function updateProduct(env, id, { category, name, note, price, image, discount = 0, available = 1 }) {
@@ -141,10 +151,12 @@ export async function updateProduct(env, id, { category, name, note, price, imag
     )
     .bind(name, category, note ?? "", finalPrice, originalPrice, image ?? null, available, id)
     .run();
+  await invalidate(env);
 }
 
 export async function deleteProduct(env, productId) {
   await env.DB.prepare("DELETE FROM products WHERE id = ?").bind(productId).run();
+  await invalidate(env);
 }
 
 // ---------- لیست‌ها و شمارش‌ها (برای پنل وب) ----------
@@ -190,10 +202,12 @@ export async function addCategory(env, id, label, image = null) {
   await env.DB.prepare("INSERT INTO categories (id, label, image) VALUES (?, ?, ?)")
     .bind(id, label, image)
     .run();
+  await invalidate(env);
 }
 
 export async function setCategoryImage(env, catId, image) {
   await env.DB.prepare("UPDATE categories SET image = ? WHERE id = ?").bind(image, catId).run();
+  await invalidate(env);
 }
 
 export async function updateCategory(env, catId, label, image = null) {
@@ -201,10 +215,12 @@ export async function updateCategory(env, catId, label, image = null) {
     .prepare("UPDATE categories SET label = ?, image = ? WHERE id = ?")
     .bind(label, image, catId)
     .run();
+  await invalidate(env);
 }
 
 export async function deleteCategory(env, catId) {
   await env.DB.prepare("DELETE FROM categories WHERE id = ?").bind(catId).run();
+  await invalidate(env);
 }
 
 // ---------- تولید شناسه ----------

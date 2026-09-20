@@ -1,7 +1,26 @@
 import { handleUpdate } from "./telegram.js";
 import { getProducts } from "./data/products.js";
 import { getSiteConfig } from "./data/site.js";
+import { getCached, PRODUCTS_CACHE_KEY, SITE_CACHE_KEY } from "./data/cache.js";
 import { handleAdminAPI } from './handlers/admin.js';
+import { handleOrdersAPI } from './handlers/orders.js';
+
+const IMAGE_CONTENT_TYPES = {
+  jpg: "image/jpeg", jpeg: "image/jpeg",
+  png: "image/png", webp: "image/webp", gif: "image/gif",
+};
+
+async function serveImageFromKV(filename, env) {
+  const imageBuffer = await env.PRODUCTS_KV.get(`image:${filename}`, { type: "arrayBuffer" });
+  if (!imageBuffer) return null;
+  const ext = filename.split('.').pop().toLowerCase();
+  return new Response(imageBuffer, {
+    headers: {
+      "Content-Type": IMAGE_CONTENT_TYPES[ext] || "image/jpeg",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  });
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -12,18 +31,27 @@ export default {
       return handleAdminAPI(request, env);
     }
 
-    // ── محصولات (از D1) ───────────────────────────────────────────────────
+    // ── ثبت سفارش (عمومی، بدون احراز هویت) ──────────────────────────────────
+    if (url.pathname === "/api/orders") {
+      return handleOrdersAPI(request, env);
+    }
+
+    // ── محصولات (از D1، با کش کوتاه‌مدت KV پشت صحنه) ────────────────────────
     if (url.pathname === "/data/products.json") {
-      const data = await getProducts(env);
-      data.products = data.products.filter((p) => p.available !== 0);
+      const data = await getCached(env, PRODUCTS_CACHE_KEY, async () => {
+        const fresh = await getProducts(env);
+        fresh.products = fresh.products.filter((p) => p.available !== 0);
+        return fresh;
+      });
+      // هدر مرورگر عمداً no-store می‌مونه؛ کشی که بالا زدیم فقط سمت سرور/KV هست
       return new Response(JSON.stringify(data), {
         headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
       });
     }
 
-    // ── تنظیمات سایت ─────────────────────────────────────────────────────
+    // ── تنظیمات سایت (با همون الگوی کش کوتاه‌مدت) ────────────────────────
     if (url.pathname === "/data/site.json") {
-      const data = await getSiteConfig(env);
+      const data = await getCached(env, SITE_CACHE_KEY, () => getSiteConfig(env));
       return new Response(JSON.stringify(data), {
         headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
       });
@@ -40,45 +68,13 @@ export default {
       return new Response("OK");
     }
 
-    // ── عکس‌های دسته‌بندی (مسیر قدیمی ربات: /admin/images/...) ───────────
-    // ربات تلگرام عکس‌های دسته رو با پسوند /admin/images/categories/ ذخیره کرده
-    // اینجا اون‌ها رو از KV می‌خونیم و سرو می‌کنیم
-    if (url.pathname.startsWith('/admin/images/')) {
+    // ── عکس‌های KV (هم مسیر قدیمی ربات /admin/images/... هم مسیر معمولی /images/...) ──
+    if (url.pathname.startsWith('/admin/images/') || url.pathname.startsWith('/images/')) {
       const filename = url.pathname.split('/').pop();
-      const imageBuffer = await env.PRODUCTS_KV.get(`image:${filename}`, { type: "arrayBuffer" });
-      if (imageBuffer) {
-        const ext = filename.split('.').pop().toLowerCase();
-        const types = {
-          jpg: "image/jpeg", jpeg: "image/jpeg",
-          png: "image/png", webp: "image/webp", gif: "image/gif"
-        };
-        return new Response(imageBuffer, {
-          headers: {
-            "Content-Type": types[ext] || "image/jpeg",
-            "Cache-Control": "public, max-age=31536000, immutable"
-          },
-        });
-      }
-      return new Response("Not Found", { status: 404 });
-    }
-
-    // ── عکس‌های معمولی (/images/...) ──────────────────────────────────────
-    if (url.pathname.startsWith('/images/')) {
-      const filename = url.pathname.split('/').pop();
-      const imageBuffer = await env.PRODUCTS_KV.get(`image:${filename}`, { type: "arrayBuffer" });
-      if (imageBuffer) {
-        const ext = filename.split('.').pop().toLowerCase();
-        const types = {
-          jpg: "image/jpeg", jpeg: "image/jpeg",
-          png: "image/png", webp: "image/webp", gif: "image/gif"
-        };
-        return new Response(imageBuffer, {
-          headers: {
-            "Content-Type": types[ext] || "image/jpeg",
-            "Cache-Control": "public, max-age=31536000, immutable"
-          },
-        });
-      }
+      const response = await serveImageFromKV(filename, env);
+      if (response) return response;
+      if (url.pathname.startsWith('/admin/images/')) return new Response("Not Found", { status: 404 });
+      // برای /images/ اگه پیدا نشد، می‌ذاریم بره سراغ فایل‌های استاتیک (fallback قدیمی)
     }
 
     // ── فایل‌های استاتیک (public/) ────────────────────────────────────────

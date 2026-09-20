@@ -54,6 +54,19 @@ export async function pinMessage(env, chatId, messageId) {
 
 export const sendRaw = (env, payload) => tg(env, "sendMessage", payload);
 
+// برای ویرایش پیام‌های سفارش بعد از تایید/رد؛ کیبورد رو صریح [] بده تا دکمه‌ها حذف بشن
+export const editMessageText = (env, chatId, messageId, text, keyboard) =>
+  tg(env, "editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: "HTML",
+    reply_markup: keyboard ? { inline_keyboard: keyboard } : undefined,
+  });
+
+export const getAdminIds = (env) =>
+  (env.ADMIN_IDS || "").split(",").map((s) => s.trim()).filter(Boolean);
+
 export const sendMessage = (env, chatId, text, keyboard) =>
   sendAndTrack(env, chatId, {
     chat_id: chatId,

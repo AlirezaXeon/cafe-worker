@@ -1,5 +1,7 @@
 // تنظیمات کلی سایت (لوگو + عکس بالای سایت) — توی KV نگه داشته میشه، مستقل از محصولات (D1)
 
+import { invalidateCache, SITE_CACHE_KEY } from "./cache.js";
+
 const DEFAULTS = {
   logo: null, // تا وقتی از ربات آپلود نشده، سایت فقط فالبک متنی نشون میده
   cover: null, // تا وقتی از ربات آپلود نشده، سایت یه پس‌زمینه‌ی ساده نشون میده
@@ -19,6 +21,7 @@ async function updateSiteConfig(env, patch) {
   const current = await getSiteConfig(env);
   const next = { ...current, ...patch };
   await env.PRODUCTS_KV.put("site:config", JSON.stringify(next));
+  await invalidateCache(env, SITE_CACHE_KEY);
   return next;
 }
 

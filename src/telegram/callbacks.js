@@ -11,7 +11,8 @@ import {
 } from "../data/products.js";
 import { getSession, setSession, clearSession } from "../data/session.js";
 import { findOrphanImageKeys, deleteOrphanImages } from "../data/maintenance.js";
-import { sendMessage, forceReply } from "./api.js";
+import { confirmOrder, rejectOrder } from "../data/orders.js";
+import { sendMessage, forceReply, editMessageText } from "./api.js";
 import { toFa } from "./format.js";
 import {
   sendMainMenu,
@@ -24,8 +25,34 @@ import {
 
 // ---------- دکمه‌ها (callback_query) ----------
 
-export async function handleCallback(env, chatId, data) {
+export async function handleCallback(env, chatId, data, cq) {
   const [action, a, b] = data.split(":");
+
+  // ── تایید/رد سفارش (از سایت مشتری‌ها) ────────────────────────────────
+  // این پیام‌ها با sendRaw فرستاده شدن (نه sendMessage)، پس تو چرخه‌ی
+  // پاک‌شدن خودکار پیام‌های منو نیستن؛ هر سفارش پیام مستقل خودشو داره.
+  if (action === "order" && (a === "confirm" || a === "reject")) {
+    const orderId = Number(b);
+    const adminName = cq?.from?.first_name || "ادمین";
+    const updated = a === "confirm" ? await confirmOrder(env, orderId) : await rejectOrder(env, orderId);
+
+    const raw = await env.PRODUCTS_KV.get(`order:msgs:${orderId}`);
+    const stored = raw ? JSON.parse(raw) : null;
+    const baseText = stored?.text ?? cq?.message?.text ?? "سفارش";
+    const entries = stored?.entries ?? (cq?.message?.message_id ? [{ chatId, messageId: cq.message.message_id }] : []);
+
+    if (!updated) {
+      // یه ادمین دیگه زودتر همین سفارش رو تایید/رد کرده
+      const newText = `${baseText}\n\n⚠️ این سفارش قبلاً توسط ادمین دیگری بررسی شده.`;
+      await Promise.all(entries.map((e) => editMessageText(env, e.chatId, e.messageId, newText, [])));
+      return;
+    }
+
+    const verb = a === "confirm" ? "✅ تایید شد" : "❌ رد شد";
+    const newText = `${baseText}\n\n${verb} توسط ${adminName}`;
+    await Promise.all(entries.map((e) => editMessageText(env, e.chatId, e.messageId, newText, [])));
+    return;
+  }
 
   // ── لغو / بازگشت به منو ─────────────────────────────────────────────
   // این دکمه زیر همه‌ی forceReply‌ها نشون داده میشه تا کاربر بتونه

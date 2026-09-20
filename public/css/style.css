@@ -903,53 +903,6 @@ body.header-hidden .menu-controls {
   color: var(--gold);
 }
 
-/* ---------- اسکلتون لودینگ (جلوگیری از Layout Shift موقع لود محصولات) ---------- */
-/* تا وقتی fetch محصولات تموم نشده، این‌ها فضای واقعی رو اشغال می‌کنن؛
-   با innerHTML شدن #categoryTabs / #productGrid توسط JS خودشون جایگزین میشن */
-@keyframes skeletonPulse {
-
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-
-  50% {
-    opacity: 0.9;
-  }
-}
-
-.cat-card.skeleton .cat-card-img {
-  background: var(--bg-alt);
-  border-color: var(--line);
-  animation: skeletonPulse 1.6s ease-in-out infinite;
-}
-
-.cat-card.skeleton .cat-card-label {
-  display: block;
-  width: 44px;
-  height: 10px;
-  margin-top: 2px;
-  border-radius: 4px;
-  background: var(--bg-alt);
-  animation: skeletonPulse 1.6s ease-in-out infinite;
-}
-
-.product-card.skeleton {
-  background: var(--card-bg);
-  border: 1px solid var(--line);
-  animation: skeletonPulse 1.6s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  .cat-card.skeleton .cat-card-img,
-  .cat-card.skeleton .cat-card-label,
-  .product-card.skeleton {
-    animation: none;
-  }
-}
-
 .sort-menu-wrap {
   flex-shrink: 0;
 }
@@ -1603,6 +1556,68 @@ body.header-hidden .menu-controls {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  cursor: zoom-in;
+}
+
+/* ============ IMAGE ZOOM OVERLAY (زوم تمام‌صفحه‌ی عکس محصول) ============ */
+.image-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(0, 0, 0, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.image-zoom-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.image-zoom-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.image-zoom-stage img {
+  max-width: 88vw;
+  max-height: 88vh;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
+  touch-action: none;
+}
+
+.image-zoom-close {
+  position: fixed;
+  top: 18px;
+  inset-inline-end: 18px;
+  z-index: 3001;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-zoom-close:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .modal-image .placeholder {
@@ -1945,9 +1960,77 @@ body.header-hidden .menu-controls {
   color: var(--accent);
 }
 
-/* حذف کامل دکمه تسویه */
+.cart-table-field {
+  margin-bottom: 12px;
+}
+
+.cart-table-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.cart-table-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card-bg);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.cart-table-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cart-table-field input[readonly] {
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+}
+
 .cart-checkout {
-  display: none !important;
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.cart-checkout:hover {
+  opacity: 0.9;
+}
+
+.cart-checkout:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cart-checkout-msg {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  text-align: center;
+  min-height: 1.2em;
+}
+
+.cart-checkout-msg.error {
+  color: #d8544a;
+}
+
+.cart-checkout-msg.success {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* ============ FLOATING CART ============ */

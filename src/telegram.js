@@ -1,5 +1,5 @@
 import { getSession, clearSession } from "./data/session.js";
-import { deleteMessageSafe, answerCallback } from "./telegram/api.js";
+import { deleteMessageSafe, answerCallback, getAdminIds } from "./telegram/api.js";
 import { sendMainMenu, sendCategoryPicker, sendCategoriesMenu, sendSiteImagesMenu } from "./telegram/menus.js";
 import { handleCallback } from "./telegram/callbacks.js";
 import { handleTextStep } from "./telegram/steps.js";
@@ -8,7 +8,7 @@ import { handleImageStep } from "./telegram/images.js";
 // ---------- ورودی اصلی ----------
 
 export async function handleUpdate(update, env) {
-  const adminIds = (env.ADMIN_IDS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const adminIds = getAdminIds(env);
 
   if (update.message) {
     const msg = update.message;
@@ -71,7 +71,7 @@ export async function handleUpdate(update, env) {
     const chatId = cq.message.chat.id;
     const fromId = String(cq.from.id);
     if (!adminIds.includes(fromId)) return answerCallback(env, cq.id, "دسترسی نداری");
-    const [, result] = await Promise.all([answerCallback(env, cq.id), handleCallback(env, chatId, cq.data)]);
+    const [, result] = await Promise.all([answerCallback(env, cq.id), handleCallback(env, chatId, cq.data, cq)]);
     return result;
   }
 }

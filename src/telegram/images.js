@@ -3,6 +3,9 @@ import { getSiteConfig, setSiteLogo, setSiteCover } from "../data/site.js";
 import { clearSession } from "../data/session.js";
 import { sendMessage, forceReply, downloadTelegramFile } from "./api.js";
 import { sendSiteImagesMenu, sendCategoriesMenu, sendProductDetail, sendProductList } from "./menus.js";
+import { MAX_UPLOAD_BYTES } from "../config.js";
+
+const formatMB = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
 
 // ---------- پردازش عکس ارسالی در تلگرام ----------
 
@@ -23,6 +26,13 @@ export async function handleImageStep(env, chatId, msg, session) {
   const fileData = await downloadTelegramFile(env, fileId);
   if (!fileData) {
     return forceReply(env, chatId, "❌ خطا در دریافت عکس. لطفاً دوباره بفرست یا بنویس «بدون عکس»:");
+  }
+  if (fileData.buffer.byteLength > MAX_UPLOAD_BYTES) {
+    return forceReply(
+      env,
+      chatId,
+      `❌ حجم عکس (${formatMB(fileData.buffer.byteLength)} مگابایت) بیشتر از سقف مجازه (حداکثر ${formatMB(MAX_UPLOAD_BYTES)} مگابایت). یه عکس کوچیک‌تر بفرست:`
+    );
   }
 
   // ---- لوگو / عکس بالای سایت ----

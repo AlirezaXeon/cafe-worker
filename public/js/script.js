@@ -183,16 +183,128 @@ modalAddBtn.addEventListener('click', () => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (imageZoomOverlay.classList.contains('open')) closeImageZoom();
     if (modal.classList.contains('open')) handleClose();
     if (cartDrawer.classList.contains('open')) closeCart();
     if (sortModal.classList.contains('open')) closeSortModal();
   }
 });
 window.addEventListener('popstate', (e) => {
+  closeImageZoom();
   closeModal();
   closeCart();
   closeSortModal();
 });
+
+// ============ IMAGE ZOOM (روی عکس مودال محصول) ============
+// دسکتاپ: کلیک برای باز شدن تمام‌صفحه + اسکرول ماوس برای زوم + درگ برای جابه‌جایی وقتی زوم شده
+// موبایل: کلیک برای باز شدن + پینچ واقعی با دو انگشت + درگ برای جابه‌جایی — محدود به خود عکس،
+// نه کل صفحه (صفحه‌ی اصلی همچنان user-scalable=no می‌مونه؛ این زوم کاملاً جدا و با ترنسفورم CSS انجام میشه)
+const imageZoomOverlay = document.getElementById('imageZoomOverlay');
+const imageZoomImg = document.getElementById('imageZoomImg');
+const imageZoomClose = document.getElementById('imageZoomClose');
+const imageZoomStage = document.getElementById('imageZoomStage');
+
+let zoomScale = 1, zoomX = 0, zoomY = 0;
+const zoomPointers = new Map();
+let zoomStartDist = 0, zoomStartScale = 1, zoomLastPan = null;
+
+function applyZoomTransform() {
+  imageZoomImg.style.transform = `translate(${zoomX}px, ${zoomY}px) scale(${zoomScale})`;
+  imageZoomImg.style.cursor = zoomScale > 1 ? 'zoom-out' : 'zoom-in';
+}
+
+function resetZoom() {
+  zoomScale = 1; zoomX = 0; zoomY = 0;
+  applyZoomTransform();
+}
+
+function openImageZoom(src, alt) {
+  if (!src) return;
+  imageZoomImg.src = src;
+  imageZoomImg.alt = alt || '';
+  resetZoom();
+  imageZoomOverlay.classList.add('open');
+  lockScroll();
+}
+
+function closeImageZoom() {
+  if (!imageZoomOverlay.classList.contains('open')) return;
+  imageZoomOverlay.classList.remove('open');
+  unlockScroll();
+}
+
+modalImage.addEventListener('click', () => {
+  const img = modalImage.querySelector('img');
+  if (img) openImageZoom(img.src, img.alt);
+});
+
+imageZoomClose.addEventListener('click', closeImageZoom);
+imageZoomOverlay.addEventListener('click', (e) => {
+  if (e.target === imageZoomOverlay || e.target === imageZoomStage) closeImageZoom();
+});
+
+let zoomLastTap = 0;
+imageZoomImg.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const now = Date.now();
+  if (now - zoomLastTap < 300 || zoomScale > 1) {
+    // دابل‌کلیک/دابل‌تپ، یا یه کلیک ساده وقتی از قبل زوم شده: toggle
+    if (zoomScale > 1) resetZoom();
+    else { zoomScale = 2.2; applyZoomTransform(); }
+  }
+  zoomLastTap = now;
+});
+
+imageZoomStage.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? 0.18 : -0.18;
+  zoomScale = Math.min(4, Math.max(1, zoomScale + delta));
+  if (zoomScale === 1) { zoomX = 0; zoomY = 0; }
+  applyZoomTransform();
+}, { passive: false });
+
+imageZoomStage.addEventListener('pointerdown', (e) => {
+  zoomPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (zoomPointers.size === 2) {
+    const pts = [...zoomPointers.values()];
+    zoomStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    zoomStartScale = zoomScale;
+  } else if (zoomPointers.size === 1 && zoomScale > 1) {
+    zoomLastPan = { x: e.clientX, y: e.clientY };
+  }
+});
+
+imageZoomStage.addEventListener('pointermove', (e) => {
+  if (!zoomPointers.has(e.pointerId)) return;
+  zoomPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (zoomPointers.size === 2) {
+    const pts = [...zoomPointers.values()];
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    if (zoomStartDist > 0) {
+      zoomScale = Math.min(4, Math.max(1, zoomStartScale * (dist / zoomStartDist)));
+      applyZoomTransform();
+    }
+  } else if (zoomPointers.size === 1 && zoomScale > 1 && zoomLastPan) {
+    zoomX += e.clientX - zoomLastPan.x;
+    zoomY += e.clientY - zoomLastPan.y;
+    zoomLastPan = { x: e.clientX, y: e.clientY };
+    applyZoomTransform();
+  }
+});
+
+function endZoomPointer(e) {
+  zoomPointers.delete(e.pointerId);
+  if (zoomPointers.size < 2) zoomStartDist = 0;
+  if (zoomPointers.size === 0) {
+    zoomLastPan = null;
+    if (zoomScale < 1.02) resetZoom();
+  }
+}
+imageZoomStage.addEventListener('pointerup', endZoomPointer);
+imageZoomStage.addEventListener('pointercancel', endZoomPointer);
+imageZoomStage.addEventListener('pointerleave', endZoomPointer);
 
 // ============ MENU RENDER & SORT ============
 const grid = document.getElementById('productGrid');
@@ -425,6 +537,9 @@ const cartOverlay = document.getElementById('cartOverlay');
 const cartClose = document.getElementById('cartClose');
 const cartItemsEl = document.getElementById('cartItems');
 const cartTotalPriceEl = document.getElementById('cartTotalPrice');
+const tableNumberInput = document.getElementById('tableNumberInput');
+const checkoutBtn = document.getElementById('checkoutBtn');
+const checkoutMsg = document.getElementById('checkoutMsg');
 
 // المان‌های نوار شناور
 const floatingCart = document.getElementById('floatingCart');
@@ -546,6 +661,58 @@ function renderCart() {
 
   cartTotalPriceEl.innerHTML = formatPrice(totalPrice);
 }
+
+// اگه از اسکن QR کد روی میز اومده باشه (?table=4)، شماره میز از قبل پر و قفله
+const tableFromUrl = new URLSearchParams(location.search).get('table');
+if (tableFromUrl && tableNumberInput) {
+  tableNumberInput.value = tableFromUrl;
+  tableNumberInput.readOnly = true;
+}
+
+function setCheckoutMsg(text, type) {
+  checkoutMsg.textContent = text;
+  checkoutMsg.className = 'cart-checkout-msg' + (type ? ` ${type}` : '');
+}
+
+async function submitOrder() {
+  const table = tableNumberInput.value.trim();
+  if (!table) {
+    setCheckoutMsg('لطفاً شماره میز را وارد کنید.', 'error');
+    tableNumberInput.focus();
+    return;
+  }
+  if (cart.length === 0) return;
+
+  checkoutBtn.disabled = true;
+  const originalLabel = checkoutBtn.textContent;
+  checkoutBtn.textContent = 'در حال ثبت...';
+  setCheckoutMsg('');
+
+  try {
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        table,
+        items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'خطایی رخ داد، لطفاً دوباره امتحان کنید.');
+    }
+    cart = [];
+    renderCart();
+    setCheckoutMsg('سفارش شما ثبت شد. لطفاً منتظر تایید گارسون در میز بمونید.', 'success');
+  } catch (err) {
+    setCheckoutMsg(err.message || 'خطایی رخ داد، لطفاً دوباره امتحان کنید.', 'error');
+  } finally {
+    checkoutBtn.disabled = false;
+    checkoutBtn.textContent = originalLabel;
+  }
+}
+
+if (checkoutBtn) checkoutBtn.addEventListener('click', submitOrder);
 
 // ============ BACK TO TOP BUTTON ============
 const backToTopBtn = document.getElementById('backToTopBtn');

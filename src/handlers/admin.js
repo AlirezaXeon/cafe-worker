@@ -16,10 +16,7 @@ import {
   deleteCategory,
   toggleProductAvailability,
 } from '../data/products.js';
-
-// سقف حجم عکس آپلودی. سقف خود KV روی ۲۵ مگه، ولی برای عکس منو حتی ۲ مگ هم زیاده؛
-// بدون این سقف یه فایل بزرگ یا با خطای مبهم fail می‌شد یا سایت رو سنگین می‌کرد.
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+import { MAX_UPLOAD_BYTES } from '../config.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه

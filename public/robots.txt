@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /admin/
+Sitemap: https://cafe-roshan.alireza-pespc.workers.dev/sitemap.xml
