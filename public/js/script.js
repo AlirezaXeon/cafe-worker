@@ -701,17 +701,29 @@ async function loadSiteConfig() {
   const SHOW_NEAR_TOP = 80; // زیر این مقدار همیشه هدر دیده میشه
   const HIDE_THRESHOLD = 8; // کمتر از این مقدار جابجایی، نادیده گرفته میشه (لرزش جزئی اسکرول)
 
+  // وقتی کاربر وارد بخش منو/محصولات شد، هدر قفل میشه بالا (حتی با اسکرول به بالا برنمی‌گرده)
+  // تا فضای بیشتری برای دیدن محصولات داشته باشیم؛ فقط با برگشتن به بالای هیرو دوباره ظاهر میشه.
+  function getMenuSectionTop() {
+    const menuSection = document.getElementById('menu');
+    return menuSection ? menuSection.offsetTop : Infinity;
+  }
+
   function update() {
     const currentY = window.scrollY || 0;
     const delta = currentY - lastScrollY;
+    const menuTop = getMenuSectionTop();
 
     if (currentY <= SHOW_NEAR_TOP) {
+      // بالای صفحه (هیرو) — هدر همیشه دیده میشه
       document.body.classList.remove('header-hidden');
     } else if (delta > HIDE_THRESHOLD) {
+      // اسکرول به پایین — مخفی کن
       document.body.classList.add('header-hidden');
-    } else if (delta < -HIDE_THRESHOLD) {
+    } else if (delta < -HIDE_THRESHOLD && currentY < menuTop) {
+      // اسکرول به بالا ولی هنوز بالاتر از بخش منو — نشون بده
       document.body.classList.remove('header-hidden');
     }
+    // اگه در بخش منو یا پایین‌تر هستیم و داریم اسکرول می‌کنیم بالا — هدر همون‌جا قفل میمونه
 
     lastScrollY = currentY;
     ticking = false;

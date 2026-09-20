@@ -508,6 +508,9 @@ body.nav-open {
   height: 40px;
   width: auto;
   object-fit: contain;
+  /* فضای اولیه رزرو میشه تا وقتی لوگو از API لود میشه هدر shift نکنه */
+  min-width: 40px;
+  aspect-ratio: 1;
 }
 
 .logo-fallback {
@@ -809,25 +812,13 @@ body.header-hidden .menu-controls {
   top: var(--header-h);
   transition: top 0.3s ease;
   z-index: 40;
-  background: rgba(15, 13, 11, 0.78);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  padding: 14px 0 16px;
+  background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+  padding: 14px 0 20px;
   margin-inline: -16px;
   padding-inline: 16px;
 }
 
-/* خط جداکننده‌ی طلایی زیر باکس دسته‌ها؛ به‌جای یه خط تخت و یکدست، دو طرفش محو می‌شه */
-.menu-controls::after {
-  content: '';
-  position: absolute;
-  right: 16px;
-  left: 16px;
-  bottom: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
-  opacity: 0.55;
-}
+/* خط جداکننده حذف شد — با طراحی جدید شفاف نوار کتگوری نیازی نیست */
 
 /* فیکس اسکرول افقی تب‌ها */
 .tabs {
@@ -840,6 +831,13 @@ body.header-hidden .menu-controls {
   margin-right: -16px;
   margin-left: -16px;
   width: calc(100% + 32px);
+  /* مخفی کردن scrollbar افقی: ظاهر/پنهان شدنش height نوار رو تغییر میداد و CLS ایجاد می‌کرد */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .cat-card {
@@ -1044,22 +1042,36 @@ body.header-hidden .menu-controls {
   display: flex;
   flex-direction: column;
   gap: 40px;
+  contain: layout;
 }
 
 .menu-group-title {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 14px;
   text-align: center;
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 500;
-  color: var(--ink);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  border-radius: 14px;
-  padding: 12px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  padding: 0;
   margin-bottom: 20px;
+}
+
+.menu-group-title::before,
+.menu-group-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to left, transparent, rgba(180, 146, 90, 0.35));
+}
+
+.menu-group-title::after {
+  background: linear-gradient(to right, transparent, rgba(180, 146, 90, 0.35));
 }
 
 .product-list {
