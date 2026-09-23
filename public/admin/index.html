@@ -584,6 +584,109 @@
       margin-bottom: .5rem
     }
 
+    /* Orders */
+    .pending-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 10px;
+      background: var(--danger);
+      color: #fff;
+      font-size: .7rem;
+      font-weight: 700;
+      margin-right: .3rem;
+    }
+
+    .order-list {
+      display: flex;
+      flex-direction: column;
+      gap: .7rem;
+      padding: 1.1rem 1.25rem;
+    }
+
+    .order-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.1rem;
+      background: var(--bg);
+    }
+
+    .order-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+      margin-bottom: .6rem;
+      flex-wrap: wrap;
+    }
+
+    .order-table-no {
+      font-weight: 700;
+      font-size: .95rem;
+    }
+
+    .order-time {
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    .order-status {
+      padding: .18rem .6rem;
+      border-radius: 20px;
+      font-size: .74rem;
+      font-weight: 700;
+    }
+
+    .order-status.pending {
+      background: rgba(196, 124, 58, .14);
+      color: var(--accent);
+    }
+
+    .order-status.confirmed {
+      background: var(--success-light);
+      color: var(--success);
+    }
+
+    .order-status.rejected {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .order-items {
+      display: flex;
+      flex-direction: column;
+      gap: .25rem;
+      margin-bottom: .7rem;
+      font-size: .85rem;
+    }
+
+    .order-item-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+    }
+
+    .order-item-row span:first-child {
+      color: var(--text);
+    }
+
+    .order-card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+      padding-top: .6rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .order-total {
+      font-weight: 700;
+      font-size: .92rem;
+    }
+
     .img-preview {
       width: 44px;
       height: 44px;
@@ -902,6 +1005,8 @@
     </header>
     <nav>
       <button class="nav-btn active" onclick="showTab('dashboard',this)">🏠 داشبورد</button>
+      <button class="nav-btn" onclick="showTab('orders',this)">🧾 سفارش‌ها <span id="pending-badge"
+          class="pending-badge" style="display:none"></span></button>
       <button class="nav-btn" onclick="showTab('products',this)">🍽 محصولات</button>
       <button class="nav-btn" onclick="showTab('categories',this)">📂 دسته‌بندی‌ها</button>
     </nav>
@@ -1049,6 +1154,97 @@
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app').style.display = 'block';
       showTab('dashboard', document.querySelector('.nav-btn'));
+      refreshPendingBadge();
+      setInterval(refreshPendingBadge, 20000); // هر ۲۰ ثانیه، مستقل از اینکه تو کدوم تبی
+    }
+
+    // ── Orders ────────────────────────────────────────────────────────────────
+    let ordersPollTimer = null;
+    let currentOrderFilter = '';
+
+    function startOrdersPolling() {
+      ordersPollTimer = setInterval(() => {
+        const m = document.getElementById('main-content');
+        if (m && document.getElementById('order-list-wrap')) loadOrders();
+      }, 10000); // هر ۱۰ ثانیه، فقط وقتی خود تب سفارش‌ها بازه
+    }
+
+    function stopOrdersPolling() {
+      if (ordersPollTimer) { clearInterval(ordersPollTimer); ordersPollTimer = null; }
+    }
+
+    async function refreshPendingBadge() {
+      try {
+        const pending = await api('/orders?status=pending');
+        const badge = document.getElementById('pending-badge');
+        if (!badge) return;
+        if (pending.length > 0) { badge.textContent = pending.length; badge.style.display = 'inline-flex'; }
+        else badge.style.display = 'none';
+      } catch (e) { /* بی‌سروصدا نادیده می‌گیریم؛ فقط یه نشونگره */ }
+    }
+
+    function renderOrders(m) {
+      m.innerHTML = `
+    <div class="card">
+      <div class="card-header"><h2>🧾 سفارش‌ها</h2></div>
+      <div class="card-toolbar">
+        <select class="search-input" style="max-width:180px" onchange="currentOrderFilter=this.value;loadOrders()">
+          <option value="">همه</option>
+          <option value="pending">در انتظار تایید</option>
+          <option value="confirmed">تایید شده</option>
+          <option value="rejected">رد شده</option>
+        </select>
+      </div>
+      <div id="order-list-wrap"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
+    </div>`;
+      loadOrders();
+    }
+
+    async function loadOrders() {
+      const wrap = document.getElementById('order-list-wrap');
+      if (!wrap) return;
+      try {
+        const qs = currentOrderFilter ? `?status=${currentOrderFilter}` : '';
+        const orders = await api('/orders' + qs);
+        if (!orders.length) { wrap.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>سفارشی یافت نشد</div>'; return; }
+        const statusLabel = { pending: 'در انتظار', confirmed: 'تایید شده', rejected: 'رد شده' };
+        wrap.innerHTML = `<div class="order-list">${orders.map(o => {
+          const time = new Date(o.created_at + 'Z').toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+          return `
+          <div class="order-card">
+            <div class="order-card-head">
+              <span class="order-table-no">میز ${esc(o.table_number)}</span>
+              <span class="order-status ${o.status}">${statusLabel[o.status] || o.status}</span>
+              <span class="order-time">${time}</span>
+            </div>
+            <div class="order-items">${o.items.map(it => `
+              <div class="order-item-row"><span>${esc(it.name)} × ${it.quantity}</span><span>${Number(it.price * it.quantity).toLocaleString('fa-IR')} ت</span></div>
+            `).join('')}</div>
+            <div class="order-card-foot">
+              <span class="order-total">جمع کل: ${Number(o.total).toLocaleString('fa-IR')} ت</span>
+              ${o.status === 'pending' ? `
+                <div class="actions">
+                  <button class="btn btn-primary btn-sm" onclick="resolveOrderWeb(${o.id},'confirmed')">✅ تایید</button>
+                  <button class="btn btn-danger btn-sm" onclick="resolveOrderWeb(${o.id},'rejected')">❌ رد</button>
+                </div>` : ''}
+            </div>
+          </div>`;
+        }).join('')}</div>`;
+      } catch (e) {
+        if (e.message !== 'unauthorized') wrap.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری</div>';
+      }
+    }
+
+    async function resolveOrderWeb(id, status) {
+      try {
+        const res = await api(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+        if (res && res.error) { toast(res.error, true); loadOrders(); return; }
+        toast(status === 'confirmed' ? 'سفارش تایید شد' : 'سفارش رد شد');
+        loadOrders();
+        refreshPendingBadge();
+      } catch (e) {
+        if (e.message !== 'unauthorized') toast('خطا در ثبت', true);
+      }
     }
 
     // ── Toast ─────────────────────────────────────────────────────────────────
@@ -1063,7 +1259,9 @@
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const m = document.getElementById('main-content');
+      stopOrdersPolling();
       if (tab === 'dashboard') renderDashboard(m);
+      if (tab === 'orders') { renderOrders(m); startOrdersPolling(); }
       if (tab === 'products') renderProducts(m);
       if (tab === 'categories') renderCategories(m);
     }

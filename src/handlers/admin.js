@@ -17,6 +17,7 @@ import {
   toggleProductAvailability,
 } from '../data/products.js';
 import { MAX_UPLOAD_BYTES } from '../config.js';
+import { listOrders, resolveOrder } from '../data/orders.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -295,6 +296,29 @@ export async function handleAdminAPI(request, env) {
         return json(request, { success: true });
       } catch (e) { return serverError(request, e, 'products:delete'); }
     }
+  }
+
+  // ── Orders (سفارش‌های ثبت‌شده از سایت) ───────────────────────────────────
+  if (path === '/orders' && method === 'GET') {
+    try {
+      const status = url.searchParams.get('status') || undefined;
+      return json(request, await listOrders(env, { status }));
+    } catch (e) { return serverError(request, e, 'orders:get'); }
+  }
+
+  const orderMatch = path.match(/^\/orders\/(\d+)$/);
+  if (orderMatch && method === 'PATCH') {
+    try {
+      const id = Number(orderMatch[1]);
+      const { status } = await request.json().catch(() => ({}));
+      if (status !== 'confirmed' && status !== 'rejected')
+        return json(request, { error: 'وضعیت نامعتبر است' }, 400);
+
+      const updated = await resolveOrder(env, id, status, 'پنل وب');
+      if (!updated)
+        return json(request, { error: 'این سفارش قبلاً بررسی شده یا وجود ندارد' }, 409);
+      return json(request, { success: true });
+    } catch (e) { return serverError(request, e, 'orders:patch'); }
   }
 
   return json(request, { error: 'مسیر پیدا نشد' }, 404);
