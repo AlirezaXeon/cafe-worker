@@ -17,7 +17,7 @@ import {
   toggleProductAvailability,
 } from '../data/products.js';
 import { MAX_UPLOAD_BYTES } from '../config.js';
-import { listOrders, resolveOrder } from '../data/orders.js';
+import { listOrders, resolveOrder, getSalesStats } from '../data/orders.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -154,6 +154,13 @@ export async function handleAdminAPI(request, env) {
     try {
       return json(request, await getStats(env));
     } catch (e) { return serverError(request, e, 'stats'); }
+  }
+
+  // ── فروش (فقط سفارش‌های تایید‌شده) ────────────────────────────────────
+  if (path === '/sales-stats' && method === 'GET') {
+    try {
+      return json(request, await getSalesStats(env));
+    } catch (e) { return serverError(request, e, 'sales-stats'); }
   }
 
   // ── Categories ────────────────────────────────────────────────────────

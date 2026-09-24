@@ -1,15 +1,15 @@
 {
   "name": "cafe-roshan",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "test": "node --test",
     "db:migrate:local": "wrangler d1 migrations apply cafe-roshan-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply cafe-roshan-db --remote"
   },
   "devDependencies": {
-    "jsdom": "^30.0.1",
-    "node-fetch": "^2.7.0",
     "wrangler": "^4.124.0"
   }
 }

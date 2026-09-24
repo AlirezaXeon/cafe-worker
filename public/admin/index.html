@@ -347,26 +347,6 @@
       opacity: .85
     }
 
-    .dash-greeting {
-      background: linear-gradient(120deg, var(--accent-dark), var(--accent));
-      color: #fff;
-      border-radius: var(--radius);
-      padding: 1.5rem 1.75rem;
-      margin-bottom: 1.5rem;
-      box-shadow: var(--shadow)
-    }
-
-    .dash-greeting h2 {
-      font-size: 1.3rem;
-      font-weight: 700;
-      margin-bottom: .3rem
-    }
-
-    .dash-greeting p {
-      font-size: .85rem;
-      opacity: .9
-    }
-
     .quick-actions {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -1001,7 +981,6 @@
           <div>کافه روشن</div><span class="logo-sub">پنل مدیریت</span>
         </div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="doLogout()">خروج</button>
     </header>
     <nav>
       <button class="nav-btn active" onclick="showTab('dashboard',this)">🏠 داشبورد</button>
@@ -1267,25 +1246,18 @@
     }
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
-    function greetingText() {
-      const h = new Date().getHours();
-      if (h < 12) return 'صبح بخیر ☀️';
-      if (h < 17) return 'ظهر بخیر 🌤';
-      if (h < 20) return 'عصر بخیر 🌇';
-      return 'شب بخیر 🌙';
-    }
-
     async function renderDashboard(m) {
       m.innerHTML = `
-    <div class="dash-greeting">
-      <h2>${greetingText()}</h2>
-      <p>خلاصه‌ی وضعیت کافه روشن رو از اینجا می‌بینی.</p>
-    </div>
     <div class="stats">
       <div class="stat-card"><div class="stat-icon">🍽</div><div class="val" id="s-total">—</div><div class="lbl">کل محصولات</div></div>
       <div class="stat-card green"><div class="stat-icon">✅</div><div class="val" id="s-avail">—</div><div class="lbl">موجود</div></div>
       <div class="stat-card red"><div class="stat-icon">⛔️</div><div class="val" id="s-unavail">—</div><div class="lbl">ناموجود</div></div>
       <div class="stat-card gray"><div class="stat-icon">📂</div><div class="val" id="s-cats">—</div><div class="lbl">دسته‌بندی</div></div>
+    </div>
+    <div class="stats">
+      <div class="stat-card"><div class="stat-icon">💰</div><div class="val" id="s-sales-today">—</div><div class="lbl">فروش امروز</div></div>
+      <div class="stat-card"><div class="stat-icon">📅</div><div class="val" id="s-sales-week">—</div><div class="lbl">فروش این هفته</div></div>
+      <div class="stat-card"><div class="stat-icon">🗓</div><div class="val" id="s-sales-month">—</div><div class="lbl">فروش این ماه</div></div>
     </div>
     <div class="quick-actions">
       <div class="quick-action" onclick="quickAddProduct()">
@@ -1303,13 +1275,17 @@
       <div id="cat-breakdown" style="padding:1.25rem"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
     </div>`;
       try {
-        [allCategories, allProducts] = await Promise.all([api('/categories'), api('/products')]);
+        const [cats, prods, sales] = await Promise.all([api('/categories'), api('/products'), api('/sales-stats')]);
+        allCategories = cats; allProducts = prods;
         const total = allProducts.length;
         const avail = allProducts.filter(p => p.available).length;
         document.getElementById('s-total').textContent = total;
         document.getElementById('s-avail').textContent = avail;
         document.getElementById('s-unavail').textContent = total - avail;
         document.getElementById('s-cats').textContent = allCategories.length;
+        document.getElementById('s-sales-today').textContent = Number(sales.today).toLocaleString('fa-IR') + ' ت';
+        document.getElementById('s-sales-week').textContent = Number(sales.week).toLocaleString('fa-IR') + ' ت';
+        document.getElementById('s-sales-month').textContent = Number(sales.month).toLocaleString('fa-IR') + ' ت';
 
         const breakdown = document.getElementById('cat-breakdown');
         const counts = allCategories

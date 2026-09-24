@@ -40,6 +40,36 @@ export const rejectOrder = (env, id) => setOrderStatus(env, id, "rejected");
 // هم وضعیت رو تو دیتابیس آپدیت می‌کنه، هم پیام‌های تلگرامی که موقع ثبت سفارش برای همه‌ی
 // ادمین‌ها فرستاده شده بود رو ویرایش می‌کنه؛ این‌جوری تلگرام و پنل وب هیچ‌وقت با هم
 // ناهماهنگ نمی‌شن (مثلاً از وب تایید کنی، ولی تو تلگرام هنوز دکمه‌ی تایید/رد نشون بده).
+// چون Cloudflare Worker با ساعت UTC اجرا میشه ولی «امروز/این هفته/این ماه» باید بر اساس
+// ساعت ایران حساب بشه، مرزهای روز/هفته/ماه رو تو زمان محلی ایران (+۳:۳۰) حساب می‌کنیم،
+// بعد برای مقایسه با created_at (که UTC ذخیره شده) دوباره به UTC برش می‌گردونیم.
+// شروع هفته هم شنبه‌ست (مطابق تقویم ایران).
+const TEHRAN_OFFSET_MS = 3.5 * 60 * 60 * 1000;
+
+function tehranBoundaries() {
+  const tehranNow = new Date(Date.now() + TEHRAN_OFFSET_MS);
+  const startOfDay = new Date(Date.UTC(tehranNow.getUTCFullYear(), tehranNow.getUTCMonth(), tehranNow.getUTCDate()));
+  const dayOfWeek = startOfDay.getUTCDay(); // 0=یکشنبه ... 6=شنبه
+  const daysSinceSaturday = (dayOfWeek + 1) % 7;
+  const startOfWeek = new Date(startOfDay.getTime() - daysSinceSaturday * 86400000);
+  const startOfMonth = new Date(Date.UTC(tehranNow.getUTCFullYear(), tehranNow.getUTCMonth(), 1));
+
+  const toUtcSql = (d) => new Date(d.getTime() - TEHRAN_OFFSET_MS).toISOString().slice(0, 19).replace("T", " ");
+  return { startOfDay: toUtcSql(startOfDay), startOfWeek: toUtcSql(startOfWeek), startOfMonth: toUtcSql(startOfMonth) };
+}
+
+// جمع فروش سفارش‌های «تایید شده» (نه رد‌شده، نه در انتظار)، برای امروز/این هفته/این ماه
+export async function getSalesStats(env) {
+  const { startOfDay, startOfWeek, startOfMonth } = tehranBoundaries();
+  const sumSince = (since) =>
+    env.DB
+      .prepare("SELECT COALESCE(SUM(total), 0) as sum FROM orders WHERE status = 'confirmed' AND created_at >= ?")
+      .bind(since)
+      .first("sum");
+  const [today, week, month] = await Promise.all([sumSince(startOfDay), sumSince(startOfWeek), sumSince(startOfMonth)]);
+  return { today, week, month };
+}
+
 export async function resolveOrder(env, orderId, status, resolvedBy = "ادمین") {
   const updated = status === "confirmed" ? await confirmOrder(env, orderId) : await rejectOrder(env, orderId);
 
