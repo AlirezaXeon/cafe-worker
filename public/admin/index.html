@@ -1155,7 +1155,7 @@
       document.getElementById('app').style.display = 'block';
       showTab('dashboard', document.querySelector('.nav-btn'));
       refreshPendingBadge();
-      setInterval(refreshPendingBadge, 20000); // هر ۲۰ ثانیه، مستقل از اینکه تو کدوم تبی
+      setInterval(refreshPendingBadge, 8000); // هر ۸ ثانیه، مستقل از اینکه تو کدوم تبی
     }
 
     // ── Orders ────────────────────────────────────────────────────────────────
@@ -1166,7 +1166,7 @@
       ordersPollTimer = setInterval(() => {
         const m = document.getElementById('main-content');
         if (m && document.getElementById('order-list-wrap')) loadOrders();
-      }, 10000); // هر ۱۰ ثانیه، فقط وقتی خود تب سفارش‌ها بازه
+      }, 3000); // هر ۳ ثانیه، فقط وقتی خود تب سفارش‌ها بازه
     }
 
     function stopOrdersPolling() {

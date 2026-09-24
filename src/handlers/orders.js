@@ -15,7 +15,11 @@ function formatOrderMessage({ orderId, tableNumber, items, total }) {
   const lines = items
     .map((it) => `• ${escapeHtml(it.name)} × ${it.quantity} — ${formatToman(it.price * it.quantity)}`)
     .join("\n");
-  const time = new Date().toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" });
+  const time = new Date().toLocaleTimeString("fa-IR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Tehran",
+  });
   return (
     `🧾 <b>سفارش جدید</b> — میز ${escapeHtml(tableNumber)}\n\n` +
     `${lines}\n\n` +
