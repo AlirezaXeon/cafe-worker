@@ -637,6 +637,37 @@ body.header-hidden .menu-controls {
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+/* تا وقتی عکس هیرو واقعاً دانلود نشده، همون گرادیانت تزئینی پس‌زمینه‌ی .hero-cover
+   یه اسکلتون ملایم و متحرکه (نه فقط یه رنگ ثابت)؛ با لود شدن، فقط عکس فید-این میشه */
+.hero-cover:not(.cover-ready) {
+  background-size: 200% 200%;
+  animation: heroSkeletonPulse 2.2s ease-in-out infinite;
+}
+
+.hero-cover.cover-ready .hero-cover-media img {
+  opacity: 1;
+}
+
+@keyframes heroSkeletonPulse {
+
+  0%,
+  100% {
+    background-position: 30% 20%;
+  }
+
+  50% {
+    background-position: 70% 60%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cover:not(.cover-ready) {
+    animation: none;
+  }
 }
 
 /* سایه‌ی نرم روی عکس تا لوگو و محتوای زیرش خواناتر بمونه */
@@ -1133,6 +1164,7 @@ body.header-hidden .menu-controls {
 
 /* عکس مربعی سمت راست کارت (چیدمان افقی) */
 .product-card .product-image {
+  position: relative;
   width: 116px;
   min-width: 116px;
   height: 116px;
@@ -1145,10 +1177,52 @@ body.header-hidden .menu-controls {
 }
 
 .product-card .product-image img {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.6s ease;
+  opacity: 0;
+  transition: transform 0.6s ease, opacity 0.35s ease;
+}
+
+/* اسکلتونِ واقعی: تا وقتی عکس واقعاً دانلود نشده (کلاس img-ready اضافه نشده)، این
+   افکت درخشش دیده میشه؛ به‌محض لود (یا خطا) با جاوااسکریپت محو میشه و عکس/پلیس‌هولدر جاش میاد */
+.product-card .product-image::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(100deg, var(--bg-alt) 28%, rgba(255, 255, 255, 0.07) 50%, var(--bg-alt) 72%);
+  background-size: 200% 100%;
+  animation: imgSkeletonShimmer 1.4s ease-in-out infinite;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.product-card .product-image.img-ready::before {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.product-card .product-image.img-ready img {
+  opacity: 1;
+}
+
+@keyframes imgSkeletonShimmer {
+  0% {
+    background-position: 150% 0;
+  }
+
+  100% {
+    background-position: -150% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card .product-image::before {
+    animation: none;
+  }
 }
 
 .product-card:hover .product-image img {
@@ -1543,10 +1617,41 @@ body.header-hidden .menu-controls {
 }
 
 .modal-image img {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.modal-image::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(100deg, var(--bg-alt) 28%, rgba(255, 255, 255, 0.07) 50%, var(--bg-alt) 72%);
+  background-size: 200% 100%;
+  animation: imgSkeletonShimmer 1.4s ease-in-out infinite;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.modal-image.img-ready::before {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-image.img-ready img {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-image::before {
+    animation: none;
+  }
 }
 
 /* ============ IMAGE ZOOM OVERLAY (زوم تمام‌صفحه‌ی عکس محصول) ============ */

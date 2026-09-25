@@ -89,13 +89,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // تا کاربر هیچ‌وقت سایت نصفه‌کاره یا در حال لود رو نبینه. اگه لود بیشتر از ۴ ثانیه طول کشید
   // (نت کند، سرور کند، هرچی)، همون سقف ۴ ثانیه‌ای رعایت میشه و از رو اسپلش رد میشیم.
   const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise]);
-  const hardCap = new Promise((resolve) => setTimeout(resolve, 4000));
+  const hardCap = new Promise((resolve) => setTimeout(resolve, 4500));
   Promise.race([allLoaded, hardCap]).then(hideSplash);
 });
 
 // شبکه‌ی ایمنی نهایی: مهم نیست چه اتفاقی بیفته (حتی اگه DOMContentLoaded خودش گیر کنه)،
-// اسپلش بیشتر از ۴ ثانیه رو صفحه نمی‌مونه.
-setTimeout(hideSplash, 4000);
+// اسپلش بیشتر از ۴.۵ ثانیه رو صفحه نمی‌مونه.
+setTimeout(hideSplash, 4500);
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -118,20 +118,28 @@ const CAT_COLORS = {
 function openModal(product, catLabelText) {
   modalProductId = product.id;
   modalImage.querySelectorAll('img').forEach(el => el.remove());
+  modalImage.classList.remove('img-ready');
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
 
+  // برخلاف کارت‌های منو (که نسخه‌ی کوچیک‌شده نشون می‌دن)، مودال همیشه عکس اصلی رو با
+  // سایز و کیفیت کامل لود می‌کنه؛ چون اینجا دقیقاً همون لحظه‌ایه که کاربر کلیک کرده
+  // و می‌خواد عکس واقعی رو ببینه.
   const imgSrc = product.image || getCategoryImage(product.category);
   if (imgSrc) {
     const img = document.createElement('img');
-    img.src = imgSrc;
     img.alt = product.name;
+    img.decoding = 'async';
+    img.onload = () => modalImage.classList.add('img-ready');
     img.onerror = () => {
       img.remove();
+      modalImage.classList.add('img-ready');
       modalPlaceholder.style.display = 'flex';
     };
+    img.src = imgSrc;
     modalImage.prepend(img);
   } else {
+    modalImage.classList.add('img-ready');
     modalPlaceholder.style.display = 'flex';
   }
 
@@ -438,19 +446,29 @@ sortModal.querySelectorAll('.sort-option').forEach(btn => {
   });
 });
 
+// توی منو فقط یه مربع ۱۱۶×۱۱۶ نشون داده میشه، پس نیازی به دانلود عکس اصلی (که می‌تونه
+// چند مگابایت باشه) نیست؛ به‌جاش نسخه‌ی کوچیک‌شده‌ی سرور (/images/thumb/...) رو می‌گیریم.
+// عکس با کیفیت و سایز اصلی فقط وقتی کارت کلیک بشه و مودال باز بشه لود میشه (openModal).
+function productThumbSrc(src) {
+  if (!src || /^https?:\/\//i.test(src)) return src; // لینک خارجی رو دست‌نخورده می‌ذاریم
+  const filename = src.split('/').pop();
+  return `images/thumb/${filename}`;
+}
+
 function productCardHtml(p) {
   const imgSrc = p.image || getCategoryImage(p.category);
+  const thumbSrc = productThumbSrc(imgSrc);
   // تا وقتی گیت عکس‌ها باز نشده (یعنی لوگو و کاور هنوز در حال لودن)، عکس محصول رو با
   // data-src می‌سازیم تا هیچ درخواست شبکه‌ای فوری نره؛ بعد از باز شدن گیت یکی‌یکی لود میشن.
   // اگه گیت از قبل باز بود (مثلاً کاربر داره تب دسته‌بندی عوض می‌کنه)، مستقیم و فوری لود میشه.
-  const imgAttr = productImageGateOpen ? `src="${imgSrc}"` : `data-src="${imgSrc}"`;
+  const imgAttr = productImageGateOpen ? `src="${thumbSrc}"` : `data-src="${thumbSrc}"`;
   return `
     <article class="product-card" data-id="${p.id}">
       <svg class="card-neon" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <rect x="1" y="1" width="98" height="98" rx="7" ry="7" pathLength="100"></rect>
       </svg>
       <div class="product-image">
-        ${imgSrc ? `<img ${imgAttr} alt="${esc(p.name)}" onerror="this.remove(); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
+        ${imgSrc ? `<img ${imgAttr} alt="${esc(p.name)}" loading="lazy" decoding="async" onload="this.parentElement.classList.add('img-ready')" onerror="this.remove(); this.parentElement.classList.add('img-ready'); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
         <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${esc(p.name.charAt(0))}</div>
       </div>
       <div class="product-info">
@@ -779,6 +797,7 @@ async function loadSiteConfig() {
     cfg = await res.json();
   } catch (err) {
     console.error('تنظیمات سایت لود نشد:', err);
+    document.querySelector('.hero-cover')?.classList.add('no-cover', 'cover-ready');
     await revealSplash(false);
     openProductImageGate();
     return;
@@ -788,7 +807,30 @@ async function loadSiteConfig() {
   const coverLogo = document.getElementById('heroCoverLogo');
   const coverImg = document.getElementById('heroCoverImg');
   const splashLogo = document.getElementById('splashLogoImg');
+  const heroCover = document.querySelector('.hero-cover');
 
+  // شروع دانلود واقعی عکس هیرو همزمان با لوگو (نه بعد از محو شدن اسپلش)؛ چون اسپلش
+  // قراره واقعاً منتظرش بمونه، نه اینکه فقط یه انیمیشن نمایشی اجرا کنه و زودتر کنار بره.
+  let coverReady;
+  if (cfg.cover && coverImg) {
+    coverImg.src = cfg.cover;
+    coverImg.style.display = '';
+    heroCover?.classList.remove('no-cover');
+    // اگه HTMLRewriter سمت سرور از قبل src رو ست کرده بود و مرورگر زودتر از اجرای این
+    // اسکریپت عکس رو کامل گرفته، رویداد load دیگه فایر نمیشه؛ پس اول خود complete رو چک می‌کنیم
+    if (coverImg.complete && coverImg.naturalWidth > 0) {
+      heroCover?.classList.add('cover-ready');
+    } else {
+      coverImg.addEventListener('load', () => heroCover?.classList.add('cover-ready'), { once: true });
+      coverImg.addEventListener('error', () => heroCover?.classList.add('cover-ready'), { once: true });
+    }
+    coverReady = waitForImage(coverImg, 2500);
+  } else {
+    heroCover?.classList.add('no-cover', 'cover-ready');
+    coverReady = Promise.resolve();
+  }
+
+  let revealDone;
   if (cfg.logo) {
     const logoFallback = document.getElementById('logoFallback');
 
@@ -806,7 +848,7 @@ async function loadSiteConfig() {
     // قبل از اجرای انیمیشن ورود، صبر می‌کنیم عکس واقعی لوگو کامل دانلود بشه؛ وگرنه
     // فید-این روی یه لوگوی نصفه/خالی اجرا می‌شد و بعد یهو عکس واقعی می‌پرید توش
     await waitForImage(splashLogo, 2000);
-    await revealSplash(true);
+    revealDone = revealSplash(true);
   } else {
     // هنوز از ربات لوگویی آپلود نشده؛ چون <img> از اول src نداره، به‌جای منتظر موندن
     // برای یه request ناموفق، مستقیم فالبک متنی رو نشون می‌دیم
@@ -814,23 +856,18 @@ async function loadSiteConfig() {
     if (logoFallback) logoFallback.style.display = 'flex';
     if (headerLogo) headerLogo.style.display = 'none';
     if (coverLogo) coverLogo.style.display = 'none';
-    await revealSplash(false);
+    revealDone = revealSplash(false);
   }
 
-  // از این‌جا به بعد (کاور + عکس محصولات) دیگه اسپلش رو معطل نمی‌کنه — اسپلش با همون
-  // سرعت قبلی محو میشه و اولویت‌بندی زیر در پس‌زمینه ادامه پیدا می‌کنه:
-  // اول کاور کامل لود میشه، بعدش تازه نوبت عکس محصولات (یکی‌یکی) میرسه.
-  (async () => {
-    if (cfg.cover && coverImg) {
-      coverImg.src = cfg.cover;
-      coverImg.style.display = '';
-      coverImg.closest('.hero-cover')?.classList.remove('no-cover');
-      await waitForImage(coverImg, 2500);
-    } else {
-      document.querySelector('.hero-cover')?.classList.add('no-cover');
-    }
-    openProductImageGate();
-  })();
+  // اسپلش («لودینگ») فقط وقتی واقعاً کارش تمومه که هم انیمیشن ورودی لوگو تموم شده باشه
+  // هم عکس هیرو واقعاً دانلود شده باشه (یا خطا خورده باشه) — نه یه چیز نمایشی که همیشه با
+  // یه زمان ثابت محو بشه صرف‌نظر از اینکه عکس واقعاً رسیده یا نه. سقف‌های زمانی waitForImage
+  // (۲ و ۲.۵ ثانیه) + سقف نهایی ۴ ثانیه‌ی کل اسپلش (پایین‌تر) تضمین می‌کنه تو نت کند هم گیر نکنیم.
+  await Promise.all([revealDone, coverReady]);
+
+  // از این‌جا به بعد فقط عکس محصولات مونده که اسپلش دیگه معطلش نمیشه؛ یکی‌یکی (نه همه‌ی
+  // کارت‌ها همزمان) شروع به لود می‌کنن تا شبکه رو یهو شلوغ نکنن.
+  openProductImageGate();
 }
 
 // ============ انیمیشن اسکرول: لوگوی وسط عکس با اسکرول به سمت لوگوی هدر «پرواز» می‌کنه ============

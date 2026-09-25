@@ -22,6 +22,47 @@ async function serveImageFromKV(filename, env) {
   });
 }
 
+// عکس‌های اصلی که ادمین آپلود می‌کنه ممکنه چند مگابایت باشن، ولی توی منو فقط یه
+// مربع ۱۱۶×۱۱۶ نمایش داده میشن؛ دانلود کردن فایل کامل فقط برای یه thumbnail خیلی
+// حیف پهنای باند و کند کردن لود اولیه‌ی سایته. این تابع با قابلیت Image Resizing
+// خود Cloudflare Workers (فعال روی همه‌ی زون‌ها، از جمله workers.dev) یه نسخه‌ی
+// کوچیک و فشرده می‌سازه. چون منبع اصلی (KV) از همین Worker سرو میشه، یه fetch
+// داخلی به مسیر عادی /images/ می‌زنیم تا Cloudflare قبل از رسوندنش بهمون ریسایزش کنه.
+async function serveThumbnail(filename, env, request) {
+  const originalUrl = new URL(request.url);
+  originalUrl.pathname = `/images/${filename}`;
+  originalUrl.search = '';
+
+  let resized;
+  try {
+    resized = await fetch(originalUrl.toString(), {
+      cf: {
+        image: {
+          width: 240,
+          height: 240,
+          fit: "cover",
+          quality: 72,
+        },
+      },
+    });
+  } catch (err) {
+    resized = null;
+  }
+
+  if (!resized || !resized.ok) {
+    // اگه ریسایز به هر دلیلی شکست خورد (مثلاً هنوز فعال نشده)، حداقل عکس اصلی رو نشون بده
+    // تا کاربر با تصویر شکسته مواجه نشه؛ فقط سریع‌تر نبوده، ولی خراب هم نیست.
+    return serveImageFromKV(filename, env);
+  }
+
+  return new Response(resized.body, {
+    headers: {
+      "Content-Type": resized.headers.get("content-type") || "image/jpeg",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  });
+}
+
 // عکس هیرو (و لوگوها) قبلاً هیچ src ای تو HTML نداشتن؛ script.js اول باید fetch('data/site.json')
 // رو کامل می‌کرد و بعد src رو ست می‌کرد. یعنی مرورگر تا وسط اجرای جاوااسکریپت اصلاً نمی‌دونست
 // همچین عکسی قراره لود بشه (preload scanner چیزی برای پیدا کردن نداشت) — همین باعث LCP خیلی بد
@@ -94,6 +135,15 @@ export default {
       const update = await request.json();
       ctx.waitUntil(handleUpdate(update, env));
       return new Response("OK");
+    }
+
+    // ── نسخه‌ی کوچیک‌شده‌ی عکس‌ها، مخصوص کارت‌های منو (/images/thumb/xxx.jpg) ──
+    // باید قبل از چک عمومی /images/ باشه چون اون مسیر رو هم شامل میشه.
+    if (url.pathname.startsWith('/images/thumb/')) {
+      const filename = url.pathname.split('/').pop();
+      const response = await serveThumbnail(filename, env, request);
+      if (response) return response;
+      return new Response("Not Found", { status: 404 });
     }
 
     // ── عکس‌های KV (هم مسیر قدیمی ربات /admin/images/... هم مسیر معمولی /images/...) ──
