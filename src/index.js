@@ -22,6 +22,34 @@ async function serveImageFromKV(filename, env) {
   });
 }
 
+// عکس هیرو (و لوگوها) قبلاً هیچ src ای تو HTML نداشتن؛ script.js اول باید fetch('data/site.json')
+// رو کامل می‌کرد و بعد src رو ست می‌کرد. یعنی مرورگر تا وسط اجرای جاوااسکریپت اصلاً نمی‌دونست
+// همچین عکسی قراره لود بشه (preload scanner چیزی برای پیدا کردن نداشت) — همین باعث LCP خیلی بد
+// می‌شد (چند ثانیه فقط صرف رفت‌وبرگشت گرفتن آدرس عکس، قبل از اینکه اصلاً درخواست عکس شروع بشه).
+// این تابع همون src واقعی رو مستقیم تو HTML (سمت سرور) می‌ذاره تا دانلود عکس همون لحظه‌ی اول شروع بشه.
+function injectSiteAssets(response, cfg) {
+  const rewriter = new HTMLRewriter();
+  if (cfg.cover) {
+    rewriter.on('#heroCoverImg', {
+      element(el) {
+        el.setAttribute('src', cfg.cover);
+        el.removeAttribute('style'); // پاک کردن display:none
+      },
+    });
+  }
+  if (cfg.logo) {
+    rewriter.on('#headerLogoImg', { element: (el) => el.setAttribute('src', cfg.logo) });
+    rewriter.on('#splashLogoImg', { element: (el) => el.setAttribute('src', cfg.logo) });
+    rewriter.on('#heroCoverLogo', {
+      element(el) {
+        el.setAttribute('src', cfg.logo);
+        el.removeAttribute('style');
+      },
+    });
+  }
+  return rewriter.transform(response);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -82,7 +110,12 @@ export default {
 
     const contentType = assetResponse.headers.get('content-type') || '';
     if (contentType.includes('text/html') || contentType.includes('javascript') || contentType.includes('text/css')) {
-      const response = new Response(assetResponse.body, assetResponse);
+      let response = new Response(assetResponse.body, assetResponse);
+      // فقط صفحه‌ی اصلی (سایت مشتری) عکس هیرو/لوگو داره؛ پنل ادمین و بقیه رو دست نمی‌زنیم
+      if (url.pathname === '/' && contentType.includes('text/html')) {
+        const cfg = await getCached(env, SITE_CACHE_KEY, () => getSiteConfig(env));
+        response = injectSiteAssets(response, cfg);
+      }
       response.headers.set('Cache-Control', 'no-cache');
       return response;
     }
