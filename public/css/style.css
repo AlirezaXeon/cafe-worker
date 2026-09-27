@@ -1066,6 +1066,38 @@ body.header-hidden .menu-controls {
   contain: layout;
 }
 
+/* اسکلتون لودینگ: همون فضای واقعی رو نگه می‌داره تا با رسیدن دیتای واقعی،
+   جابه‌جایی شدید (CLS) رخ نده -- چه دیتا زود برسه چه دیر (بعد از سقف زمانی اسپلش) */
+.skeleton-title {
+  width: 140px;
+  height: 1.1rem;
+  border-radius: 6px;
+  margin: 0 auto;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--bg-alt) 25%, var(--card-bg) 50%, var(--bg-alt) 75%) !important;
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+    background: var(--bg-alt);
+  }
+}
+
 .menu-group-title {
   display: flex;
   align-items: center;
