@@ -277,9 +277,15 @@
     </div>
     <div class="cart-footer">
       <div class="cart-table-field">
-        <label for="tableNumberInput">شماره میز</label>
-        <input type="text" id="tableNumberInput" inputmode="numeric" placeholder="مثلاً ۴" maxlength="20"
-          autocomplete="off">
+        <label id="tableFieldLabel">شماره میز</label>
+        <button type="button" class="table-select-btn" id="tableSelectBtn" aria-haspopup="dialog"
+          aria-labelledby="tableFieldLabel tableSelectValue">
+          <span id="tableSelectValue">انتخاب شماره میز</span>
+          <svg class="table-select-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
       </div>
       <div class="cart-total">
         <span class="cart-total-label">مبلغ کل</span>
@@ -289,6 +295,17 @@
       <p class="cart-checkout-msg" id="checkoutMsg"></p>
     </div>
   </aside>
+
+  <!-- TABLE PICKER (پاپ‌آپ انتخاب شماره میز؛ بدون تایپ دستی) -->
+  <div class="table-overlay" id="tableOverlay"></div>
+  <div class="table-modal" id="tableModal" role="dialog" aria-modal="true" aria-labelledby="tableModalTitle">
+    <div class="table-modal-header">
+      <h3 id="tableModalTitle">شماره میز</h3>
+      <button type="button" class="table-modal-close" id="tableModalClose" aria-label="بستن">✕</button>
+    </div>
+    <p class="table-modal-hint">میزی که روش نشستی رو انتخاب کن</p>
+    <div class="table-grid" id="tableGrid"></div>
+  </div>
 
   <!-- FLOATING CART (نوار شناور پایین صفحه) -->
   <div class="floating-cart" id="floatingCart">

@@ -191,6 +191,8 @@ modalAddBtn.addEventListener('click', () => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    // پاپ‌آپ انتخاب میز بالای سبد خرید بازه؛ فقط همون بسته میشه، نه سبد خرید زیرش
+    if (tableModal.classList.contains('open')) { handleTableClose(); return; }
     if (imageZoomOverlay.classList.contains('open')) closeImageZoom();
     if (modal.classList.contains('open')) handleClose();
     if (cartDrawer.classList.contains('open')) closeCart();
@@ -198,6 +200,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('popstate', (e) => {
+  // دکمه‌ی برگشت وقتی پاپ‌آپ میز بازه، فقط خود پاپ‌آپ رو می‌بنده و سبد خرید باز می‌مونه
+  if (tableModal.classList.contains('open')) { closeTableModal(); return; }
   closeImageZoom();
   closeModal();
   closeCart();
@@ -394,15 +398,136 @@ function renderTabs() {
 
   tabsEl.innerHTML = allBtn + catBtns;
 
+  // کلیک روی یه دسته‌بندی، بقیه رو حذف نمی‌کنه؛ کل منو همون‌جا می‌مونه و فقط نرم اسکرول می‌کنیم به اون بخش
   tabsEl.querySelectorAll('.cat-card').forEach(btn => {
-    btn.addEventListener('click', () => {
-      tabsEl.querySelectorAll('.cat-card').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeCategory = btn.dataset.cat;
-      renderProducts();
-    });
+    btn.addEventListener('click', () => scrollToCategory(btn.dataset.cat));
   });
 }
+
+// ============ اسکرول نرم به دسته‌بندی + هایلایت خودکار تب فعال موقع اسکرول ============
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let autoScrollRaf = null;
+let removeScrollInterrupts = null;
+window.__menuAutoScrolling = false; // هدر (مخفی‌شدن خودکار) این رو چک می‌کنه تا وسط اسکرول برنامه‌ای پرش نکنه
+
+function menuBarOffset() {
+  const bar = document.querySelector('.menu-controls');
+  return bar ? bar.offsetHeight : 0;
+}
+
+function stopAutoScroll() {
+  if (autoScrollRaf) { cancelAnimationFrame(autoScrollRaf); autoScrollRaf = null; }
+  if (removeScrollInterrupts) { removeScrollInterrupts(); removeScrollInterrupts = null; }
+  window.__menuAutoScrolling = false;
+}
+
+// انیمیشن اسکرول با منحنی easeInOutCubic؛ مدت‌زمان متناسب با فاصله‌ست تا هم فاصله‌ی کم تند نشه
+// هم فاصله‌ی زیاد کش نیاد. اگه کاربر وسطش با ماوس/لمس/کیبورد دخالت کنه، همون لحظه قطع میشه.
+function smoothScrollToY(targetY, { hideHeaderAtEnd = false } = {}) {
+  stopAutoScroll();
+  const startY = window.scrollY;
+  const maxY = document.documentElement.scrollHeight - window.innerHeight;
+  targetY = Math.max(0, Math.min(targetY, maxY));
+  const dist = targetY - startY;
+  if (Math.abs(dist) < 2) return;
+
+  const html = document.documentElement;
+  const prevBehavior = html.style.scrollBehavior;
+  // CSS روی html مقدار scroll-behavior:smooth داره؛ اگه خاموشش نکنیم، هر فریم scrollTo خودش
+  // دوباره انیمیشن می‌خوره و حرکت لرزون میشه
+  html.style.scrollBehavior = 'auto';
+
+  if (prefersReducedMotion()) {
+    window.scrollTo(0, targetY);
+    html.style.scrollBehavior = prevBehavior;
+    if (hideHeaderAtEnd) document.body.classList.add('header-hidden');
+    return;
+  }
+
+  const duration = Math.min(1100, Math.max(500, Math.abs(dist) * 0.5));
+  const t0 = performance.now();
+  window.__menuAutoScrolling = true;
+
+  const interrupts = ['wheel', 'touchstart', 'mousedown', 'keydown'];
+  const onInterrupt = () => finish(false);
+
+  function finish(completed) {
+    html.style.scrollBehavior = prevBehavior;
+    stopAutoScroll(); // لیسنرهای دخالت کاربر رو هم برمی‌داره
+    if (completed && hideHeaderAtEnd) document.body.classList.add('header-hidden');
+    updateActiveFromScroll();
+  }
+
+  interrupts.forEach(ev => window.addEventListener(ev, onInterrupt, { passive: true }));
+  removeScrollInterrupts = () => interrupts.forEach(ev => window.removeEventListener(ev, onInterrupt));
+
+  function step(now) {
+    const p = Math.min((now - t0) / duration, 1);
+    const eased = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+    window.scrollTo(0, startY + dist * eased);
+    if (p < 1) autoScrollRaf = requestAnimationFrame(step);
+    else finish(true);
+  }
+  autoScrollRaf = requestAnimationFrame(step);
+}
+
+function centerTabInStrip(btn) {
+  const tr = tabsEl.getBoundingClientRect();
+  const br = btn.getBoundingClientRect();
+  const delta = (br.left + br.width / 2) - (tr.left + tr.width / 2);
+  if (Math.abs(delta) > 4) tabsEl.scrollBy({ left: delta, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
+
+function setActiveTab(catId) {
+  activeCategory = catId;
+  let activeBtn = null;
+  tabsEl.querySelectorAll('.cat-card').forEach(b => {
+    const on = b.dataset.cat === catId;
+    b.classList.toggle('active', on);
+    if (on) activeBtn = b;
+  });
+  if (activeBtn) centerTabInStrip(activeBtn);
+}
+
+function scrollToCategory(catId) {
+  setActiveTab(catId); // فوراً هایلایت میشه، نه اینکه منتظر برسیم
+
+  if (catId === 'all') {
+    const menu = document.getElementById('menu');
+    if (menu) smoothScrollToY(menu.getBoundingClientRect().top + window.scrollY);
+    return;
+  }
+
+  const group = grid.querySelector(`.menu-group[data-cat="${CSS.escape(catId)}"]`);
+  if (!group) return;
+  // وقتی وارد بخش منو شدیم هدر بالا قفل و مخفی میشه (همون منطق قبلی)، پس نوار کتگوری به top:0 می‌چسبه
+  // و فقط ارتفاع خود نوار رو باید کم کنیم تا عنوان دسته زیرش گم نشه
+  const y = group.getBoundingClientRect().top + window.scrollY - menuBarOffset() + 4;
+  smoothScrollToY(y, { hideHeaderAtEnd: true });
+}
+
+// تب فعال رو با موقعیت اسکرول هماهنگ نگه می‌داره (بدون کلیک هم، با اسکرول عادی عوض میشه)
+let spyTicking = false;
+function updateActiveFromScroll() {
+  spyTicking = false;
+  if (window.__menuAutoScrolling) return;
+  const groups = grid.querySelectorAll('.menu-group[data-cat]');
+  if (!groups.length) return;
+
+  const line = menuBarOffset() + 40; // خط مرجع: کمی زیر نوار چسبان
+  let current = 'all';
+  groups.forEach(g => {
+    if (g.getBoundingClientRect().top <= line) current = g.dataset.cat;
+  });
+  if (current !== activeCategory) setActiveTab(current);
+}
+
+window.addEventListener('scroll', () => {
+  if (!spyTicking) {
+    spyTicking = true;
+    requestAnimationFrame(updateActiveFromScroll);
+  }
+}, { passive: true });
 
 function openSortModal() {
   sortModal.classList.add('open');
@@ -491,9 +616,8 @@ function productCardHtml(p) {
 }
 
 function renderProducts() {
-  let items = activeCategory === 'all'
-    ? [...productsData.products]
-    : productsData.products.filter(p => p.category === activeCategory);
+  // همه‌ی محصولات همیشه نمایش داده میشن؛ دسته‌بندی‌ها فقط برای اسکرول به همون بخش هستن، نه فیلتر
+  let items = [...productsData.products];
 
   if (currentSort === 'low-high') {
     items.sort((a, b) => a.price - b.price);
@@ -506,24 +630,22 @@ function renderProducts() {
     return c ? c.label : id;
   };
 
-  if (activeCategory === 'all') {
-    // تو حالت «همه»، محصولات رو زیر عنوان دسته‌بندی خودشون گروه می‌کنیم
-    // تا موقع اسکرول کردن روی کل منو، کاربر گم نشه که الان چه دسته‌ای رو می‌بینه
-    const groups = productsData.categories
-      .map(c => ({ cat: c, items: items.filter(p => p.category === c.id) }))
-      .filter(g => g.items.length > 0);
+  // محصولات زیر عنوان دسته‌بندی خودشون گروه میشن؛ هر گروه data-cat داره تا کلیک روی تب دسته
+  // (و هایلایت خودکار تب موقع اسکرول) بتونه همون بخش رو پیدا کنه
+  const groups = productsData.categories
+    .map(c => ({ cat: c, items: items.filter(p => p.category === c.id) }))
+    .filter(g => g.items.length > 0);
 
-    grid.innerHTML = groups.map(g => `
-      <div class="menu-group">
-        <h3 class="menu-group-title">${esc(g.cat.label)}</h3>
-        <div class="product-list">
-          ${g.items.map(productCardHtml).join('')}
-        </div>
+  grid.innerHTML = groups.map(g => `
+    <div class="menu-group" data-cat="${esc(g.cat.id)}">
+      <h3 class="menu-group-title">${esc(g.cat.label)}</h3>
+      <div class="product-list">
+        ${g.items.map(productCardHtml).join('')}
       </div>
-    `).join('');
-  } else {
-    grid.innerHTML = `<div class="product-list">${items.map(productCardHtml).join('')}</div>`;
-  }
+    </div>
+  `).join('');
+
+  updateActiveFromScroll();
 
   grid.querySelectorAll('.product-card').forEach(card => {
     card.addEventListener('click', (e) => {
@@ -555,7 +677,12 @@ const cartOverlay = document.getElementById('cartOverlay');
 const cartClose = document.getElementById('cartClose');
 const cartItemsEl = document.getElementById('cartItems');
 const cartTotalPriceEl = document.getElementById('cartTotalPrice');
-const tableNumberInput = document.getElementById('tableNumberInput');
+const tableSelectBtn = document.getElementById('tableSelectBtn');
+const tableSelectValue = document.getElementById('tableSelectValue');
+const tableOverlay = document.getElementById('tableOverlay');
+const tableModal = document.getElementById('tableModal');
+const tableModalClose = document.getElementById('tableModalClose');
+const tableGrid = document.getElementById('tableGrid');
 const checkoutBtn = document.getElementById('checkoutBtn');
 const checkoutMsg = document.getElementById('checkoutMsg');
 
@@ -680,12 +807,72 @@ function renderCart() {
   cartTotalPriceEl.innerHTML = formatPrice(totalPrice);
 }
 
-// اگه از اسکن QR کد روی میز اومده باشه (?table=4)، شماره میز از قبل پر و قفله
-const tableFromUrl = new URLSearchParams(location.search).get('table');
-if (tableFromUrl && tableNumberInput) {
-  tableNumberInput.value = tableFromUrl;
-  tableNumberInput.readOnly = true;
+// ============ انتخاب شماره میز (پاپ‌آپ؛ بدون تایپ دستی) ============
+const TABLE_COUNT = 20; // تعداد میزهای کافه — فقط همین عدد رو عوض کن
+let selectedTable = '';
+
+function renderTableSelect() {
+  if (selectedTable) {
+    // اگه شماره‌ی عددی بود با ارقام فارسی نشون میدیم؛ اگه مقدار غیرعددی بود، همون رو
+    const label = /^\d+$/.test(selectedTable) ? Number(selectedTable).toLocaleString('fa-IR') : selectedTable;
+    tableSelectValue.textContent = `میز ${label}`;
+    tableSelectBtn.classList.add('has-value');
+  } else {
+    tableSelectValue.textContent = 'انتخاب شماره میز';
+    tableSelectBtn.classList.remove('has-value');
+  }
+  tableSelectBtn.classList.remove('error');
 }
+
+function renderTableGrid() {
+  tableGrid.innerHTML = Array.from({ length: TABLE_COUNT }, (_, i) => {
+    const n = String(i + 1);
+    const on = n === selectedTable ? ' selected' : '';
+    return `<button type="button" class="table-option${on}" data-table="${n}" aria-pressed="${n === selectedTable}">${(i + 1).toLocaleString('fa-IR')}</button>`;
+  }).join('');
+}
+
+function openTableModal() {
+  renderTableGrid();
+  tableModal.classList.add('open');
+  tableOverlay.classList.add('open');
+  lockScroll();
+  history.pushState({ table: true }, "");
+  (tableGrid.querySelector('.selected') || tableModalClose).focus({ preventScroll: true });
+}
+
+function closeTableModal() {
+  if (!tableModal.classList.contains('open')) return;
+  tableModal.classList.remove('open');
+  tableOverlay.classList.remove('open');
+  unlockScroll();
+  tableSelectBtn.focus({ preventScroll: true });
+}
+
+// بستن از طریق UI (ضربدر/بک‌گراند/انتخاب)؛ ورودی history رو هم برمی‌گردونه تا دکمه‌ی برگشت گوشی خراب نشه
+function handleTableClose() {
+  if (history.state && history.state.table) history.back();
+  else closeTableModal();
+}
+
+tableSelectBtn.addEventListener('click', openTableModal);
+tableModalClose.addEventListener('click', handleTableClose);
+tableOverlay.addEventListener('click', handleTableClose);
+tableGrid.addEventListener('click', (e) => {
+  const opt = e.target.closest('.table-option');
+  if (!opt) return;
+  selectedTable = opt.dataset.table;
+  tableGrid.querySelectorAll('.table-option').forEach(b => {
+    const on = b === opt;
+    b.classList.toggle('selected', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  renderTableSelect();
+  setCheckoutMsg('');
+  setTimeout(handleTableClose, 180); // یه مکث کوتاه تا انتخاب دیده بشه، بعد خودش بسته میشه
+});
+
+renderTableSelect();
 
 function setCheckoutMsg(text, type) {
   checkoutMsg.textContent = text;
@@ -693,10 +880,11 @@ function setCheckoutMsg(text, type) {
 }
 
 async function submitOrder() {
-  const table = tableNumberInput.value.trim();
+  const table = selectedTable;
   if (!table) {
-    setCheckoutMsg('لطفاً شماره میز را وارد کنید.', 'error');
-    tableNumberInput.focus();
+    setCheckoutMsg('لطفاً شماره میز را انتخاب کنید.', 'error');
+    tableSelectBtn.classList.add('error');
+    openTableModal(); // مستقیم پاپ‌آپ رو باز می‌کنیم تا کاربر لازم نباشه دنبال فیلد بگرده
     return;
   }
   if (cart.length === 0) return;
@@ -916,6 +1104,15 @@ async function loadSiteConfig() {
     const currentY = window.scrollY || 0;
     const delta = currentY - lastScrollY;
     const menuTop = getMenuSectionTop();
+
+    // وسط اسکرول نرم به دسته‌بندی: به‌محض عبور از بالای صفحه هدر مخفی میشه و تا آخر مخفی می‌مونه
+    // (وگرنه اول اسکرول، هدر یه لحظه برمی‌گشت و دوباره می‌رفت = پرش)
+    if (window.__menuAutoScrolling) {
+      if (currentY > SHOW_NEAR_TOP && delta > 0) document.body.classList.add('header-hidden');
+      lastScrollY = currentY;
+      ticking = false;
+      return;
+    }
 
     if (currentY <= SHOW_NEAR_TOP) {
       // بالای صفحه (هیرو) — هدر همیشه دیده میشه

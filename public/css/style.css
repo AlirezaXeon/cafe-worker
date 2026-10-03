@@ -833,8 +833,9 @@ body.header-hidden .menu-controls {
   top: var(--header-h);
   transition: top 0.3s ease;
   z-index: 40;
-  background: linear-gradient(to bottom, var(--bg) 60%, transparent);
-  padding: 14px 0 20px;
+  /* فید از هر دو طرف: هم از بالا (شفاف → پررنگ) و هم از پایین (پررنگ → شفاف) */
+  background: linear-gradient(to bottom, transparent 0, var(--bg) 18%, var(--bg) 68%, transparent 100%);
+  padding: 24px 0 20px;
   margin-inline: -16px;
   padding-inline: 16px;
 }
@@ -2091,7 +2092,7 @@ body.header-hidden .menu-controls {
   margin-bottom: 12px;
 }
 
-.cart-table-field label {
+.cart-table-field>label {
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
@@ -2099,25 +2100,186 @@ body.header-hidden .menu-controls {
   margin-bottom: 6px;
 }
 
-.cart-table-field input {
+/* دکمه‌ای که ظاهر یه فیلد انتخابی داره؛ با کلیک، پاپ‌آپ انتخاب میز باز میشه (تایپ دستی نداریم) */
+.table-select-btn {
   width: 100%;
-  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 14px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--card-bg);
-  color: var(--ink);
+  color: var(--ink-soft);
   font-family: inherit;
   font-size: 0.95rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
-.cart-table-field input:focus {
-  outline: none;
+.table-select-btn:hover {
   border-color: var(--accent);
 }
 
-.cart-table-field input[readonly] {
+.table-select-btn.has-value {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.table-select-btn.error {
+  border-color: #E55353;
+  box-shadow: 0 0 0 3px rgba(229, 83, 83, 0.15);
+  animation: tableShake 0.4s ease;
+}
+
+@keyframes tableShake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-5px);
+  }
+
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+.table-select-chevron {
+  flex-shrink: 0;
   color: var(--ink-soft);
-  background: var(--bg-alt);
+}
+
+/* ============ پاپ‌آپ انتخاب شماره میز ============ */
+.table-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  z-index: 500;
+}
+
+.table-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.table-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.94);
+  width: min(92vw, 380px);
+  max-height: 80vh;
+  max-height: 80dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease;
+  z-index: 501;
+}
+
+.table-modal.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.table-modal-header {
+  display: grid;
+  grid-template-columns: 32px 1fr 32px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.table-modal-header h3 {
+  grid-column: 2;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.table-modal-close {
+  grid-column: 1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.table-modal-close:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.table-modal-hint {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  margin-bottom: 16px;
+}
+
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  overflow-y: auto;
+  padding: 4px;
+  overscroll-behavior: contain;
+}
+
+.table-option {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.table-option:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.table-option:active {
+  transform: scale(0.93);
+}
+
+.table-option.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
 }
 
 .cart-checkout {
