@@ -1143,8 +1143,8 @@
 
     function startOrdersPolling() {
       ordersPollTimer = setInterval(() => {
-        const m = document.getElementById('main-content');
-        if (m && document.getElementById('order-list-wrap')) loadOrders();
+        if (document.hidden) return; // تب مرورگر مخفیه؛ بی‌خودی درخواست نمی‌زنیم
+        if (document.getElementById('order-list-wrap')) loadOrders();
       }, 3000); // هر ۳ ثانیه، فقط وقتی خود تب سفارش‌ها بازه
     }
 
@@ -1153,6 +1153,7 @@
     }
 
     async function refreshPendingBadge() {
+      if (document.hidden) return;
       try {
         const pending = await api('/orders?status=pending');
         const badge = document.getElementById('pending-badge');
@@ -1303,16 +1304,17 @@
       } catch (e) { if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار', true); }
     }
 
+    // ترتیب دکمه‌های نوار: ۰=داشبورد، ۱=سفارش‌ها، ۲=محصولات، ۳=دسته‌بندی‌ها
     async function quickAddProduct() {
       const btns = document.querySelectorAll('.nav-btn');
-      btns.forEach(b => b.classList.remove('active')); btns[1].classList.add('active');
+      btns.forEach(b => b.classList.remove('active')); btns[2].classList.add('active');
       await renderProducts(document.getElementById('main-content'));
       openProductModal();
     }
 
     async function quickAddCategory() {
       const btns = document.querySelectorAll('.nav-btn');
-      btns.forEach(b => b.classList.remove('active')); btns[2].classList.add('active');
+      btns.forEach(b => b.classList.remove('active')); btns[3].classList.add('active');
       await renderCategories(document.getElementById('main-content'));
       openCatModal();
     }
@@ -1340,7 +1342,7 @@
     function renderProductTable() {
       const t = document.getElementById('prod-table'); if (!t) return;
       const q = searchQ.toLowerCase();
-      const rows = q ? allProducts.filter(p => p.name.toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q)) : allProducts;
+      const rows = q ? allProducts.filter(p => p.name.toLowerCase().includes(q) || catLabel(p.category).toLowerCase().includes(q)) : allProducts;
       if (!rows.length) { t.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>محصولی یافت نشد</div>'; return; }
       t.innerHTML = `<table>
     <thead><tr><th>تصویر</th><th>محصول</th><th>دسته</th><th>قیمت</th><th>موجودی</th><th>عملیات</th></tr></thead>
@@ -1348,7 +1350,7 @@
       <tr>
         <td>${p.image ? `<img class="img-preview" src="${esc(p.image)}" alt="" onerror="this.style.display='none'">` : `<div class="img-placeholder">🍽</div>`}</td>
         <td><div class="prod-name">${esc(p.name)}</div>${p.note ? `<div class="prod-note">${esc(p.note.slice(0, 55))}${p.note.length > 55 ? '…' : ''}</div>` : ''}</td>
-        <td><span style="background:var(--bg);padding:.18rem .55rem;border-radius:20px;font-size:.77rem">${esc(p.category || '—')}</span></td>
+        <td><span style="background:var(--bg);padding:.18rem .55rem;border-radius:20px;font-size:.77rem">${esc(catLabel(p.category))}</span></td>
         <td>
           ${p.original_price ? `<span class="price-orig">${Number(p.original_price).toLocaleString('fa-IR')} ت</span>` : ''}
           <span class="price-main">${Number(p.price).toLocaleString('fa-IR')} ت</span>
@@ -1357,7 +1359,7 @@
         <td><button class="toggle ${p.available ? 'on' : ''}" onclick="toggleAvail('${p.id}',${p.available})" title="${p.available ? 'موجود' : 'ناموجود'}"></button></td>
         <td><div class="actions">
           <button class="btn btn-ghost btn-sm" onclick="openProductModal('${p.id}')">ویرایش</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}','${esc(p.name)}')">حذف</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">حذف</button>
         </div></td>
       </tr>`).join('')}
     </tbody></table>`;
@@ -1410,7 +1412,7 @@
       </div>
       <div class="actions">
         <button class="btn btn-ghost btn-sm" onclick="openCatModal('${c.id}')">ویرایش</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteCat('${c.id}','${esc(c.label)}')">×</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCat('${c.id}')">×</button>
       </div>
     </div>`;
       }).join('')}</div>`;
@@ -1451,8 +1453,10 @@
       } finally { btn.innerHTML = 'ذخیره'; btn.disabled = false; }
     }
 
-    async function deleteCat(id, label) {
-      if (!confirm(`حذف دسته‌بندی «${label}»؟`)) return;
+    // اسم از روی ID پیدا میشه (نه از onclick)، تا اسمی که ' یا کاراکتر خاص داره دکمه رو خراب نکنه
+    async function deleteCat(id) {
+      const c = allCategories.find(x => x.id === id);
+      if (!confirm(`حذف دسته‌بندی «${c ? c.label : ''}»؟`)) return;
       try {
         const r = await api(`/categories/${id}`, { method: 'DELETE' });
         if (r.error) { toast(r.error, true); return; }
@@ -1558,7 +1562,8 @@
       const disc = Number(document.getElementById('p-discount').value || 0);
       const prev = document.getElementById('disc-preview');
       if (price > 0 && disc > 0 && disc < 100) {
-        const final = Math.round(price * (1 - disc / 100));
+        // بک‌اند به نزدیک‌ترین هزار تومن گرد می‌کنه؛ پیش‌نمایش هم همون‌طور
+        const final = Math.round(price * (1 - disc / 100) / 1000) * 1000;
         prev.textContent = `قیمت اصلی: ${price.toLocaleString('fa-IR')} ت  ←  قیمت با تخفیف: ${final.toLocaleString('fa-IR')} ت`;
         prev.style.display = 'block';
       } else {
@@ -1611,8 +1616,10 @@
       } finally { btn.innerHTML = 'ذخیره محصول'; btn.disabled = false; }
     }
 
-    async function deleteProduct(id, name) {
-      if (!confirm(`حذف «${name}»؟`)) return;
+    // اسم از روی ID پیدا میشه (نه از onclick)، تا اسمی که ' یا کاراکتر خاص داره دکمه رو خراب نکنه
+    async function deleteProduct(id) {
+      const p = allProducts.find(x => x.id == id);
+      if (!confirm(`حذف «${p ? p.name : ''}»؟`)) return;
       try {
         await api(`/products/${id}`, { method: 'DELETE' });
         toast('محصول حذف شد');
@@ -1623,6 +1630,11 @@
 
     // ── Utils ─────────────────────────────────────────────────────────────────
     function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
+    // آیدی دسته رو به اسمش تبدیل می‌کنه (اگه پیدا نشد، خود آیدی یا «—»)
+    function catLabel(id) {
+      const c = allCategories.find(x => x.id === id);
+      return c ? c.label : (id || '—');
+    }
     function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden' }
     function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = '' }
 
