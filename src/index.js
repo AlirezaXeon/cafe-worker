@@ -99,7 +99,11 @@ async function serveImageFromKV(filename, env, cacheControl = IMMUTABLE_CACHE) {
 const RESIZE_BACKOFF_MS = 10 * 60 * 1000;
 let resizeRetryAt = 0;
 
-async function serveThumbnail(filename, env, request) {
+// تامبنیل کارت‌های منو (۲۴۰×۲۴۰) و نسخه‌ی متوسط مودال (حداکثر ۹۰۰ پیکسل عرض)
+const THUMB_OPTS = { width: 240, height: 240, fit: "cover", quality: 72 };
+const MEDIUM_OPTS = { width: 800, fit: "scale-down", quality: 74, format: "webp" };
+
+async function serveThumbnail(filename, env, request, imageOpts = THUMB_OPTS) {
   if (Date.now() >= resizeRetryAt) {
     const originalUrl = new URL(request.url);
     originalUrl.pathname = `/images/${filename}`;
@@ -107,14 +111,7 @@ async function serveThumbnail(filename, env, request) {
 
     try {
       const resized = await fetch(originalUrl.toString(), {
-        cf: {
-          image: {
-            width: 240,
-            height: 240,
-            fit: "cover",
-            quality: 72,
-          },
-        },
+        cf: { image: imageOpts },
       });
 
       if (resized.ok) {
@@ -136,13 +133,34 @@ async function serveThumbnail(filename, env, request) {
   return serveImageFromKV(filename, env, SHORT_CACHE);
 }
 
+// JSON امن برای گذاشتن داخل <script>: اسم/توضیح محصول از ادمین میاد؛ بدون escape یه
+// «</script>» توش کل صفحه رو می‌شکنه (و XSS میشه). U+2028/2029 هم تو بعضی مرورگرها خط جدید حساب میشن.
+function safeInlineJson(value) {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 // عکس هیرو (و لوگوها) قبلاً هیچ src ای تو HTML نداشتن؛ script.js اول باید fetch('data/site.json')
 // رو کامل می‌کرد و بعد src رو ست می‌کرد. این تابع همون src واقعی رو مستقیم تو HTML
 // (سمت سرور) می‌ذاره تا دانلود عکس همون لحظه‌ی اول شروع بشه.
-function injectSiteAssets(response, cfg, origin) {
+function injectSiteAssets(response, cfg, origin, products) {
   const rewriter = new HTMLRewriter();
 
-  if (cfg.cover) {
+  // دیتای سایت و محصولات رو مستقیم تو HTML می‌ذاریم تا مرورگر مجبور نباشه بعد از لود script.js
+  // دو تا fetch جدا (site.json و products.json) بزنه؛ script.js اگه این رو ببینه fetch نمی‌کنه.
+  if (cfg || products) {
+    rewriter.on('head', {
+      element(el) {
+        el.append(`<script type="application/json" id="bootData">${safeInlineJson({ site: cfg || null, products: products || null })}</script>`, { html: true });
+      },
+    });
+  }
+
+  if (cfg && cfg.cover) {
     const coverHref = '/' + String(cfg.cover).replace(/^\//, '');
     // دانلود عکس از همون اولین بایت‌های HTML شروع می‌شه
     rewriter.on('head', {
@@ -161,7 +179,7 @@ function injectSiteAssets(response, cfg, origin) {
       },
     });
   }
-  if (cfg.logo) {
+  if (cfg && cfg.logo) {
     rewriter.on('#headerLogoImg', { element: (el) => el.setAttribute('src', cfg.logo) });
     rewriter.on('#splashLogoImg', { element: (el) => el.setAttribute('src', cfg.logo) });
     rewriter.on('#heroCoverLogo', {
@@ -175,7 +193,7 @@ function injectSiteAssets(response, cfg, origin) {
   // فاویکون و آیکون اپل: از لوگوی ذخیره‌شده؛ اگه لوگو نیست، تگ‌ها حذف میشن (دیگه فایل ثابت نداریم)
   rewriter.on('link[rel="icon"], link[rel="apple-touch-icon"]', {
     element(el) {
-      if (cfg.logo) {
+      if (cfg && cfg.logo) {
         el.setAttribute('href', cfg.logo);
         el.removeAttribute('type');
         el.removeAttribute('sizes');
@@ -186,7 +204,7 @@ function injectSiteAssets(response, cfg, origin) {
   });
 
   // عکس اشتراک‌گذاری (OG): کاور، وگرنه لوگو، وگرنه هیچی (باید آدرس کامل باشه)
-  const share = cfg.cover || cfg.logo;
+  const share = cfg && (cfg.cover || cfg.logo);
   rewriter.on('meta[property="og:image"]', {
     element(el) {
       if (share) el.setAttribute('content', new URL(share, origin).toString());
@@ -257,6 +275,16 @@ export default {
       return new Response("Not Found", { status: 404 });
     }
 
+    // ── نسخه‌ی متوسط عکس برای مودال محصول (/images/med/xxx.jpg) ──────────────
+    // قبلاً مودال عکس اصلی (چند مگابایت) رو تو موبایل می‌گرفت؛ دانلود کند + دیکد سنگین = پرش و لگ.
+    // عکس اصلی فقط وقتی کاربر روی عکس بزنه و زوم کنه لود میشه.
+    if (url.pathname.startsWith('/images/med/')) {
+      const filename = url.pathname.split('/').pop();
+      const response = await withEdgeCache(request, ctx, () => serveThumbnail(filename, env, request, MEDIUM_OPTS));
+      if (response) return response;
+      return new Response("Not Found", { status: 404 });
+    }
+
     // ── عکس‌های KV (هم مسیر قدیمی ربات /admin/images/... هم مسیر معمولی /images/...) ──
     if (url.pathname.startsWith('/admin/images/') || url.pathname.startsWith('/images/')) {
       const filename = url.pathname.split('/').pop();
@@ -267,15 +295,24 @@ export default {
     }
 
     // ── فایل‌های استاتیک (public/) ────────────────────────────────────────
+    // برای صفحه‌ی اصلی، خوندن دیتا هم‌زمان با گرفتن فایل HTML شروع میشه (نه بعدش)
+    const isHome = url.pathname === '/';
+    const bootPromise = isHome
+      ? Promise.all([
+          loadSiteData(env).catch((err) => { console.error('[boot:site]', err); return null; }),
+          loadProductsData(env).catch((err) => { console.error('[boot:products]', err); return null; }),
+        ])
+      : null;
     const assetResponse = await env.ASSETS.fetch(request);
 
     const contentType = assetResponse.headers.get('content-type') || '';
     if (contentType.includes('text/html') || contentType.includes('javascript') || contentType.includes('text/css')) {
       let response = new Response(assetResponse.body, assetResponse);
       // فقط صفحه‌ی اصلی (سایت مشتری) عکس هیرو/لوگو داره؛ پنل ادمین و بقیه رو دست نمی‌زنیم
-      if (url.pathname === '/' && contentType.includes('text/html')) {
-        const cfg = await loadSiteData(env);
-        response = injectSiteAssets(response, cfg, url.origin);
+      if (isHome && contentType.includes('text/html')) {
+        const [cfg, products] = await bootPromise;
+        // اگه دیتا نیومد، صفحه همون‌طور که هست می‌ره و script.js خودش fetch می‌کنه
+        response = injectSiteAssets(response, cfg, url.origin, products);
       }
       response.headers.set('Cache-Control', 'no-cache');
       return response;

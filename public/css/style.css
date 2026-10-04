@@ -1547,13 +1547,78 @@ body.header-hidden .menu-controls {
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--line);
-  height: 200px;
 }
 
-.map-container iframe {
-  width: 100%;
-  height: 100%;
-  filter: grayscale(20%) contrast(1.1);
+/* به‌جای iframe گوگل (سنگین و تو ایران کند/فیلتر): کارت آدرس + دکمه‌های مسیریابی */
+.map-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--bg-alt);
+}
+
+.map-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.map-card-pin {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+}
+
+.map-card-pin svg {
+  width: 22px;
+  height: 22px;
+}
+
+.map-card-title {
+  display: block;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.map-card-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.map-card-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.map-btn {
+  flex: 1;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: var(--btn-ghost-bg);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #14110a;
 }
 
 /* ============ FOOTER ============ */
@@ -1603,7 +1668,9 @@ body.header-hidden .menu-controls {
   max-width: 500px;
   width: 100%;
   max-height: 90vh;
+  max-height: 90svh; /* svh ثابته (برخلاف dvh با جمع/باز شدن نوار آدرس تغییر نمی‌کنه) و پایین مودال زیر نوار نمی‌ره */
   overflow-y: auto;
+  overscroll-behavior: contain; /* اسکرول داخل مودال صفحه‌ی پشتش رو تکون نده */
   position: relative;
   transform: translateY(100%);
   transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
@@ -1619,7 +1686,7 @@ body.header-hidden .menu-controls {
   position: absolute;
   top: 16px;
   left: 16px;
-  z-index: 2;
+  z-index: 10;
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -1644,13 +1711,24 @@ body.header-hidden .menu-controls {
   width: 100%;
   aspect-ratio: 3 / 4;
   max-height: 55vh;
+  max-height: 55svh;
   background: var(--bg-alt);
   position: relative;
   overflow: hidden;
+  isolation: isolate;          /* z-indexهای عکس‌ها بیرون از این کادر نشت نکنن (دکمه‌ی ✕ رو نپوشونن) */
+  touch-action: pan-y;         /* اسکرول عمودی مودال آزاد؛ پینچ و کشیدن با جاوااسکریپت */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.modal-image.zoomed {
+  touch-action: none;
 }
 
 .modal-image img {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
   width: 100%;
   height: 100%;
@@ -1658,7 +1736,24 @@ body.header-hidden .menu-controls {
   cursor: zoom-in;
   opacity: 0;
   transition: opacity 0.35s ease;
+  transform: translate3d(var(--zx, 0px), var(--zy, 0px), 0) scale(var(--zs, 1));
+  transform-origin: center center;
+  will-change: transform;
+  -webkit-user-drag: none;
 }
+
+.modal-image.zoomed img {
+  cursor: grab;
+}
+
+.modal-image.animating img {
+  transition: opacity 0.35s ease, transform 0.25s ease;
+}
+
+/* دو لایه: تامبنیل (فوری) زیر، عکس واضح روش با fade؛ هیچ‌کدوم اندازه‌ی کادر رو تغییر نمیدن */
+.modal-image img.m-full { z-index: 2; }
+.modal-image img.m-hires { z-index: 3; }
+.modal-image img.shown { opacity: 1; }
 
 .modal-image::before {
   content: '';
@@ -1677,9 +1772,6 @@ body.header-hidden .menu-controls {
   pointer-events: none;
 }
 
-.modal-image.img-ready img {
-  opacity: 1;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .modal-image::before {

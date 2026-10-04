@@ -74,6 +74,17 @@ function formatPrice(price) {
 // از window.load استفاده نمی‌کنیم چون منتظر لود کامل همه‌ی عکس‌های محصولات هم می‌مونه
 // و اگه نت کند باشه، اسپلش می‌تونه چند ثانیه (حتی بیشتر از ۱۰ ثانیه) گیر کنه.
 // به‌جاش با DOMContentLoaded (فقط منتظر خود صفحه) + یه سقف زمانی مطمئن کار می‌کنیم.
+// دیتای داخل HTML (سرور گذاشته)؛ اگه نبود یا خراب بود null برمی‌گردونه و fetch معمولی جواب میده
+let bootCache;
+function getBoot() {
+  if (bootCache !== undefined) return bootCache;
+  try {
+    const el = document.getElementById('bootData');
+    bootCache = el ? JSON.parse(el.textContent) : null;
+  } catch { bootCache = null; }
+  return bootCache;
+}
+
 function hideSplash() {
   const splash = document.getElementById('splash');
   if (!splash || splash.dataset.hidden === 'true') return;
@@ -81,6 +92,7 @@ function hideSplash() {
   splash.classList.add('hide');
   // درست همین لحظه که اسپلش محو میشه، متن‌های هیرو با انیمیشن پلکانی ظاهر میشن
   document.body.classList.add('site-loaded');
+  window.dispatchEvent(new Event('siteloaded'));
   setTimeout(() => splash.remove(), 250);
 }
 
@@ -88,7 +100,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // اسپلش رو تا وقتی هم منو/محصولات و هم تنظیمات سایت (لوگو) کامل لود نشدن نگه می‌داریم،
   // تا کاربر هیچ‌وقت سایت نصفه‌کاره یا در حال لود رو نبینه. اگه لود بیشتر از ۴ ثانیه طول کشید
   // (نت کند، سرور کند، هرچی)، همون سقف ۴ ثانیه‌ای رعایت میشه و از رو اسپلش رد میشیم.
-  const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise]);
+  // علاوه بر دیتا، منتظر عکس‌های اولِ منو و فونت‌ها هم می‌مونیم تا بعد از رفتن اسپلش،
+  // عکس‌ها یکی‌یکی نپرن و متن‌ها فونتشون عوض نشه (همه‌ی این انتظارها سقف زمانی دارن).
+  const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
+    .then(() => waitForMenuImages(2000));
   const hardCap = new Promise((resolve) => setTimeout(resolve, 4500));
   Promise.race([allLoaded, hardCap]).then(hideSplash);
 });
@@ -108,6 +123,7 @@ const modalNote = document.getElementById('modalNote');
 const modalPrice = document.getElementById('modalPrice');
 const modalAddBtn = document.getElementById('modalAddBtn');
 let modalProductId = null;
+let modalImgToken = 0;
 
 const CAT_COLORS = {
   coffee: '#B58863',
@@ -115,29 +131,147 @@ const CAT_COLORS = {
   breakfast: '#E8A93E'
 };
 
+// ============ پیش‌بارگذاری عکس مودال ============
+// قبلاً عکس بزرگ محصول فقط بعد از کلیک شروع به دانلود می‌کرد؛ برای همین موبایل بعد از لمس چند ثانیه
+// اسکلتون می‌دید. حالا: (۱) کارت‌هایی که کاربر واقعاً دیده تو پس‌زمینه با اولویت پایین و حداکثر ۲ تا
+// همزمان پیش‌لود میشن، (۲) لحظه‌ی لمس کارت (قبل از رها کردن انگشت) دانلودش با اولویت بالا شروع میشه.
+// تو حالت صرفه‌جویی داده یا نت 2G هیچ پیش‌لود پس‌زمینه‌ای انجام نمیشه.
+const mediumPreload = new Map();   // آدرس ← <img> (برای اینکه GC نشه و بشه فهمید تموم شده یا نه)
+const preloadQueue = [];
+let preloadActive = 0;
+
+function mediumUrlFor(imgSrc) {
+  if (!imgSrc) return null;
+  return /^https?:\/\//i.test(imgSrc) ? imgSrc : `images/med/${imgSrc.split('/').pop()}`;
+}
+
+function canBackgroundPreload() {
+  const c = navigator.connection;
+  return !(c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')));
+}
+
+function pumpPreload() {
+  while (preloadActive < 2 && preloadQueue.length) {
+    const url = preloadQueue.shift();
+    if (mediumPreload.has(url)) continue;
+    const im = new Image();
+    im.decoding = 'async';
+    im.fetchPriority = 'low';
+    preloadActive++;
+    const done = () => { preloadActive--; pumpPreload(); };
+    im.onload = done;
+    im.onerror = () => { mediumPreload.delete(url); done(); };
+    im.src = url;
+    mediumPreload.set(url, im);
+  }
+}
+
+function queueMediumPreload(imgSrc) {
+  const url = mediumUrlFor(imgSrc);
+  if (!url || mediumPreload.has(url) || preloadQueue.includes(url) || !canBackgroundPreload()) return;
+  preloadQueue.push(url);
+  if (window.requestIdleCallback) window.requestIdleCallback(pumpPreload, { timeout: 1500 });
+  else setTimeout(pumpPreload, 200);
+}
+
+// لمس کارت = احتمال خیلی بالای کلیک؛ همین الان با اولویت بالا شروع کن
+function boostMediumPreload(imgSrc) {
+  const url = mediumUrlFor(imgSrc);
+  if (!url || mediumPreload.has(url)) return;
+  const im = new Image();
+  im.decoding = 'async';
+  im.fetchPriority = 'high';
+  im.onerror = () => mediumPreload.delete(url);
+  im.src = url;
+  mediumPreload.set(url, im);
+}
+
+let cardPreloadObserver = null;
+function observeCardsForPreload() {
+  if (!('IntersectionObserver' in window)) return;
+  if (cardPreloadObserver) cardPreloadObserver.disconnect();
+  const timers = new Map();
+  cardPreloadObserver = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const card = e.target;
+      if (!e.isIntersecting) { clearTimeout(timers.get(card)); timers.delete(card); continue; }
+      // فقط کارتی که حداقل نیم ثانیه تو دید بوده (اسکرول سریع، نصفه‌کاره‌ها رو پیش‌لود نکنه)
+      timers.set(card, setTimeout(() => {
+        timers.delete(card);
+        cardPreloadObserver.unobserve(card);
+        const product = productsData && productsData.products.find(p => p.id === card.dataset.id);
+        if (product) queueMediumPreload(product.image || getCategoryImage(product.category));
+      }, 500));
+    }
+  }, { rootMargin: '150px 0px' });
+  document.querySelectorAll('.product-card').forEach(card => cardPreloadObserver.observe(card));
+}
+
 function openModal(product, catLabelText) {
   modalProductId = product.id;
+  resetModalZoom();
+  modalImage.dataset.fullSrc = product.image || getCategoryImage(product.category) || '';
   modalImage.querySelectorAll('img').forEach(el => el.remove());
   modalImage.classList.remove('img-ready');
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
 
-  // برخلاف کارت‌های منو (که نسخه‌ی کوچیک‌شده نشون می‌دن)، مودال همیشه عکس اصلی رو با
-  // سایز و کیفیت کامل لود می‌کنه؛ چون اینجا دقیقاً همون لحظه‌ایه که کاربر کلیک کرده
-  // و می‌خواد عکس واقعی رو ببینه.
+  // مودال عکس اصلی چندمگابایتی رو نمی‌گیره؛ نسخه‌ی متوسط (≤۸۰۰px) رو می‌گیره که معمولاً قبل از کلیک
+  // پیش‌لود شده. اگه هنوز نرسیده بود، تامبنیل کارت (که همین الان تو کش مرورگره) همون لحظه نشون داده
+  // میشه و عکس واضح روش fade میشه (دو لایه‌ی روی هم؛ بدون تغییر اندازه، پس پرشی نداریم).
+  // عکس اصلی فقط موقع زوم (data-full) لود میشه.
   const imgSrc = product.image || getCategoryImage(product.category);
+  const token = ++modalImgToken;
   if (imgSrc) {
-    const img = document.createElement('img');
-    img.alt = product.name;
-    img.decoding = 'async';
-    img.onload = () => modalImage.classList.add('img-ready');
-    img.onerror = () => {
-      img.remove();
+    const isLocal = !/^https?:\/\//i.test(imgSrc);
+    const fname = imgSrc.split('/').pop();
+    const medUrl = mediumUrlFor(imgSrc);
+    const thumbUrl = isLocal ? `images/thumb/${fname}` : null;
+    const absFull = new URL(imgSrc, location.href).href;
+    const alive = () => token === modalImgToken;
+
+    const mk = (cls, src) => {
+      const el = document.createElement('img');
+      el.className = cls;
+      el.alt = product.name;
+      el.decoding = 'async';
+      el.dataset.full = imgSrc;
+      el.src = src;
+      return el;
+    };
+    const showFailed = () => {
+      modalImage.querySelectorAll('img').forEach(el => el.remove());
       modalImage.classList.add('img-ready');
       modalPlaceholder.style.display = 'flex';
     };
-    img.src = imgSrc;
-    modalImage.prepend(img);
+
+    const full = mk('m-full', medUrl);
+    const showFull = () => {
+      if (!alive()) return;
+      modalImage.classList.add('img-ready');
+      requestAnimationFrame(() => full.classList.add('shown'));
+    };
+    full.onload = showFull;
+    full.onerror = () => {
+      if (!alive()) return;
+      if (full.src !== absFull) { full.src = absFull; return; }   // نسخه‌ی متوسط نبود ← عکس اصلی
+      if (!modalImage.querySelector('.m-thumb.shown')) showFailed();
+    };
+    modalImage.append(full);
+
+    const alreadyThere = full.complete && full.naturalWidth > 0;
+    if (alreadyThere) {
+      showFull();
+    } else if (thumbUrl) {
+      const th = mk('m-thumb', thumbUrl);
+      th.onload = () => {
+        if (!alive()) return;
+        modalImage.classList.add('img-ready');
+        th.classList.add('shown');
+      };
+      th.onerror = () => th.remove();
+      modalImage.prepend(th);
+    }
   } else {
     modalImage.classList.add('img-ready');
     modalPlaceholder.style.display = 'flex';
@@ -161,6 +295,8 @@ function openModal(product, catLabelText) {
 
 function closeModal() {
   if (!modal.classList.contains('open')) return;
+  resetModalZoom();
+  modalImgToken++; // دانلودهای نیمه‌کاره‌ی عکس مودال دیگه چیزی تغییر نمیدن
   modal.classList.remove('open');
   modal.setAttribute('aria-hidden', 'true');
   unlockScroll();
@@ -246,10 +382,8 @@ function closeImageZoom() {
   unlockScroll();
 }
 
-modalImage.addEventListener('click', () => {
-  const img = modalImage.querySelector('img');
-  if (img) openImageZoom(img.src, img.alt);
-});
+// زوم دیگه کلیک جداگانه نمی‌خواد: همون‌جا روی عکس مودال (پینچ، دابل‌تپ، چرخ ماوس) کار می‌کنه.
+// پایین فایل: initModalZoom()
 
 imageZoomClose.addEventListener('click', closeImageZoom);
 imageZoomOverlay.addEventListener('click', (e) => {
@@ -330,39 +464,65 @@ let productsData = { categories: [], products: [] };
 let activeCategory = 'all';
 let currentSort = 'default';
 
-// ============ اولویت‌بندی لود عکس محصولات: بعد از لوگو و کاور، یکی‌یکی ============
-// تا وقتی گیت باز نشده (یعنی کاور هنوز لود نشده)، عکس محصولات فقط data-src دارن و
-// هیچ درخواست شبکه‌ای براشون نمی‌ره؛ همین که گیت باز شد، یکی‌یکی (نه همه‌شون همزمان) لود میشن.
-let productImageGateOpen = false;
+// ============ لود عکس محصولات ============
+// قبلاً عکس‌ها تا باز شدن یه «گیت» صبر می‌کردن و بعد یکی‌یکی (هر کدوم بعد از load قبلی) می‌اومدن؛
+// نتیجه‌ش این بود که بعد از رفتن اسپلش، عکس‌ها یکی‌یکی روی صفحه می‌پریدن. حالا تامبنیل‌ها کوچیک‌ان
+// (~۱۰ کیلوبایت) و همه با هم، از همون اول شروع می‌شن. فقط ۱۲ تای اول eager هستن؛ بقیه lazy.
+const EAGER_IMAGE_COUNT = 12;
+let productImgIndex = 0;
 
-function openProductImageGate() {
-  if (productImageGateOpen) return;
-  productImageGateOpen = true;
-  sequenceProductImages();
+// منتظر می‌مونه عکس‌های دسته‌بندی و چند کارت اول واقعاً دانلود و دیکد بشن (یا سقف زمانی تموم بشه)
+function waitForMenuImages(timeoutMs) {
+  const imgs = Array.from(document.querySelectorAll('.cat-card-img img, .product-card img'))
+    .slice(0, EAGER_IMAGE_COUNT + 6);
+  return Promise.all(imgs.map(img => {
+    if (img.loading === 'lazy' && !img.complete) return Promise.resolve();
+    return waitForImage(img, timeoutMs);
+  }));
 }
 
-function sequenceProductImages() {
-  if (!productImageGateOpen) return;
-  const imgs = Array.from(grid.querySelectorAll('img[data-src]'));
-  if (!imgs.length) return;
-
-  let i = 0;
-  function next() {
-    if (i >= imgs.length) return;
-    const img = imgs[i++];
-    const src = img.getAttribute('data-src');
-    img.removeAttribute('data-src');
-    img.addEventListener('load', next, { once: true });
-    img.addEventListener('error', next, { once: true });
-    img.src = src;
-  }
-  next();
+// فونت‌ها از گوگل میان (CSS غیرمسدودکننده). قبلاً فقط document.fonts.ready رو صبر می‌کردیم که
+// اگه هنوز هیچ فونتی درخواست نشده باشه همون لحظه resolve میشه؛ نتیجه: فونت وسط انیمیشن اسپلش
+// می‌رسید، عرض عنوان عوض می‌شد و کل صفحه دوباره چیده می‌شد (پرش). حالا وجه‌های واقعی رو صراحتاً
+// درخواست می‌کنیم و انیمیشن اسپلش فقط بعد از رسیدنشون (با سقف زمانی) شروع میشه.
+let fontsPromise = null;
+function waitForFonts(timeoutMs) {
+  if (fontsPromise) return fontsPromise;
+  const css = document.getElementById('fontCss');
+  const cssReady = (!css || css.dataset.ready)
+    ? Promise.resolve()
+    : new Promise(resolve => {
+        css.addEventListener('load', resolve, { once: true });
+        css.addEventListener('error', resolve, { once: true });
+      });
+  const loadFaces = () => {
+    if (!document.fonts || !document.fonts.load) return null;
+    const fa = 'سلام کافه روشن';
+    return Promise.all([
+      document.fonts.load('400 16px Vazirmatn', fa),
+      document.fonts.load('600 16px Vazirmatn', fa),
+      document.fonts.load('700 16px Vazirmatn', fa),
+      document.fonts.load('900 16px Estedad', fa),
+      document.fonts.load('italic 500 16px "Cormorant Garamond"', 'Roshan Cafe'),
+    ]).catch(() => {});
+  };
+  fontsPromise = Promise.race([
+    cssReady.then(loadFaces),
+    new Promise(resolve => setTimeout(resolve, timeoutMs)),
+  ]);
+  return fontsPromise;
 }
 
 async function loadProducts() {
   try {
-    const res = await fetch('data/products.json');
-    productsData = await res.json();
+    // Worker دیتا رو مستقیم تو HTML گذاشته؛ فقط اگه نبود (مثلاً خطای سرور) fetch می‌کنیم
+    const boot = getBoot() && getBoot().products;
+    if (boot) {
+      productsData = boot;
+    } else {
+      const res = await fetch('data/products.json');
+      productsData = await res.json();
+    }
   } catch (err) {
     console.error('محصولات لود نشدند:', err);
     return;
@@ -388,7 +548,7 @@ function renderTabs() {
   const catBtns = productsData.categories.map(c => {
     const img = getCategoryImage(c.id);
     const imgHtml = img
-      ? `<img src="${img}" alt="${esc(c.label)}" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
+      ? `<img src="${productThumbSrc(img)}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
       : esc(c.label.charAt(0));
     return `<button class="cat-card" data-cat="${c.id}">
       <span class="cat-card-img">${imgHtml}</span>
@@ -583,17 +743,14 @@ function productThumbSrc(src) {
 function productCardHtml(p) {
   const imgSrc = p.image || getCategoryImage(p.category);
   const thumbSrc = productThumbSrc(imgSrc);
-  // تا وقتی گیت عکس‌ها باز نشده (یعنی لوگو و کاور هنوز در حال لودن)، عکس محصول رو با
-  // data-src می‌سازیم تا هیچ درخواست شبکه‌ای فوری نره؛ بعد از باز شدن گیت یکی‌یکی لود میشن.
-  // اگه گیت از قبل باز بود (مثلاً کاربر داره تب دسته‌بندی عوض می‌کنه)، مستقیم و فوری لود میشه.
-  const imgAttr = productImageGateOpen ? `src="${thumbSrc}"` : `data-src="${thumbSrc}"`;
+  const lazy = productImgIndex++ >= EAGER_IMAGE_COUNT ? 'lazy' : 'eager';
   return `
     <article class="product-card" data-id="${p.id}">
       <svg class="card-neon" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <rect x="1" y="1" width="98" height="98" rx="7" ry="7" pathLength="100"></rect>
       </svg>
       <div class="product-image">
-        ${imgSrc ? `<img ${imgAttr} alt="${esc(p.name)}" loading="lazy" decoding="async" onload="this.parentElement.classList.add('img-ready')" onerror="this.remove(); this.parentElement.classList.add('img-ready'); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
+        ${imgSrc ? `<img src="${thumbSrc}" alt="${esc(p.name)}" loading="${lazy}" decoding="async" onload="this.parentElement.classList.add('img-ready')" onerror="this.remove(); this.parentElement.classList.add('img-ready'); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
         <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${esc(p.name.charAt(0))}</div>
       </div>
       <div class="product-info">
@@ -616,6 +773,7 @@ function productCardHtml(p) {
 }
 
 function renderProducts() {
+  productImgIndex = 0;
   // همه‌ی محصولات همیشه نمایش داده میشن؛ دسته‌بندی‌ها فقط برای اسکرول به همون بخش هستن، نه فیلتر
   let items = [...productsData.products];
 
@@ -648,12 +806,20 @@ function renderProducts() {
   updateActiveFromScroll();
 
   grid.querySelectorAll('.product-card').forEach(card => {
+    card.addEventListener('pointerdown', () => {
+      const pr = productsData.products.find(p => p.id === card.dataset.id);
+      if (pr) boostMediumPreload(pr.image || getCategoryImage(pr.category));
+    }, { passive: true });
     card.addEventListener('click', (e) => {
       if (e.target.closest('.add-to-cart-btn')) return;
       const product = productsData.products.find(p => p.id === card.dataset.id);
       if (product) openModal(product, catLabel(product.category));
     });
   });
+
+  // پیش‌لود پس‌زمینه فقط بعد از رفتن اسپلش شروع میشه تا با لود اولیه‌ی صفحه سر پهنای باند دعوا نکنه
+  if (document.body.classList.contains('site-loaded')) observeCardsForPreload();
+  else window.addEventListener('siteloaded', observeCardsForPreload, { once: true });
 
   grid.querySelectorAll('.add-to-cart-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -934,19 +1100,24 @@ if (backToTopBtn) {
 // اسپلش رو مرحله‌به‌مرحله نشون می‌ده: اول لوگو/فالبک، بعد عنوان، بعد شعار.
 // این تابع فقط وقتی صدا زده میشه که واقعاً بدونیم لوگو هست یا نه — پس هیچ متن
 // اشتباهی قبل از تصمیم نهایی فلش نمی‌زنه.
-function revealSplash(hasLogo) {
+async function revealSplash(hasLogo) {
   const splashLogo = document.getElementById('splashLogoImg');
   const splashFallback = document.getElementById('splashFallback');
   const splashTitle = document.getElementById('splashTitle');
   const splashTagline = document.getElementById('splashTagline');
   const splashRing = document.getElementById('splashRing');
 
+  // لوگوی تصویری به فونت نیازی نداره؛ همون لحظه نشون داده میشه. فقط متن‌ها (عنوان، شعار، فالبک
+  // متنی) منتظر فونت می‌مونن تا وسط انیمیشن فونتشون عوض نشه و صفحه نپره.
   if (hasLogo && splashLogo) {
     splashLogo.classList.add('show');
-  } else if (splashFallback) {
-    splashFallback.classList.add('show');
+    if (splashRing) splashRing.classList.add('show');
+    await waitForFonts(1200);
+  } else {
+    await waitForFonts(1200);
+    if (splashFallback) splashFallback.classList.add('show');
+    if (splashRing) splashRing.classList.add('show');
   }
-  if (splashRing) splashRing.classList.add('show');
   setTimeout(() => splashTitle && splashTitle.classList.add('show'), 350);
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -981,13 +1152,17 @@ function waitForImage(img, timeoutMs) {
 async function loadSiteConfig() {
   let cfg;
   try {
-    const res = await fetch('data/site.json');
-    cfg = await res.json();
+    const boot = getBoot() && getBoot().site;
+    if (boot) {
+      cfg = boot;
+    } else {
+      const res = await fetch('data/site.json');
+      cfg = await res.json();
+    }
   } catch (err) {
     console.error('تنظیمات سایت لود نشد:', err);
     document.querySelector('.hero-cover')?.classList.add('no-cover', 'cover-ready');
     await revealSplash(false);
-    openProductImageGate();
     return;
   }
 
@@ -1052,10 +1227,6 @@ async function loadSiteConfig() {
   // یه زمان ثابت محو بشه صرف‌نظر از اینکه عکس واقعاً رسیده یا نه. سقف‌های زمانی waitForImage
   // (۲ و ۲.۵ ثانیه) + سقف نهایی ۴ ثانیه‌ی کل اسپلش (پایین‌تر) تضمین می‌کنه تو نت کند هم گیر نکنیم.
   await Promise.all([revealDone, coverReady]);
-
-  // از این‌جا به بعد فقط عکس محصولات مونده که اسپلش دیگه معطلش نمیشه؛ یکی‌یکی (نه همه‌ی
-  // کارت‌ها همزمان) شروع به لود می‌کنن تا شبکه رو یهو شلوغ نکنن.
-  openProductImageGate();
 }
 
 // ============ انیمیشن اسکرول: لوگوی وسط عکس با اسکرول به سمت لوگوی هدر «پرواز» می‌کنه ============
@@ -1066,6 +1237,9 @@ async function loadSiteConfig() {
   let ticking = false;
 
   function update() {
+    // وقتی اسکرول قفله (مودال/سبد/منو باز)، window.scrollY صفر میشه؛ بدون این چک هیرو و هدر
+    // پشت مودال به حالت بالای صفحه برمی‌گشتن و صفحه «می‌پرید»
+    if (document.body.classList.contains('nav-open')) { ticking = false; return; }
     const h = heroCover.offsetHeight || 1;
     // ۷۵٪ از ارتفاع عکس رو اسکرول کنیم، انیمیشن کامل شده
     const progress = Math.min(Math.max(window.scrollY / (h * 0.75), 0), 1);
@@ -1101,6 +1275,7 @@ async function loadSiteConfig() {
   }
 
   function update() {
+    if (document.body.classList.contains('nav-open')) { ticking = false; return; }
     const currentY = window.scrollY || 0;
     const delta = currentY - lastScrollY;
     const menuTop = getMenuSectionTop();
@@ -1137,6 +1312,148 @@ async function loadSiteConfig() {
     }
   }, { passive: true });
 })();
+
+// ============ زوم داخل مودال (پینچ / دابل‌تپ / ctrl+چرخ) ============
+// transform روی خود عکس‌ها (CSS variable) اعمال میشه؛ کادر ثابت می‌مونه و overflow:hidden برش میده.
+// وقتی زوم نیست، touch-action: pan-y یعنی اسکرول عمودی مودال مثل قبل کار می‌کنه؛ وقتی زوم هست،
+// touch-action: none میشه تا کشیدن، عکس رو جابه‌جا کنه نه مودال رو.
+const ZOOM_MAX = 4;
+const zoomState = { s: 1, tx: 0, ty: 0 };
+
+function applyModalZoom() {
+  modalImage.style.setProperty('--zs', zoomState.s);
+  modalImage.style.setProperty('--zx', zoomState.tx + 'px');
+  modalImage.style.setProperty('--zy', zoomState.ty + 'px');
+  modalImage.classList.toggle('zoomed', zoomState.s > 1.01);
+}
+
+function clampModalZoom() {
+  const r = modalImage.getBoundingClientRect();
+  zoomState.s = Math.min(ZOOM_MAX, Math.max(1, zoomState.s));
+  const mx = (zoomState.s - 1) * r.width / 2;
+  const my = (zoomState.s - 1) * r.height / 2;
+  zoomState.tx = Math.min(mx, Math.max(-mx, zoomState.tx));
+  zoomState.ty = Math.min(my, Math.max(-my, zoomState.ty));
+}
+
+function resetModalZoom() {
+  zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0;
+  modalImage.classList.remove('animating');
+  applyModalZoom();
+}
+
+// وقتی کاربر واقعاً زوم کرد، نسخه‌ی با کیفیت (عکس اصلی) رو روی نسخه‌ی متوسط می‌ذاریم؛
+// برای کسی که زوم نمی‌کنه هیچ بایت اضافه‌ای دانلود نمیشه.
+function ensureHiresForZoom() {
+  const src = modalImage.dataset.fullSrc;
+  if (!src || modalImage.querySelector('.m-hires')) return;
+  const token = modalImgToken;
+  const hi = document.createElement('img');
+  hi.className = 'm-hires';
+  hi.decoding = 'async';
+  hi.alt = '';
+  hi.onload = () => { if (token === modalImgToken) requestAnimationFrame(() => hi.classList.add('shown')); };
+  hi.onerror = () => hi.remove();
+  hi.src = src;
+  modalImage.append(hi);
+}
+
+function initModalZoom() {
+  const pointers = new Map();
+  let pinch = null;          // { d0, s0, tx0, ty0, fx0, fy0 }
+  let pan = null;            // آخرین مختصات تک‌انگشتی
+  let tap = null;            // برای تشخیص تپ
+  let lastTap = { t: 0, x: 0, y: 0 };
+
+  const rel = (e) => {
+    const r = modalImage.getBoundingClientRect();
+    return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 };
+  };
+  const two = () => { const [a, b] = [...pointers.values()]; return { a, b }; };
+
+  modalImage.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    try { modalImage.setPointerCapture(e.pointerId); } catch { /* پوینتر ساختگی/منقضی؛ مهم نیست */ }
+    pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    modalImage.classList.remove('animating');
+    if (pointers.size === 2) {
+      const { a, b } = two();
+      const mid = rel({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
+      pinch = { d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, s0: zoomState.s, tx0: zoomState.tx, ty0: zoomState.ty, fx0: mid.x, fy0: mid.y };
+      pan = null; tap = null;
+      ensureHiresForZoom();
+    } else if (pointers.size === 1) {
+      pan = { x: e.clientX, y: e.clientY };
+      tap = { t: performance.now(), x: e.clientX, y: e.clientY, moved: false };
+    }
+  });
+
+  modalImage.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    if (pinch && pointers.size >= 2) {
+      const { a, b } = two();
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const mid = rel({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
+      const s = Math.min(ZOOM_MAX, Math.max(1, pinch.s0 * d / pinch.d0));
+      zoomState.s = s;
+      zoomState.tx = mid.x - s * (pinch.fx0 - pinch.tx0) / pinch.s0;
+      zoomState.ty = mid.y - s * (pinch.fy0 - pinch.ty0) / pinch.s0;
+      clampModalZoom(); applyModalZoom();
+    } else if (pan && zoomState.s > 1.01) {
+      zoomState.tx += e.clientX - pan.x;
+      zoomState.ty += e.clientY - pan.y;
+      pan = { x: e.clientX, y: e.clientY };
+      clampModalZoom(); applyModalZoom();
+    }
+    if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap.moved = true;
+  });
+
+  const end = (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 1) { const [p] = [...pointers.values()]; pan = { x: p.clientX, y: p.clientY }; }
+    if (pointers.size === 0) {
+      pan = null;
+      if (e.type === 'pointerup' && tap && !tap.moved && performance.now() - tap.t < 300) {
+        const now = performance.now();
+        if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+          // دابل‌تپ: اگه زوم هست برگرد، اگه نه ۲.۵ برابر دور همون نقطه
+          const f = rel(e);
+          modalImage.classList.add('animating');
+          if (zoomState.s > 1.05) { zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0; }
+          else { ensureHiresForZoom(); zoomState.s = 2.5; zoomState.tx = -1.5 * f.x; zoomState.ty = -1.5 * f.y; }
+          clampModalZoom(); applyModalZoom();
+          lastTap = { t: 0, x: 0, y: 0 };
+        } else {
+          lastTap = { t: now, x: e.clientX, y: e.clientY };
+        }
+      }
+      tap = null;
+      if (zoomState.s < 1.02) { zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0; applyModalZoom(); }
+    }
+  };
+  modalImage.addEventListener('pointerup', end);
+  modalImage.addEventListener('pointercancel', end);
+
+  // دسکتاپ: ctrl+چرخ (و پینچ تاچ‌پد) یا چرخ وقتی از قبل زوم شده
+  modalImage.addEventListener('wheel', (e) => {
+    if (!(e.ctrlKey || zoomState.s > 1.01)) return;
+    e.preventDefault();
+    const f = rel(e);
+    const s0 = zoomState.s;
+    const s = Math.min(ZOOM_MAX, Math.max(1, s0 * Math.exp(-e.deltaY * 0.0025)));
+    zoomState.s = s;
+    zoomState.tx = f.x - s * (f.x - zoomState.tx) / s0;
+    zoomState.ty = f.y - s * (f.y - zoomState.ty) / s0;
+    if (s > 1.3) ensureHiresForZoom();
+    clampModalZoom(); applyModalZoom();
+  }, { passive: false });
+
+  modalImage.addEventListener('dragstart', (e) => e.preventDefault());
+}
+initModalZoom();
 
 // Init
 const productsLoadedPromise = loadProducts();
