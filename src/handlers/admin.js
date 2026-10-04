@@ -1,3 +1,4 @@
+import { getSiteConfig, saveSiteImage, removeSiteImage } from '../data/site.js';
 import { signToken, requireAdmin } from '../middleware/adminAuth.js';
 import {
   newProductId,
@@ -147,6 +148,39 @@ export async function handleAdminAPI(request, env) {
       await env.PRODUCTS_KV.put(`image:${filename}`, buffer);
       return json(request, { url: `/images/${filename}` });
     } catch (e) { return serverError(request, e, 'upload'); }
+  }
+  // ── تصاویر سایت (لوگو + عکس بالای سایت) ───────────────────────────────
+  if (path === '/site' && method === 'GET') {
+    try {
+      return json(request, await getSiteConfig(env));
+    } catch (e) { return serverError(request, e, 'site:get'); }
+  }
+
+  const siteImgMatch = path.match(/^\/site\/(logo|cover)$/);
+  if (siteImgMatch) {
+    const kind = siteImgMatch[1];
+
+    if (method === 'DELETE') {
+      try {
+        await removeSiteImage(env, kind);
+        return json(request, { success: true });
+      } catch (e) { return serverError(request, e, 'site:delete'); }
+    }
+
+    if (method === 'POST') {
+      try {
+        const file = (await request.formData()).get('file');
+        if (!file) return json(request, { error: 'فایلی ارسال نشده' }, 400);
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext))
+          return json(request, { error: 'فرمت فایل مجاز نیست' }, 400);
+        const buffer = await file.arrayBuffer();
+        if (buffer.byteLength > MAX_UPLOAD_BYTES)
+          return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
+        const url = await saveSiteImage(env, kind, buffer, ext);
+        return json(request, { success: true, url: '/' + url });
+      } catch (e) { return serverError(request, e, 'site:post'); }
+    }
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────

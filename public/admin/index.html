@@ -988,6 +988,7 @@
           class="pending-badge" style="display:none"></span></button>
       <button class="nav-btn" onclick="showTab('products',this)">🍽 محصولات</button>
       <button class="nav-btn" onclick="showTab('categories',this)">📂 دسته‌بندی‌ها</button>
+      <button class="nav-btn" onclick="showTab('site',this)">🖼 تصاویر سایت</button>
     </nav>
     <main id="main-content"></main>
   </div>
@@ -1028,7 +1029,7 @@
           <input type="file" accept="image/*" onchange="handleImageSelect(this,'prod')" />
           <div style="font-size:1.4rem">📷</div>
           <p>کلیک کنید یا فایل را اینجا بکشید</p>
-          <p style="font-size:.73rem">JPG · PNG · WEBP · حداکثر 5MB</p>
+          <p style="font-size:.73rem">JPG · PNG · WEBP · قبل از آپلود خودکار فشرده میشه (سقف نهایی 2MB)</p>
         </div>
         <div class="upload-preview" id="prod-upload-preview">
           <img id="prod-preview-img" src="" alt="" />
@@ -1084,6 +1085,9 @@
 
   <script>
     const BASE = '/admin/api';
+    // سقف حجم ورودی (قبل از فشرده‌سازی) و سقف نهایی سرور (باید با MAX_UPLOAD_BYTES تو src/config.js یکی باشه)
+    const MAX_INPUT_BYTES = 5 * 1024 * 1024;
+    const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
     let TOKEN = localStorage.getItem('admin_token') || '';
     let editingProductId = null;
     let editingCatId = null;
@@ -1244,6 +1248,7 @@
       if (tab === 'orders') { renderOrders(m); startOrdersPolling(); }
       if (tab === 'products') renderProducts(m);
       if (tab === 'categories') renderCategories(m);
+      if (tab === 'site') renderSite(m);
     }
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -1304,7 +1309,7 @@
       } catch (e) { if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار', true); }
     }
 
-    // ترتیب دکمه‌های نوار: ۰=داشبورد، ۱=سفارش‌ها، ۲=محصولات، ۳=دسته‌بندی‌ها
+    // ترتیب دکمه‌های نوار: ۰=داشبورد، ۱=سفارش‌ها، ۲=محصولات، ۳=دسته‌بندی‌ها، ۴=تصاویر سایت
     async function quickAddProduct() {
       const btns = document.querySelectorAll('.nav-btn');
       btns.forEach(b => b.classList.remove('active')); btns[2].classList.add('active');
@@ -1493,24 +1498,31 @@
 
     async function handleImageSelect(input, context) {
       let file = input.files[0]; if (!file) return;
-      if (file.size > 5 * 1024 * 1024) { toast('حجم فایل بیشتر از 5MB است', true); return; }
+      const statusEl = document.getElementById(`${context}-upload-status`);
+      if (file.size > MAX_INPUT_BYTES) { toast('حجم فایل خیلی زیاده (حداکثر 5MB)', true); return; }
       const reader = new FileReader();
       reader.onload = e => {
         document.getElementById(`${context}-preview-img`).src = e.target.result;
         document.getElementById(`${context}-upload-preview`).style.display = 'block';
       };
       reader.readAsDataURL(file);
-      document.getElementById(`${context}-upload-status`).textContent = '⏳ در حال آپلود...';
+      statusEl.textContent = '⏳ در حال آپلود...';
       file = await resizeImageForUpload(file);
+      // بعد از فشرده‌سازی باید زیر سقف سرور باشه؛ اینجا چک می‌کنیم تا پیام خطا واضح باشه
+      if (file.size > MAX_UPLOAD_BYTES) {
+        toast('حجم عکس بعد از فشرده‌سازی هم بیشتر از 2MB است', true);
+        statusEl.textContent = '❌ حجم زیاد';
+        return;
+      }
       const fd = new FormData(); fd.append('file', file);
       try {
         const r = await fetch(`${BASE}/upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${TOKEN}` }, body: fd });
         const d = await r.json();
-        if (!r.ok) { toast(d.error || 'خطا در آپلود', true); document.getElementById(`${context}-upload-status`).textContent = '❌ ناموفق'; return; }
+        if (!r.ok) { toast(d.error || 'خطا در آپلود', true); statusEl.textContent = '❌ ناموفق'; return; }
         document.getElementById(context === 'prod' ? 'p-img' : 'c-img').value = d.url;
-        document.getElementById(`${context}-upload-status`).textContent = '✅ آپلود شد';
+        statusEl.textContent = '✅ آپلود شد';
         toast('تصویر آپلود شد ✓');
-      } catch { toast('خطا در آپلود', true); document.getElementById(`${context}-upload-status`).textContent = '❌ خطا'; }
+      } catch { toast('خطا در آپلود', true); statusEl.textContent = '❌ خطا'; }
     }
 
     // ── Product Modal ─────────────────────────────────────────────────────────
@@ -1625,6 +1637,63 @@
         toast('محصول حذف شد');
         allProducts = await api('/products');
         renderProductTable();
+      } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
+    }
+
+    // ── Site images (لوگو + عکس بالای سایت) ───────────────────────────────────
+    const SITE_IMG_LABELS = { logo: 'لوگو', cover: 'عکس بالای سایت' };
+
+    async function renderSite(m) {
+      m.innerHTML = `<div class="card">
+    <div class="card-header"><h2>🖼 تصاویر سایت</h2></div>
+    <div id="site-imgs"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
+  </div>`;
+      await loadSiteImages();
+    }
+
+    async function loadSiteImages() {
+      const el = document.getElementById('site-imgs'); if (!el) return;
+      try {
+        const cfg = await api('/site');
+        el.innerHTML = `<div class="cat-grid">${['logo', 'cover'].map(kind => {
+          const src = cfg[kind] ? '/' + String(cfg[kind]).replace(/^\//, '') : '';
+          return `<div class="cat-item" style="flex-direction:column;align-items:stretch;gap:.7rem">
+        <div class="cat-name">${SITE_IMG_LABELS[kind]}</div>
+        ${src ? `<img src="${esc(src)}" alt="" style="max-height:110px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:#fff">`
+              : '<div class="hint">هنوز آپلود نشده</div>'}
+        <div class="upload-area" style="padding:.7rem">
+          <input type="file" accept="image/*" onchange="uploadSiteImage(this,'${kind}')" />
+          <p>انتخاب عکس جدید</p>
+        </div>
+        ${src ? `<button class="btn btn-danger btn-sm" onclick="removeSiteImg('${kind}')">حذف</button>` : ''}
+      </div>`;
+        }).join('')}</div>`;
+      } catch (e) {
+        if (e.message !== 'unauthorized') el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری</div>';
+      }
+    }
+
+    async function uploadSiteImage(input, kind) {
+      let file = input.files[0]; if (!file) return;
+      if (file.size > MAX_INPUT_BYTES) { toast('حجم فایل خیلی زیاده (حداکثر 5MB)', true); return; }
+      toast('⏳ در حال آپلود...');
+      file = await resizeImageForUpload(file, kind === 'logo' ? 600 : 1600);
+      if (file.size > MAX_UPLOAD_BYTES) { toast('حجم عکس بعد از فشرده‌سازی هم بیشتر از 2MB است', true); return; }
+      const fd = new FormData(); fd.append('file', file);
+      try {
+        const res = await api(`/site/${kind}`, { method: 'POST', body: fd });
+        if (res.error) { toast(res.error, true); return; }
+        toast('تصویر به‌روزرسانی شد ✓');
+        loadSiteImages();
+      } catch (e) { if (e.message !== 'unauthorized') toast('خطا در آپلود', true); }
+    }
+
+    async function removeSiteImg(kind) {
+      if (!confirm(`حذف ${SITE_IMG_LABELS[kind]}؟`)) return;
+      try {
+        await api(`/site/${kind}`, { method: 'DELETE' });
+        toast('حذف شد');
+        loadSiteImages();
       } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
     }
 

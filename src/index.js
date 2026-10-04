@@ -137,13 +137,23 @@ async function serveThumbnail(filename, env, request) {
 }
 
 // عکس هیرو (و لوگوها) قبلاً هیچ src ای تو HTML نداشتن؛ script.js اول باید fetch('data/site.json')
-// رو کامل می‌کرد و بعد src رو ست می‌کرد. یعنی مرورگر تا وسط اجرای جاوااسکریپت اصلاً نمی‌دونست
-// همچین عکسی قراره لود بشه (preload scanner چیزی برای پیدا کردن نداشت) — همین باعث LCP خیلی بد
-// می‌شد (چند ثانیه فقط صرف رفت‌وبرگشت گرفتن آدرس عکس، قبل از اینکه اصلاً درخواست عکس شروع بشه).
-// این تابع همون src واقعی رو مستقیم تو HTML (سمت سرور) می‌ذاره تا دانلود عکس همون لحظه‌ی اول شروع بشه.
-function injectSiteAssets(response, cfg) {
+// رو کامل می‌کرد و بعد src رو ست می‌کرد. این تابع همون src واقعی رو مستقیم تو HTML
+// (سمت سرور) می‌ذاره تا دانلود عکس همون لحظه‌ی اول شروع بشه.
+function injectSiteAssets(response, cfg, origin) {
   const rewriter = new HTMLRewriter();
+
   if (cfg.cover) {
+    const coverHref = '/' + String(cfg.cover).replace(/^\//, '');
+    // دانلود عکس از همون اولین بایت‌های HTML شروع می‌شه
+    rewriter.on('head', {
+      element(el) {
+        el.append(`<link rel="preload" as="image" href="${coverHref}" fetchpriority="high">`, { html: true });
+      },
+    });
+    // بدون این، عکس تا اجرای جاوااسکریپت و گرفتن site.json نامرئی می‌مونه
+    rewriter.on('.hero-cover', {
+      element(el) { el.setAttribute('class', 'hero-cover cover-ready'); },
+    });
     rewriter.on('#heroCoverImg', {
       element(el) {
         el.setAttribute('src', cfg.cover);
@@ -161,6 +171,29 @@ function injectSiteAssets(response, cfg) {
       },
     });
   }
+
+  // فاویکون و آیکون اپل: از لوگوی ذخیره‌شده؛ اگه لوگو نیست، تگ‌ها حذف میشن (دیگه فایل ثابت نداریم)
+  rewriter.on('link[rel="icon"], link[rel="apple-touch-icon"]', {
+    element(el) {
+      if (cfg.logo) {
+        el.setAttribute('href', cfg.logo);
+        el.removeAttribute('type');
+        el.removeAttribute('sizes');
+      } else {
+        el.remove();
+      }
+    },
+  });
+
+  // عکس اشتراک‌گذاری (OG): کاور، وگرنه لوگو، وگرنه هیچی (باید آدرس کامل باشه)
+  const share = cfg.cover || cfg.logo;
+  rewriter.on('meta[property="og:image"]', {
+    element(el) {
+      if (share) el.setAttribute('content', new URL(share, origin).toString());
+      else el.remove();
+    },
+  });
+
   return rewriter.transform(response);
 }
 
@@ -242,7 +275,7 @@ export default {
       // فقط صفحه‌ی اصلی (سایت مشتری) عکس هیرو/لوگو داره؛ پنل ادمین و بقیه رو دست نمی‌زنیم
       if (url.pathname === '/' && contentType.includes('text/html')) {
         const cfg = await loadSiteData(env);
-        response = injectSiteAssets(response, cfg);
+        response = injectSiteAssets(response, cfg, url.origin);
       }
       response.headers.set('Cache-Control', 'no-cache');
       return response;

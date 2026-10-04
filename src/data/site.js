@@ -3,8 +3,13 @@
 import { invalidateCache, SITE_CACHE_KEY } from "./cache.js";
 
 const DEFAULTS = {
-  logo: null, // تا وقتی از ربات آپلود نشده، سایت فقط فالبک متنی نشون میده
-  cover: null, // تا وقتی از ربات آپلود نشده، سایت یه پس‌زمینه‌ی ساده نشون میده
+  logo: null, // تا وقتی از ربات/پنل آپلود نشده، سایت فقط فالبک متنی نشون میده
+  cover: null, // تا وقتی از ربات/پنل آپلود نشده، سایت یه پس‌زمینه‌ی ساده نشون میده
+};
+
+const EXT_TYPES = {
+  jpg: "image/jpeg", jpeg: "image/jpeg",
+  png: "image/png", webp: "image/webp", gif: "image/gif",
 };
 
 export async function getSiteConfig(env) {
@@ -27,3 +32,28 @@ async function updateSiteConfig(env, patch) {
 
 export const setSiteLogo = (env, path) => updateSiteConfig(env, { logo: path });
 export const setSiteCover = (env, path) => updateSiteConfig(env, { cover: path });
+
+const deleteOldImage = async (env, oldPath, keepFilename) => {
+  if (!oldPath) return;
+  const f = oldPath.split("/").pop();
+  if (f && f !== keepFilename) await env.PRODUCTS_KV.delete(`image:${f}`);
+};
+
+// برای پنل وب: ذخیره‌ی لوگو/کاور (kind = "logo" | "cover") + پاک کردن فایل قبلی
+export async function saveSiteImage(env, kind, buffer, ext) {
+  const filename = `site-${kind}-${Date.now()}.${ext}`;
+  await env.PRODUCTS_KV.put(`image:${filename}`, buffer, {
+    metadata: { contentType: EXT_TYPES[ext] || "image/jpeg" },
+  });
+  const old = (await getSiteConfig(env))[kind];
+  const path = `images/${filename}`;
+  await updateSiteConfig(env, { [kind]: path });
+  await deleteOldImage(env, old, filename);
+  return path;
+}
+
+export async function removeSiteImage(env, kind) {
+  const old = (await getSiteConfig(env))[kind];
+  await updateSiteConfig(env, { [kind]: null });
+  await deleteOldImage(env, old, null);
+}
