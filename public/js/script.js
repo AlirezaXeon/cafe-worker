@@ -390,35 +390,18 @@ function waitForMenuImages(timeoutMs = 2000) {
   }));
 }
 
-// فونت‌ها از گوگل میان (CSS غیرمسدودکننده). قبلاً فقط document.fonts.ready رو صبر می‌کردیم که
-// اگه هنوز هیچ فونتی درخواست نشده باشه همون لحظه resolve میشه؛ نتیجه: فونت وسط انیمیشن اسپلش
-// می‌رسید، عرض عنوان عوض می‌شد و کل صفحه دوباره چیده می‌شد (پرش). حالا وجه‌های واقعی رو صراحتاً
-// درخواست می‌کنیم و انیمیشن اسپلش فقط بعد از رسیدنشون (با سقف زمانی) شروع میشه.
+// فونت‌ها به صورت محلی و خودمیزبان (Self-hosted WOFF2) از fonts.css لود می‌شوند
 let fontsPromise = null;
-function waitForFonts(timeoutMs) {
+function waitForFonts(timeoutMs = 1200) {
   if (fontsPromise) return fontsPromise;
-  const css = document.getElementById('fontCss');
-  const cssReady = (!css || css.dataset.ready)
-    ? Promise.resolve()
-    : new Promise(resolve => {
-        css.addEventListener('load', resolve, { once: true });
-        css.addEventListener('error', resolve, { once: true });
-      });
-  const loadFaces = () => {
-    if (!document.fonts || !document.fonts.load) return null;
-    const fa = 'سلام کافه روشن';
-    return Promise.all([
-      document.fonts.load('400 16px Vazirmatn', fa),
-      document.fonts.load('600 16px Vazirmatn', fa),
-      document.fonts.load('700 16px Vazirmatn', fa),
-      document.fonts.load('900 16px Estedad', fa),
-      document.fonts.load('italic 500 16px "Cormorant Garamond"', 'Roshan Cafe'),
-    ]).catch(() => {});
-  };
-  fontsPromise = Promise.race([
-    cssReady.then(loadFaces),
-    new Promise(resolve => setTimeout(resolve, timeoutMs)),
-  ]);
+  if (document.fonts && document.fonts.ready) {
+    fontsPromise = Promise.race([
+      document.fonts.ready,
+      new Promise(resolve => setTimeout(resolve, timeoutMs)),
+    ]);
+  } else {
+    fontsPromise = Promise.resolve();
+  }
   return fontsPromise;
 }
 
@@ -718,30 +701,34 @@ function renderProducts() {
   `).join('');
 
   updateActiveFromScroll();
-
-  grid.querySelectorAll('.product-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.add-to-cart-btn')) return;
-      const product = productsData.products.find(p => p.id === card.dataset.id);
-      if (product) openModal(product, catLabel(product.category));
-    });
-  });
-
-  grid.querySelectorAll('.add-to-cart-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const productId = btn.dataset.id;
-      addToCart(productId);
-
-      btn.textContent = "افزوده شد ✓";
-      btn.classList.add('added');
-      setTimeout(() => {
-        btn.textContent = "افزودن +";
-        btn.classList.remove('added');
-      }, 1500);
-    });
-  });
 }
+
+// Event Delegation یکپارچه برای کلیک کارت‌ها و افزودن به سبد خرید (بدون ساخت ده‌ها لیسنر در هر رندر)
+grid.addEventListener('click', (e) => {
+  const addBtn = e.target.closest('.add-to-cart-btn');
+  if (addBtn) {
+    e.stopPropagation();
+    const productId = addBtn.dataset.id;
+    addToCart(productId);
+
+    addBtn.textContent = "افزوده شد ✓";
+    addBtn.classList.add('added');
+    setTimeout(() => {
+      addBtn.textContent = "افزودن +";
+      addBtn.classList.remove('added');
+    }, 1500);
+    return;
+  }
+
+  const card = e.target.closest('.product-card');
+  if (card) {
+    const product = productsData.products.find(p => p.id === card.dataset.id);
+    if (product) {
+      const cat = productsData.categories.find(c => c.id === product.category);
+      openModal(product, cat ? cat.label : product.category);
+    }
+  }
+});
 
 // ============ CART SYSTEM ============
 const cartDrawer = document.getElementById('cartDrawer');
@@ -1362,23 +1349,22 @@ function initModalZoom() {
 initModalZoom();
 
 // ============ بارگذاری مرحله‌ای آبشاری (Staged Loading Waterfall) ============
-// طبق درخواست:
 // ۱. اول فقط لوگو، عکس هیرو و متن‌های اسپلش لود و نمایش داده می‌شوند.
-// ۲. پس از لود کامل و نمایش لوگو و هیرو، کاربر ۳ ثانیه در صفحه اسپلش می‌ماند.
-// ۳. در طول این ۳ ثانیه، سایت در پس‌زمینه (Background) به ترتیب لود می‌شود:
+// ۲. پس از لود کامل و نمایش لوگو و هیرو، کاربر ۲ ثانیه در صفحه اسپلش می‌ماند.
+// ۳. در طول این ۲ ثانیه، سایت در پس‌زمینه (Background) به ترتیب لود می‌شود:
 //    - دوم: کتگوری‌ها لود و رندر می‌شوند.
 //    - سوم: محصولات و عکس‌های کارت‌های منو لود می‌شوند.
-// ۴. پس از پایان ۳ ثانیه (و اتمام لود بک‌گراند)، اسپلش محو شده و کاربر وارد سایت می‌شود.
+// ۴. پس از پایان ۲ ثانیه (و اتمام لود بک‌گراند)، اسپلش محو شده و کاربر وارد سایت می‌شود.
 async function initStagedLoading() {
-  // سقف زمانی نهایی: در صورت بروز هرگونه مشکل شبکه، اسپلش حداکثر بعد از ۷.۵ ثانیه بسته می‌شود
-  const hardCapTimer = setTimeout(hideSplash, 7500);
+  // سقف زمانی نهایی: در صورت بروز هرگونه مشکل شبکه، اسپلش حداکثر بعد از ۶ ثانیه بسته می‌شود
+  const hardCapTimer = setTimeout(hideSplash, 6000);
 
   try {
     // مرحله اول: ابتدا فقط لوگو، عکس هیرو و انیمیشن متن‌های اسپلش لود و کامل می‌شوند
     await loadSiteConfig();
 
-    // مرحله دوم و سوم: شروع تایمر ۳ ثانیه + لود همزمان پس‌زمینه سایت
-    const wait3SecondsPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+    // مرحله دوم و سوم: شروع تایمر ۲ ثانیه + لود همزمان پس‌زمینه سایت
+    const wait2SecondsPromise = new Promise((resolve) => setTimeout(resolve, 2000));
 
     const backgroundLoadingPromise = (async () => {
       // دریافت و آماده‌سازی دیتای منو
@@ -1386,19 +1372,19 @@ async function initStagedLoading() {
 
       // دوم: لود کتگوری‌ها
       renderTabs();
-      await waitForCategoryImages(1500);
+      await waitForCategoryImages(1200);
 
       // سوم: لود عکس محصولات
       renderProducts();
-      await waitForMenuImages(2000);
+      await waitForMenuImages(1500);
     })();
 
-    // صبر می‌کنیم تا هم ۳ ثانیه تمام شود و هم لود پس‌زمینه کامل شود (سقف حداکثر ۴ ثانیه برای پس‌زمینه)
+    // صبر می‌کنیم تا هم ۲ ثانیه تمام شود و هم لود پس‌زمینه کامل شود (سقف حداکثر ۳ ثانیه برای پس‌زمینه)
     await Promise.all([
-      wait3SecondsPromise,
+      wait2SecondsPromise,
       Promise.race([
         backgroundLoadingPromise,
-        new Promise((resolve) => setTimeout(resolve, 4000)),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
       ]),
     ]);
   } catch (err) {

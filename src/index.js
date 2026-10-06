@@ -180,6 +180,12 @@ function injectSiteAssets(response, cfg, origin, products) {
     });
   }
   if (cfg && cfg.logo) {
+    const logoHref = '/' + String(cfg.logo).replace(/^\//, '');
+    rewriter.on('head', {
+      element(el) {
+        el.append(`<link rel="preload" as="image" href="${logoHref}" fetchpriority="high">`, { html: true });
+      },
+    });
     rewriter.on('#headerLogoImg', { element: (el) => el.setAttribute('src', cfg.logo) });
     rewriter.on('#splashLogoImg', { element: (el) => el.setAttribute('src', cfg.logo) });
     rewriter.on('#heroCoverLogo', {
