@@ -8,6 +8,8 @@ let savedScrollY = 0;
 function lockScroll() {
   if (scrollLockCount === 0) {
     savedScrollY = window.scrollY || window.pageYOffset;
+    // scroll-behavior:smooth رو خاموش می‌کنیم تا fixed کردن body پرش ایجاد نکنه
+    document.documentElement.style.scrollBehavior = 'auto';
     document.body.style.position = 'fixed';
     document.body.style.top = `-${savedScrollY}px`;
     document.body.style.left = '0';
@@ -34,7 +36,10 @@ function unlockScroll() {
     const prevBehavior = document.documentElement.style.scrollBehavior;
     document.documentElement.style.scrollBehavior = 'auto';
     window.scrollTo(0, savedScrollY);
-    document.documentElement.style.scrollBehavior = prevBehavior;
+    // restore رو یه فریم عقب میندازیم تا مرورگر اول scroll آنی رو commit کنه
+    requestAnimationFrame(() => {
+      document.documentElement.style.scrollBehavior = prevBehavior;
+    });
   }
 }
 
@@ -96,21 +101,7 @@ function hideSplash() {
   setTimeout(() => splash.remove(), 250);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  // اسپلش رو تا وقتی هم منو/محصولات و هم تنظیمات سایت (لوگو) کامل لود نشدن نگه می‌داریم،
-  // تا کاربر هیچ‌وقت سایت نصفه‌کاره یا در حال لود رو نبینه. اگه لود بیشتر از ۴ ثانیه طول کشید
-  // (نت کند، سرور کند، هرچی)، همون سقف ۴ ثانیه‌ای رعایت میشه و از رو اسپلش رد میشیم.
-  // علاوه بر دیتا، منتظر عکس‌های اولِ منو و فونت‌ها هم می‌مونیم تا بعد از رفتن اسپلش،
-  // عکس‌ها یکی‌یکی نپرن و متن‌ها فونتشون عوض نشه (همه‌ی این انتظارها سقف زمانی دارن).
-  const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
-    .then(() => waitForMenuImages(2000));
-  const hardCap = new Promise((resolve) => setTimeout(resolve, 4500));
-  Promise.race([allLoaded, hardCap]).then(hideSplash);
-});
-
-// شبکه‌ی ایمنی نهایی: مهم نیست چه اتفاقی بیفته (حتی اگه DOMContentLoaded خودش گیر کنه)،
-// اسپلش بیشتر از ۴.۵ ثانیه رو صفحه نمی‌مونه.
-setTimeout(hideSplash, 4500);
+// بارگذاری و پنهان شدن اسپلش به صورت مرحله‌ای توسط initStagedLoading() در انتهای اسکریپت مدیریت می‌شود.
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -136,75 +127,9 @@ const CAT_COLORS = {
 // اسکلتون می‌دید. حالا: (۱) کارت‌هایی که کاربر واقعاً دیده تو پس‌زمینه با اولویت پایین و حداکثر ۲ تا
 // همزمان پیش‌لود میشن، (۲) لحظه‌ی لمس کارت (قبل از رها کردن انگشت) دانلودش با اولویت بالا شروع میشه.
 // تو حالت صرفه‌جویی داده یا نت 2G هیچ پیش‌لود پس‌زمینه‌ای انجام نمیشه.
-const mediumPreload = new Map();   // آدرس ← <img> (برای اینکه GC نشه و بشه فهمید تموم شده یا نه)
-const preloadQueue = [];
-let preloadActive = 0;
-
 function mediumUrlFor(imgSrc) {
   if (!imgSrc) return null;
   return /^https?:\/\//i.test(imgSrc) ? imgSrc : `images/med/${imgSrc.split('/').pop()}`;
-}
-
-function canBackgroundPreload() {
-  const c = navigator.connection;
-  return !(c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')));
-}
-
-function pumpPreload() {
-  while (preloadActive < 2 && preloadQueue.length) {
-    const url = preloadQueue.shift();
-    if (mediumPreload.has(url)) continue;
-    const im = new Image();
-    im.decoding = 'async';
-    im.fetchPriority = 'low';
-    preloadActive++;
-    const done = () => { preloadActive--; pumpPreload(); };
-    im.onload = done;
-    im.onerror = () => { mediumPreload.delete(url); done(); };
-    im.src = url;
-    mediumPreload.set(url, im);
-  }
-}
-
-function queueMediumPreload(imgSrc) {
-  const url = mediumUrlFor(imgSrc);
-  if (!url || mediumPreload.has(url) || preloadQueue.includes(url) || !canBackgroundPreload()) return;
-  preloadQueue.push(url);
-  if (window.requestIdleCallback) window.requestIdleCallback(pumpPreload, { timeout: 1500 });
-  else setTimeout(pumpPreload, 200);
-}
-
-// لمس کارت = احتمال خیلی بالای کلیک؛ همین الان با اولویت بالا شروع کن
-function boostMediumPreload(imgSrc) {
-  const url = mediumUrlFor(imgSrc);
-  if (!url || mediumPreload.has(url)) return;
-  const im = new Image();
-  im.decoding = 'async';
-  im.fetchPriority = 'high';
-  im.onerror = () => mediumPreload.delete(url);
-  im.src = url;
-  mediumPreload.set(url, im);
-}
-
-let cardPreloadObserver = null;
-function observeCardsForPreload() {
-  if (!('IntersectionObserver' in window)) return;
-  if (cardPreloadObserver) cardPreloadObserver.disconnect();
-  const timers = new Map();
-  cardPreloadObserver = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      const card = e.target;
-      if (!e.isIntersecting) { clearTimeout(timers.get(card)); timers.delete(card); continue; }
-      // فقط کارتی که حداقل نیم ثانیه تو دید بوده (اسکرول سریع، نصفه‌کاره‌ها رو پیش‌لود نکنه)
-      timers.set(card, setTimeout(() => {
-        timers.delete(card);
-        cardPreloadObserver.unobserve(card);
-        const product = productsData && productsData.products.find(p => p.id === card.dataset.id);
-        if (product) queueMediumPreload(product.image || getCategoryImage(product.category));
-      }, 500));
-    }
-  }, { rootMargin: '150px 0px' });
-  document.querySelectorAll('.product-card').forEach(card => cardPreloadObserver.observe(card));
 }
 
 function openModal(product, catLabelText) {
@@ -216,61 +141,37 @@ function openModal(product, catLabelText) {
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
 
-  // مودال عکس اصلی چندمگابایتی رو نمی‌گیره؛ نسخه‌ی متوسط (≤۸۰۰px) رو می‌گیره که معمولاً قبل از کلیک
-  // پیش‌لود شده. اگه هنوز نرسیده بود، تامبنیل کارت (که همین الان تو کش مرورگره) همون لحظه نشون داده
-  // میشه و عکس واضح روش fade میشه (دو لایه‌ی روی هم؛ بدون تغییر اندازه، پس پرشی نداریم).
-  // عکس اصلی فقط موقع زوم (data-full) لود میشه.
   const imgSrc = product.image || getCategoryImage(product.category);
   const token = ++modalImgToken;
   if (imgSrc) {
-    const isLocal = !/^https?:\/\//i.test(imgSrc);
-    const fname = imgSrc.split('/').pop();
     const medUrl = mediumUrlFor(imgSrc);
-    const thumbUrl = isLocal ? `images/thumb/${fname}` : null;
     const absFull = new URL(imgSrc, location.href).href;
     const alive = () => token === modalImgToken;
 
-    const mk = (cls, src) => {
-      const el = document.createElement('img');
-      el.className = cls;
-      el.alt = product.name;
-      el.decoding = 'async';
-      el.dataset.full = imgSrc;
-      el.src = src;
-      return el;
+    const img = document.createElement('img');
+    img.className = 'm-full shown';
+    img.alt = product.name;
+    img.decoding = 'async';
+    img.dataset.full = imgSrc;
+    img.onload = () => {
+      if (!alive()) return;
+      modalImage.classList.add('img-ready');
     };
-    const showFailed = () => {
-      modalImage.querySelectorAll('img').forEach(el => el.remove());
+    img.onerror = () => {
+      if (!alive()) return;
+      if (img.src !== absFull) {
+        img.src = absFull; // فالبک به عکس اصلی
+        return;
+      }
+      img.remove();
       modalImage.classList.add('img-ready');
       modalPlaceholder.style.display = 'flex';
     };
+    img.src = medUrl;
+    modalImage.append(img);
 
-    const full = mk('m-full', medUrl);
-    const showFull = () => {
-      if (!alive()) return;
+    if (img.complete && img.naturalWidth > 0) {
       modalImage.classList.add('img-ready');
-      requestAnimationFrame(() => full.classList.add('shown'));
-    };
-    full.onload = showFull;
-    full.onerror = () => {
-      if (!alive()) return;
-      if (full.src !== absFull) { full.src = absFull; return; }   // نسخه‌ی متوسط نبود ← عکس اصلی
-      if (!modalImage.querySelector('.m-thumb.shown')) showFailed();
-    };
-    modalImage.append(full);
-
-    const alreadyThere = full.complete && full.naturalWidth > 0;
-    if (alreadyThere) {
-      showFull();
-    } else if (thumbUrl) {
-      const th = mk('m-thumb', thumbUrl);
-      th.onload = () => {
-        if (!alive()) return;
-        modalImage.classList.add('img-ready');
-        th.classList.add('shown');
-      };
-      th.onerror = () => th.remove();
-      modalImage.prepend(th);
     }
   } else {
     modalImage.classList.add('img-ready');
@@ -471,10 +372,18 @@ let currentSort = 'default';
 const EAGER_IMAGE_COUNT = 12;
 let productImgIndex = 0;
 
-// منتظر می‌مونه عکس‌های دسته‌بندی و چند کارت اول واقعاً دانلود و دیکد بشن (یا سقف زمانی تموم بشه)
-function waitForMenuImages(timeoutMs) {
-  const imgs = Array.from(document.querySelectorAll('.cat-card-img img, .product-card img'))
-    .slice(0, EAGER_IMAGE_COUNT + 6);
+// منتظر می‌مونه عکس‌های دسته‌بندی‌ها واقعاً دانلود و دیکد بشن (مرحله دوم لودینگ)
+function waitForCategoryImages(timeoutMs = 1500) {
+  const imgs = Array.from(tabsEl.querySelectorAll('img'));
+  if (!imgs.length) return Promise.resolve();
+  return Promise.all(imgs.map(img => waitForImage(img, timeoutMs)));
+}
+
+// منتظر می‌مونه عکس‌های کارت‌های اول منو واقعاً دانلود و دیکد بشن (مرحله سوم لودینگ)
+function waitForMenuImages(timeoutMs = 2000) {
+  const imgs = Array.from(grid.querySelectorAll('.product-card img'))
+    .slice(0, EAGER_IMAGE_COUNT);
+  if (!imgs.length) return Promise.resolve();
   return Promise.all(imgs.map(img => {
     if (img.loading === 'lazy' && !img.complete) return Promise.resolve();
     return waitForImage(img, timeoutMs);
@@ -513,7 +422,8 @@ function waitForFonts(timeoutMs) {
   return fontsPromise;
 }
 
-async function loadProducts() {
+async function fetchProductsData() {
+  if (productsData.products && productsData.products.length > 0) return productsData;
   try {
     // Worker دیتا رو مستقیم تو HTML گذاشته؛ فقط اگه نبود (مثلاً خطای سرور) fetch می‌کنیم
     const boot = getBoot() && getBoot().products;
@@ -525,8 +435,12 @@ async function loadProducts() {
     }
   } catch (err) {
     console.error('محصولات لود نشدند:', err);
-    return;
   }
+  return productsData;
+}
+
+async function loadProducts() {
+  await fetchProductsData();
   renderTabs();
   renderProducts();
 }
@@ -548,7 +462,7 @@ function renderTabs() {
   const catBtns = productsData.categories.map(c => {
     const img = getCategoryImage(c.id);
     const imgHtml = img
-      ? `<img src="${productThumbSrc(img)}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
+      ? `<img src="${productThumbSrc(img)}" alt="${esc(c.label)}" loading="eager" fetchpriority="high" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
       : esc(c.label.charAt(0));
     return `<button class="cat-card" data-cat="${c.id}">
       <span class="cat-card-img">${imgHtml}</span>
@@ -806,20 +720,12 @@ function renderProducts() {
   updateActiveFromScroll();
 
   grid.querySelectorAll('.product-card').forEach(card => {
-    card.addEventListener('pointerdown', () => {
-      const pr = productsData.products.find(p => p.id === card.dataset.id);
-      if (pr) boostMediumPreload(pr.image || getCategoryImage(pr.category));
-    }, { passive: true });
     card.addEventListener('click', (e) => {
       if (e.target.closest('.add-to-cart-btn')) return;
       const product = productsData.products.find(p => p.id === card.dataset.id);
       if (product) openModal(product, catLabel(product.category));
     });
   });
-
-  // پیش‌لود پس‌زمینه فقط بعد از رفتن اسپلش شروع میشه تا با لود اولیه‌ی صفحه سر پهنای باند دعوا نکنه
-  if (document.body.classList.contains('site-loaded')) observeCardsForPreload();
-  else window.addEventListener('siteloaded', observeCardsForPreload, { once: true });
 
   grid.querySelectorAll('.add-to-cart-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -1416,9 +1322,9 @@ function initModalZoom() {
     if (pointers.size === 1) { const [p] = [...pointers.values()]; pan = { x: p.clientX, y: p.clientY }; }
     if (pointers.size === 0) {
       pan = null;
-      if (e.type === 'pointerup' && tap && !tap.moved && performance.now() - tap.t < 300) {
+      if (e.type === 'pointerup' && tap && !tap.moved && performance.now() - tap.t < 200) {
         const now = performance.now();
-        if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+        if (now - lastTap.t < 250 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 20) {
           // دابل‌تپ: اگه زوم هست برگرد، اگه نه ۲.۵ برابر دور همون نقطه
           const f = rel(e);
           modalImage.classList.add('animating');
@@ -1455,7 +1361,54 @@ function initModalZoom() {
 }
 initModalZoom();
 
+// ============ بارگذاری مرحله‌ای آبشاری (Staged Loading Waterfall) ============
+// طبق درخواست:
+// ۱. اول فقط لوگو، عکس هیرو و متن‌های اسپلش لود و نمایش داده می‌شوند.
+// ۲. پس از لود کامل و نمایش لوگو و هیرو، کاربر ۳ ثانیه در صفحه اسپلش می‌ماند.
+// ۳. در طول این ۳ ثانیه، سایت در پس‌زمینه (Background) به ترتیب لود می‌شود:
+//    - دوم: کتگوری‌ها لود و رندر می‌شوند.
+//    - سوم: محصولات و عکس‌های کارت‌های منو لود می‌شوند.
+// ۴. پس از پایان ۳ ثانیه (و اتمام لود بک‌گراند)، اسپلش محو شده و کاربر وارد سایت می‌شود.
+async function initStagedLoading() {
+  // سقف زمانی نهایی: در صورت بروز هرگونه مشکل شبکه، اسپلش حداکثر بعد از ۷.۵ ثانیه بسته می‌شود
+  const hardCapTimer = setTimeout(hideSplash, 7500);
+
+  try {
+    // مرحله اول: ابتدا فقط لوگو، عکس هیرو و انیمیشن متن‌های اسپلش لود و کامل می‌شوند
+    await loadSiteConfig();
+
+    // مرحله دوم و سوم: شروع تایمر ۳ ثانیه + لود همزمان پس‌زمینه سایت
+    const wait3SecondsPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const backgroundLoadingPromise = (async () => {
+      // دریافت و آماده‌سازی دیتای منو
+      await fetchProductsData();
+
+      // دوم: لود کتگوری‌ها
+      renderTabs();
+      await waitForCategoryImages(1500);
+
+      // سوم: لود عکس محصولات
+      renderProducts();
+      await waitForMenuImages(2000);
+    })();
+
+    // صبر می‌کنیم تا هم ۳ ثانیه تمام شود و هم لود پس‌زمینه کامل شود (سقف حداکثر ۴ ثانیه برای پس‌زمینه)
+    await Promise.all([
+      wait3SecondsPromise,
+      Promise.race([
+        backgroundLoadingPromise,
+        new Promise((resolve) => setTimeout(resolve, 4000)),
+      ]),
+    ]);
+  } catch (err) {
+    console.error('خطا در بارگذاری مرحله‌ای:', err);
+  } finally {
+    clearTimeout(hardCapTimer);
+    hideSplash();
+  }
+}
+
 // Init
-const productsLoadedPromise = loadProducts();
-const siteConfigPromise = loadSiteConfig();
 renderCart();
+initStagedLoading();

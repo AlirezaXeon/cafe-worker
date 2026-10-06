@@ -641,33 +641,8 @@ body.header-hidden .menu-controls {
   transition: opacity 0.5s ease;
 }
 
-/* تا وقتی عکس هیرو واقعاً دانلود نشده، همون گرادیانت تزئینی پس‌زمینه‌ی .hero-cover
-   یه اسکلتون ملایم و متحرکه (نه فقط یه رنگ ثابت)؛ با لود شدن، فقط عکس فید-این میشه */
-.hero-cover:not(.cover-ready) {
-  background-size: 200% 200%;
-  animation: heroSkeletonPulse 2.2s ease-in-out infinite;
-}
-
 .hero-cover.cover-ready .hero-cover-media img {
   opacity: 1;
-}
-
-@keyframes heroSkeletonPulse {
-
-  0%,
-  100% {
-    background-position: 30% 20%;
-  }
-
-  50% {
-    background-position: 70% 60%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-cover:not(.cover-ready) {
-    animation: none;
-  }
 }
 
 /* سایه‌ی نرم روی عکس تا لوگو و محتوای زیرش خواناتر بمونه */
@@ -1067,37 +1042,7 @@ body.header-hidden .menu-controls {
   contain: layout;
 }
 
-/* اسکلتون لودینگ: همون فضای واقعی رو نگه می‌داره تا با رسیدن دیتای واقعی،
-   جابه‌جایی شدید (CLS) رخ نده -- چه دیتا زود برسه چه دیر (بعد از سقف زمانی اسپلش) */
-.skeleton-title {
-  width: 140px;
-  height: 1.1rem;
-  border-radius: 6px;
-  margin: 0 auto;
-}
-
-.skeleton-shimmer {
-  background: linear-gradient(90deg, var(--bg-alt) 25%, var(--card-bg) 50%, var(--bg-alt) 75%) !important;
-  background-size: 200% 100%;
-  animation: skeletonShimmer 1.6s ease-in-out infinite;
-}
-
-@keyframes skeletonShimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-shimmer {
-    animation: none;
-    background: var(--bg-alt);
-  }
-}
+/* اسکلتون موقت حذف شد چون محصولات و عکس‌ها در ۳ ثانیه اسپلش لود کامل می‌شوند */
 
 .menu-group-title {
   display: flex;
@@ -1215,47 +1160,8 @@ body.header-hidden .menu-controls {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
-  transition: transform 0.6s ease, opacity 0.35s ease;
-}
-
-/* اسکلتونِ واقعی: تا وقتی عکس واقعاً دانلود نشده (کلاس img-ready اضافه نشده)، این
-   افکت درخشش دیده میشه؛ به‌محض لود (یا خطا) با جاوااسکریپت محو میشه و عکس/پلیس‌هولدر جاش میاد */
-.product-card .product-image::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: linear-gradient(100deg, var(--bg-alt) 28%, rgba(255, 255, 255, 0.07) 50%, var(--bg-alt) 72%);
-  background-size: 200% 100%;
-  animation: imgSkeletonShimmer 1.4s ease-in-out infinite;
   opacity: 1;
-  transition: opacity 0.3s ease;
-}
-
-.product-card .product-image.img-ready::before {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.product-card .product-image.img-ready img {
-  opacity: 1;
-}
-
-@keyframes imgSkeletonShimmer {
-  0% {
-    background-position: 150% 0;
-  }
-
-  100% {
-    background-position: -150% 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .product-card .product-image::before {
-    animation: none;
-  }
+  transition: transform 0.6s ease;
 }
 
 .product-card:hover .product-image img {
@@ -1720,6 +1626,8 @@ body.header-hidden .menu-controls {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  /* لود عکس داخلی نباید reflow/layout-shift بیرون ایجاد کنه (مخصوصاً iOS Safari) */
+  contain: layout style paint;
 }
 
 .modal-image.zoomed {
@@ -1729,55 +1637,27 @@ body.header-hidden .menu-controls {
 .modal-image img {
   position: absolute;
   inset: 0;
-  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
   cursor: zoom-in;
-  opacity: 0;
-  transition: opacity 0.35s ease;
+  opacity: 1;
   transform: translate3d(var(--zx, 0px), var(--zy, 0px), 0) scale(var(--zs, 1));
   transform-origin: center center;
-  will-change: transform;
   -webkit-user-drag: none;
 }
 
 .modal-image.zoomed img {
   cursor: grab;
+  will-change: transform;
 }
 
 .modal-image.animating img {
-  transition: opacity 0.35s ease, transform 0.25s ease;
+  transition: transform 0.25s ease;
 }
 
-/* دو لایه: تامبنیل (فوری) زیر، عکس واضح روش با fade؛ هیچ‌کدوم اندازه‌ی کادر رو تغییر نمیدن */
 .modal-image img.m-full { z-index: 2; }
 .modal-image img.m-hires { z-index: 3; }
-.modal-image img.shown { opacity: 1; }
-
-.modal-image::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: linear-gradient(100deg, var(--bg-alt) 28%, rgba(255, 255, 255, 0.07) 50%, var(--bg-alt) 72%);
-  background-size: 200% 100%;
-  animation: imgSkeletonShimmer 1.4s ease-in-out infinite;
-  opacity: 1;
-  transition: opacity 0.3s ease;
-}
-
-.modal-image.img-ready::before {
-  opacity: 0;
-  pointer-events: none;
-}
-
-
-@media (prefers-reduced-motion: reduce) {
-  .modal-image::before {
-    animation: none;
-  }
-}
 
 /* ============ IMAGE ZOOM OVERLAY (زوم تمام‌صفحه‌ی عکس محصول) ============ */
 .image-zoom-overlay {
