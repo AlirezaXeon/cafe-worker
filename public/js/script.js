@@ -6,7 +6,7 @@
 if (!history.state) {
   try {
     history.replaceState({ page: 'home' }, '');
-  } catch {}
+  } catch { }
 }
 
 let scrollLockCount = 0;
@@ -104,7 +104,7 @@ function hideSplash() {
   splash.classList.add('hide');
   try {
     history.replaceState({ page: 'home' }, '');
-  } catch {}
+  } catch { }
   // درست همین لحظه که اسپلش محو میشه، متن‌های هیرو با انیمیشن پلکانی ظاهر میشن
   document.body.classList.add('site-loaded');
   window.dispatchEvent(new Event('siteloaded'));
@@ -134,13 +134,81 @@ const CAT_COLORS = {
 };
 
 // ============ پیش‌بارگذاری عکس مودال ============
-// قبلاً عکس بزرگ محصول فقط بعد از کلیک شروع به دانلود می‌کرد؛ برای همین موبایل بعد از لمس چند ثانیه
-// اسکلتون می‌دید. حالا: (۱) کارت‌هایی که کاربر واقعاً دیده تو پس‌زمینه با اولویت پایین و حداکثر ۲ تا
-// همزمان پیش‌لود میشن، (۲) لحظه‌ی لمس کارت (قبل از رها کردن انگشت) دانلودش با اولویت بالا شروع میشه.
-// تو حالت صرفه‌جویی داده یا نت 2G هیچ پیش‌لود پس‌زمینه‌ای انجام نمیشه.
+// ۱) کارت‌هایی که کاربر دیده، بعد از بسته شدن اسپلش، با اولویت پایین و حداکثر ۲ تا همزمان پیش‌لود میشن
+// ۲) لحظه‌ی لمس کارت، دانلودش با اولویت بالا شروع میشه
+// ۳) عکس دیکدشده همین‌جا نگه داشته میشه تا موقع باز شدن مودال دقیقاً بدون تأخیر نشون داده بشه
+// تو حالت صرفه‌جویی داده یا 2G هیچ پیش‌لودی نداریم.
 function mediumUrlFor(imgSrc) {
   if (!imgSrc) return null;
   return /^https?:\/\//i.test(imgSrc) ? imgSrc : `images/med/${imgSrc.split('/').pop()}`;
+}
+
+const saveData = () => {
+  const c = navigator.connection;
+  return !!(c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')));
+};
+
+const MODAL_CACHE_MAX = 16;
+const PRELOAD_CONCURRENCY = 2;
+const modalImgCache = new Map(); // medUrl -> HTMLImageElement
+const preloadQueue = [];
+let preloadActive = 0;
+let preloadEnabled = false;
+
+function preloadModalImage(imgSrc, priority = 'low') {
+  const url = mediumUrlFor(imgSrc);
+  if (!url) return null;
+  let img = modalImgCache.get(url);
+  if (img) return img;
+  img = new Image();
+  img.decoding = 'async';
+  img.fetchPriority = priority;
+  img.src = url;
+  img._ready = img.decode().then(
+    () => true,
+    () => { modalImgCache.delete(url); return false; } // شکست کش نشه
+  );
+  modalImgCache.set(url, img);
+  if (modalImgCache.size > MODAL_CACHE_MAX) {
+    modalImgCache.delete(modalImgCache.keys().next().value); // قدیمی‌ترین
+  }
+  return img;
+}
+
+function pumpPreload() {
+  if (!preloadEnabled) return;
+  while (preloadActive < PRELOAD_CONCURRENCY && preloadQueue.length) {
+    const src = preloadQueue.shift();
+    const url = mediumUrlFor(src);
+    if (!url || modalImgCache.has(url)) continue;
+    const img = preloadModalImage(src, 'low');
+    preloadActive++;
+    img._ready.finally(() => { preloadActive--; pumpPreload(); });
+  }
+}
+
+function queuePreload(src) {
+  if (!src || saveData()) return;
+  preloadQueue.push(src);
+  pumpPreload();
+}
+
+// شروع پیش‌لود پس‌زمینه فقط بعد از رفتن اسپلش، تا با لود اولیه‌ی منو رقابت نکنه
+window.addEventListener('siteloaded', () => { preloadEnabled = true; pumpPreload(); }, { once: true });
+
+let preloadObserver = null;
+function observeCardsForPreload() {
+  if (!('IntersectionObserver' in window) || saveData()) return;
+  if (preloadObserver) preloadObserver.disconnect();
+  preloadObserver = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (!en.isIntersecting) return;
+      preloadObserver.unobserve(en.target);
+      const p = productsData.products.find((x) => x.id === en.target.dataset.id);
+      if (p) queuePreload(p.image || getCategoryImage(p.category));
+    });
+  }, { rootMargin: '300px 0px' });
+  grid.querySelectorAll('.product-card').forEach((c) => preloadObserver.observe(c));
 }
 
 function openModal(product, catLabelText) {
@@ -152,44 +220,55 @@ function openModal(product, catLabelText) {
   const imgSrc = product.image || getCategoryImage(product.category);
   const token = ++modalImgToken;
   if (imgSrc) {
-    const thumbUrl = productThumbSrc(imgSrc);
-    const medUrl = mediumUrlFor(imgSrc);
-    const absFull = new URL(imgSrc, location.href).href;
     const alive = () => token === modalImgToken;
+    const thumbUrl = productThumbSrc(imgSrc);
+    const absFull = new URL(imgSrc, location.href).href;
+    const pre = preloadModalImage(imgSrc, 'high');
 
-    // تامبنیل فوری: چون توی کارت منو لود شده، آنی و بدون تأخیر دیده می‌شه و مانع پرش/سفید شدن میشه
-    if (thumbUrl) {
-      const thumb = document.createElement('img');
-      thumb.className = 'm-thumb shown';
-      thumb.alt = '';
-      thumb.src = thumbUrl;
-      modalImage.append(thumb);
-    }
-
-    const img = document.createElement('img');
-    img.className = 'm-full';
-    img.alt = product.name;
-    img.decoding = 'async';
-    img.onload = () => {
-      if (!alive()) return;
-      requestAnimationFrame(() => img.classList.add('shown'));
+    const showFull = (el) => {
+      el.className = 'm-full';
+      el.alt = product.name;
+      modalImage.append(el);
+      void el.offsetWidth; // یه فریم با opacity:0 تا فید واقعاً اجرا بشه
+      el.classList.add('shown');
     };
-    img.onerror = () => {
-      if (!alive()) return;
-      if (img.src !== absFull) {
-        img.src = absFull; // فالبک به عکس اصلی
-        return;
-      }
-      img.remove();
-      if (!modalImage.querySelector('img')) {
-        modalPlaceholder.style.display = 'flex';
-      }
-    };
-    img.src = medUrl;
-    modalImage.append(img);
 
-    if (img.complete && img.naturalWidth > 0) {
-      img.classList.add('shown');
+    if (pre && pre.complete && pre.naturalWidth > 0) {
+      // قبلاً دانلود شده (پیش‌لود): مستقیم و بدون فید نشون بده، هیچ مرحله‌ای دیده نمیشه
+      pre.className = 'm-full shown';
+      pre.alt = product.name;
+      modalImage.append(pre);
+    } else {
+      // تامبنیل فقط به‌عنوان بلور-آپ (بلور با CSS)، نه یه مرحله‌ی «عکس بد» که بعدش بپره
+      let thumb = null;
+      if (thumbUrl) {
+        thumb = document.createElement('img');
+        thumb.className = 'm-thumb shown';
+        thumb.alt = '';
+        thumb.src = thumbUrl;
+        modalImage.append(thumb);
+      }
+
+      const fallbackToOriginal = () => {
+        const full = new Image();
+        full.decoding = 'async';
+        full.src = absFull;
+        full.decode().then(() => { if (alive()) showFull(full); }).catch(() => {
+          if (!alive()) return;
+          if (thumb) thumb.classList.add('no-blur');
+          else modalPlaceholder.style.display = 'flex';
+        });
+      };
+
+      if (pre) {
+        // فید فقط بعد از تموم شدن دانلود «و دیکد» → دیگه وسط فید جنک نمیشه
+        pre._ready.then((ok) => {
+          if (!alive()) return;
+          if (ok) showFull(pre); else fallbackToOriginal();
+        });
+      } else {
+        fallbackToOriginal();
+      }
     }
   } else {
     modalPlaceholder.style.display = 'flex';
@@ -326,7 +405,7 @@ function waitForFonts(timeoutMs = 1200) {
       document.fonts.load('700 16px Vazirmatn', fa),
       document.fonts.load('900 16px Estedad', fa),
       document.fonts.load('italic 500 16px "Cormorant Garamond"', 'Roshan Cafe'),
-    ]).catch(() => {});
+    ]).catch(() => { });
   };
   fontsPromise = Promise.race([
     Promise.resolve().then(loadFaces),
@@ -632,7 +711,17 @@ function renderProducts() {
   `).join('');
 
   updateActiveFromScroll();
+  observeCardsForPreload();
 }
+
+// لحظه‌ی لمس (قبل از رها کردن انگشت)، دانلود عکس مودال با اولویت بالا شروع میشه
+grid.addEventListener('pointerdown', (e) => {
+  if (saveData()) return;
+  const card = e.target.closest('.product-card');
+  if (!card) return;
+  const p = productsData.products.find((x) => x.id === card.dataset.id);
+  if (p) preloadModalImage(p.image || getCategoryImage(p.category), 'high');
+}, { passive: true });
 
 // Event Delegation یکپارچه برای کلیک کارت‌ها و افزودن به سبد خرید (بدون ساخت ده‌ها لیسنر در هر رندر)
 grid.addEventListener('click', (e) => {
