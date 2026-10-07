@@ -7,20 +7,11 @@
   --line: #23262F;
   --accent: #B4925A;
   --accent-soft: #1C1911;
+  --on-accent: #14110A; /* متن روی دکمه‌های accent؛ کنتراست ۶.۴۶:۱ */
   --gold: #C9A227;
   --card-bg: #14161E;
   --overlay-bg: rgba(0, 0, 0, 0.8);
   --btn-ghost-bg: rgba(255, 255, 255, 0.05);
-  --light-bg: #F7F5F1;
-  --light-bg-alt: #EFEBE3;
-  --light-ink: #1D1F26;
-  --light-ink-soft: #6B6D76;
-  --light-line: #E1DDD3;
-  --light-accent: #8A6D3D;
-  --light-accent-soft: #F1E9D8;
-  --light-card-bg: #FFFFFF;
-  --light-overlay-bg: rgba(20, 20, 24, 0.55);
-  --light-btn-ghost-bg: rgba(247, 246, 242, 0.9);
   --font-fa: 'Vazirmatn', sans-serif;
   --font-display: 'Estedad', 'Vazirmatn', sans-serif;
   --font-mono: 'Vazirmatn', sans-serif;
@@ -33,7 +24,7 @@
   --aurora-1: rgba(160, 122, 56, 0.22);
   --aurora-2: rgba(120, 38, 56, 0.16);
   --aurora-3: rgba(150, 112, 46, 0.13);
-  --aurora-blur: 120px;
+  --aurora-blur: 90px;
 }
 
 * {
@@ -53,7 +44,6 @@ body {
   font-family: var(--font-fa);
   background-color: var(--bg);
   background-image: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(180, 146, 90, 0.06), transparent 70%);
-  background-attachment: fixed;
   color: var(--ink);
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
@@ -70,9 +60,9 @@ body::before {
   z-index: -1;
   pointer-events: none;
   opacity: 0.05;
-  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAES0lEQVR4nF2X3bKySgxERxEQRZB/UPD93zKn+Gr1qa59QSkzSSbJdDohRUTieUfEEBHfiMgiomWtj4g1Ii4RMUfEERHXiJgioomImjX9/iJi5P20cef/uXZD9xMR1Xluwsgp1GHgXFsQqFh7Y2DEydPQjlyDYw+c6lh/RUTB74gzH5zZ0bkllB48K09OFmqUZpwobe2Ue0bEho032Rs44InMRtQ9T4aTp+w1Ef3CIU8OvyNQszdhZMZgR3SSKYhy4woS74nAdKVf9ivW98RijvEegw8EFwy9SHWLkw+LMiNqyX24ogx7Hfuy0aF3rmUJb3I2Eoof0r0T+YMUJ6K94VxhUfYYHgkms9TrOq+W8fP3LQdqlGaL6IdCieEPDtWWqYJnQvdj9lQVN5z/ISNwnzrPxL21/A4ITSg3rOtOLxySYbSzK+yJ7MuhympjGWqtUs4MPOSAMHCze67IQE6UB0oC6GoR3/jfk6WMtdsfPhhxZgMTr8RhF/P0wYELRnPbm3j/sn+xMmusOmYOWO3KVivRgvVLQumDhz8ULwgMrG8otWRiw9DbSrG1KtBhvTk2sifWbeXASBpVRk9jQwFoNQyIqDbeDw4rBSycXTk8x95h8i8c77SREemEsAQSUbyIUqwnEpo5vLBqaY1ocgP0gL2d/dPBMlmj2fFY9a6Ihj/XI+Q3RqvuxMtQXmP/sAB3A/O/KxiIbOEQdUUdXptRZehqNd4abgZrRj8Od1IqOOuu604IKkIJ1Bx2IZUN+43d92BXlwMwge2wNL+MYWfrsJV6QWN9erGMJAxX1kpXHFt4Vn4F3InraS0TuoZklbBwxjcZLy/W33tD7cdSvVt23gbGngNUTbtlbbT0t4aJc29L1qlEOrkBr8eJzhyZjI4/RjadkVVm+puVtcCoIMdkhNLgyIG31z8terT+INod0X0Zzd4sCE1PJdELAwpqTmzUpHJCeMWBG0ornquGM5vtHtYB3+Chsbp/ku6vYajE4SlZ+tUJDyJ4sFdat9R4thCBJh31fLHnYNj4Woe8E72uZ07WdCorxScRqc0ONuH4uNVahE9D/2BNbjRsVda+T3tVMsCpfJS+yipDaC6sLB/WOzL0dxzrzNncBlIBUMNqlf7QbDJhMeDdOP/7Z+xejAEHDBdWhofNgJMBWU3rJyYUG4o6k314aJD42b32xmw+WbfWDwTOhrW34aDwXpAblX5RTDZGt0Yys43dhQFsMacao17RdGu0/P8wonbsX0W7jV/6Eipt1DpsCK0tQlVGZVPPhUcM+jXQarI+EpFf8S4zID7tq2nEgJBe2PdBZwOHnJlsdhBb/qyycjkoxM42dAw2Vk/GXEp1smayqZysX+T2IauvrGSlftgMcktWNiUR6ePRWS8jYjGY0v/B0BOQXW1002R9N2bV6C5cLMl4ubZB42UGX2SlNRI5TF6g06d6yftmbViNa7JK+Udm/wEvXTCuD/t/MgAAAABJRU5ErkJggg==");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
-  background-size: 32px 32px;
+  background-size: 180px 180px;
 }
 
 /* بلاب‌های نوری بزرگ که پشت محتوا شناورن و واضح حرکت می‌کنن — عنصرهاشون از قبل تو index.html هست */
@@ -154,9 +144,11 @@ body::before {
   }
 }
 
-/* بی‌استفاده مونده از نسخه‌ی قبلی؛ فعلاً غیرفعاله */
-.steam-wisp {
-  display: none;
+/* روی موبایل بلور کمتر (هزینه‌ی GPU بلور با مساحت بالا می‌ره) */
+@media (max-width: 768px) {
+  :root {
+    --aurora-blur: 60px;
+  }
 }
 
 /* Custom Scrollbar */
@@ -184,6 +176,15 @@ a {
   text-decoration: none;
 }
 
+/* هایلایت آبی پیش‌فرض مرورگر موبایل موقع لمس کارت/دکمه‌ها (همون «باکس آبی») */
+a,
+button,
+.product-card,
+.floating-cart,
+.cat-card {
+  -webkit-tap-highlight-color: transparent;
+}
+
 ul {
   list-style: none;
 }
@@ -207,7 +208,6 @@ button {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
-  border-radius: 4px;
 }
 
 html.nav-open,
@@ -220,6 +220,7 @@ body.nav-open {
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
 
@@ -234,11 +235,11 @@ body.nav-open {
   inset: 0;
   background-color: #0B0D12;
   background-image:
-    url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAES0lEQVR4nF2X3bKySgxERxEQRZB/UPD93zKn+Gr1qa59QSkzSSbJdDohRUTieUfEEBHfiMgiomWtj4g1Ii4RMUfEERHXiJgioomImjX9/iJi5P20cef/uXZD9xMR1Xluwsgp1GHgXFsQqFh7Y2DEydPQjlyDYw+c6lh/RUTB74gzH5zZ0bkllB48K09OFmqUZpwobe2Ue0bEho032Rs44InMRtQ9T4aTp+w1Ef3CIU8OvyNQszdhZMZgR3SSKYhy4woS74nAdKVf9ivW98RijvEegw8EFwy9SHWLkw+LMiNqyX24ogx7Hfuy0aF3rmUJb3I2Eoof0r0T+YMUJ6K94VxhUfYYHgkms9TrOq+W8fP3LQdqlGaL6IdCieEPDtWWqYJnQvdj9lQVN5z/ISNwnzrPxL21/A4ITSg3rOtOLxySYbSzK+yJ7MuhympjGWqtUs4MPOSAMHCze67IQE6UB0oC6GoR3/jfk6WMtdsfPhhxZgMTr8RhF/P0wYELRnPbm3j/sn+xMmusOmYOWO3KVivRgvVLQumDhz8ULwgMrG8otWRiw9DbSrG1KtBhvTk2sifWbeXASBpVRk9jQwFoNQyIqDbeDw4rBSycXTk8x95h8i8c77SREemEsAQSUbyIUqwnEpo5vLBqaY1ocgP0gL2d/dPBMlmj2fFY9a6Ihj/XI+Q3RqvuxMtQXmP/sAB3A/O/KxiIbOEQdUUdXptRZehqNd4abgZrRj8Od1IqOOuu604IKkIJ1Bx2IZUN+43d92BXlwMwge2wNL+MYWfrsJV6QWN9erGMJAxX1kpXHFt4Vn4F3InraS0TuoZklbBwxjcZLy/W33tD7cdSvVt23gbGngNUTbtlbbT0t4aJc29L1qlEOrkBr8eJzhyZjI4/RjadkVVm+puVtcCoIMdkhNLgyIG31z8terT+INod0X0Zzd4sCE1PJdELAwpqTmzUpHJCeMWBG0ornquGM5vtHtYB3+Chsbp/ku6vYajE4SlZ+tUJDyJ4sFdat9R4thCBJh31fLHnYNj4Woe8E72uZ07WdCorxScRqc0ONuH4uNVahE9D/2BNbjRsVda+T3tVMsCpfJS+yipDaC6sLB/WOzL0dxzrzNncBlIBUMNqlf7QbDJhMeDdOP/7Z+xejAEHDBdWhofNgJMBWU3rJyYUG4o6k314aJD42b32xmw+WbfWDwTOhrW34aDwXpAblX5RTDZGt0Yys43dhQFsMacao17RdGu0/P8wonbsX0W7jV/6Eipt1DpsCK0tQlVGZVPPhUcM+jXQarI+EpFf8S4zID7tq2nEgJBe2PdBZwOHnJlsdhBb/qyycjkoxM42dAw2Vk/GXEp1smayqZysX+T2IauvrGSlftgMcktWNiUR6ePRWS8jYjGY0v/B0BOQXW1002R9N2bV6C5cLMl4ubZB42UGX2SlNRI5TF6g06d6yftmbViNa7JK+Udm/wEvXTCuD/t/MgAAAABJRU5ErkJggg=="),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
     radial-gradient(circle 520px at 22% 20%, rgba(160, 122, 56, 0.28), transparent 65%),
     radial-gradient(circle 460px at 80% 78%, rgba(120, 38, 56, 0.22), transparent 65%);
   background-repeat: repeat, no-repeat, no-repeat;
-  background-size: 32px 32px, auto, auto;
+  background-size: 180px 180px, auto, auto;
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -348,7 +349,7 @@ body.nav-open {
   }
 }
 
-/* اسم انگلیسی + شعار اسپلش */
+/* اسم انگلیسی + شعار، با همون جلوه‌ی درخشش طلایی هیرو، برای حس یکدست و لوکس */
 .splash-title {
   font-family: var(--font-en);
   font-weight: 500;
@@ -357,27 +358,40 @@ body.nav-open {
   text-transform: uppercase;
   text-align: center;
   white-space: nowrap;
-  color: var(--gold);
+  color: transparent;
+  background-image: linear-gradient(90deg, var(--gold) 0%, #f3dfa0 25%, #fff6d8 50%, #f3dfa0 75%, var(--gold) 100%);
+  background-size: 220% auto;
+  background-position: 200% center;
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.35));
   letter-spacing: 0.35em;
   margin: 0;
-  opacity: 0;
-  transform: translateY(8px);
-  will-change: transform, opacity;
 }
 
 .splash-title.show {
-  animation: splashTitleReveal 1.1s cubic-bezier(0.16, 0.8, 0.24, 1) forwards;
+  animation:
+    splashTitleReveal 1.1s cubic-bezier(0.16, 0.8, 0.24, 1) forwards,
+    heroTitleShine 6s linear 1.1s infinite;
 }
 
+/* letter-spacing از این انیمیشن حذف شد: چون روی عرض متن اثر می‌ذاره، هر فریم باعث
+   Layout Shift واقعی می‌شد (مشخص شده به‌عنوان یکی از عوامل CLS بالای صفحه) */
 @keyframes splashTitleReveal {
   0% {
     opacity: 0;
     transform: translateY(8px);
+    background-position: 200% center;
+  }
+
+  70% {
+    opacity: 1;
   }
 
   100% {
     opacity: 1;
     transform: translateY(0);
+    background-position: 0% center;
   }
 }
 
@@ -389,22 +403,19 @@ body.nav-open {
   letter-spacing: 0.32em;
   color: var(--ink-soft);
   margin: 0;
-  opacity: 0;
-  transform: translateY(4px);
-  will-change: transform, opacity;
 }
 
 .splash-tagline.show {
-  animation: splashFadeIn 0.9s cubic-bezier(0.16, 0.8, 0.24, 1) forwards;
+  animation: splashFadeIn 0.9s ease forwards;
 }
 
 @keyframes splashFadeIn {
-  0% {
+  from {
     opacity: 0;
     transform: translateY(4px);
   }
 
-  100% {
+  to {
     opacity: 1;
     transform: translateY(0);
   }
@@ -422,6 +433,7 @@ body.nav-open {
 
   .splash-title.show {
     letter-spacing: 0.35em;
+    background-position: 0% center;
   }
 }
 
@@ -438,24 +450,22 @@ body.nav-open {
 .splash-progress span {
   display: block;
   height: 100%;
-  width: 100%;
+  width: 35%;
   border-radius: 2px;
   position: absolute;
   top: 0;
-  left: 0;
+  left: -35%;
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  transform: translateX(-100%);
-  animation: splashSweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  will-change: transform;
+  animation: splashSweep 1.5s ease-in-out infinite;
 }
 
 @keyframes splashSweep {
   0% {
-    transform: translateX(-100%);
+    left: -35%;
   }
 
   100% {
-    transform: translateX(100%);
+    left: 100%;
   }
 }
 
@@ -470,13 +480,15 @@ body.nav-open {
 
 /* ============ HEADER ============ */
 .site-header {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 50;
   background: rgba(15, 13, 11, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background 0.3s ease;
+  transition: transform 0.3s ease, background 0.3s ease;
+  will-change: transform;
 }
 
 .header-inner {
@@ -582,14 +594,7 @@ body.nav-open {
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* ============ HEADER (sticky) ============ */
-.site-header {
-  position: sticky;
-  top: 0;
-  transition: transform 0.3s ease, background 0.3s ease;
-  will-change: transform;
-}
-
+/* ============ HEADER (مخفی‌شدن با اسکرول) ============ */
 /* موقع اسکرول به پایین، هدر می‌ره بالا و از دید محو میشه تا فضای بیشتری برای دیدن منو باشه؛
    موقع اسکرول به بالا (یا رسیدن به بالای صفحه) دوباره برمی‌گرده. کلاس رو جاوااسکریپت کنترل می‌کنه. */
 body.header-hidden .site-header {
@@ -632,8 +637,33 @@ body.header-hidden .menu-controls {
   transition: opacity 0.5s ease;
 }
 
+/* تا وقتی عکس هیرو واقعاً دانلود نشده، همون گرادیانت تزئینی پس‌زمینه‌ی .hero-cover
+   یه اسکلتون ملایم و متحرکه (نه فقط یه رنگ ثابت)؛ با لود شدن، فقط عکس فید-این میشه */
+.hero-cover:not(.cover-ready) {
+  background-size: 200% 200%;
+  animation: heroSkeletonPulse 2.2s ease-in-out infinite;
+}
+
 .hero-cover.cover-ready .hero-cover-media img {
   opacity: 1;
+}
+
+@keyframes heroSkeletonPulse {
+
+  0%,
+  100% {
+    background-position: 30% 20%;
+  }
+
+  50% {
+    background-position: 70% 60%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cover:not(.cover-ready) {
+    animation: none;
+  }
 }
 
 /* سایه‌ی نرم روی عکس تا لوگو و محتوای زیرش خواناتر بمونه */
@@ -727,6 +757,11 @@ body.header-hidden .menu-controls {
   .hero-cover-title {
     letter-spacing: 0.3em;
   }
+}
+
+/* وقتی هیرو از دید خارج شد (کلاس رو جاوااسکریپت می‌ذاره) درخشش بی‌نهایت متوقف میشه */
+.hero-offscreen .hero-cover-title {
+  animation-play-state: paused;
 }
 
 /* لوگوی وسط عکس: با اسکرول (که var(--intro-progress) رو از ۰ به ۱ می‌بره) کوچیک و محو میشه،
@@ -871,7 +906,7 @@ body.header-hidden .menu-controls {
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: var(--ink-soft);
   white-space: nowrap;
@@ -975,9 +1010,6 @@ body.header-hidden .menu-controls {
 
 .sort-modal-close {
   grid-column: 1;
-}
-
-.sort-modal-close {
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -992,6 +1024,13 @@ body.header-hidden .menu-controls {
 .sort-modal-close:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.sort-modal-hint {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  margin: -8px 0 14px;
 }
 
 .sort-modal-options {
@@ -1033,7 +1072,37 @@ body.header-hidden .menu-controls {
   contain: layout;
 }
 
-/* اسکلتون موقت حذف شد چون محصولات و عکس‌ها در ۳ ثانیه اسپلش لود کامل می‌شوند */
+/* اسکلتون لودینگ: همون فضای واقعی رو نگه می‌داره تا با رسیدن دیتای واقعی،
+   جابه‌جایی شدید (CLS) رخ نده -- چه دیتا زود برسه چه دیر (بعد از سقف زمانی اسپلش) */
+.skeleton-title {
+  width: 140px;
+  height: 1.1rem;
+  border-radius: 6px;
+  margin: 0 auto;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--bg-alt) 25%, var(--card-bg) 50%, var(--bg-alt) 75%) !important;
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+    background: var(--bg-alt);
+  }
+}
 
 .menu-group-title {
   display: flex;
@@ -1044,7 +1113,7 @@ body.header-hidden .menu-controls {
   font-size: 1rem;
   font-weight: 600;
   color: var(--accent);
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
   background: transparent;
   border: none;
@@ -1083,25 +1152,17 @@ body.header-hidden .menu-controls {
   transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.product-card:hover {
-  transform: translateY(-4px);
+@media (hover: hover) {
+  .product-card:hover {
+    transform: translateY(-4px);
+  }
 }
 
-/* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته بندی */
-.product-card:has(.cat-dot[data-cat="coffee"]) {
-  background: rgba(181, 136, 99, 0.06);
-}
-
-.product-card:has(.cat-dot[data-cat="breakfast"]) {
-  background: rgba(232, 169, 62, 0.06);
-}
-
-.product-card:has(.cat-dot[data-cat="dessert"]) {
-  background: rgba(157, 186, 143, 0.06);
-}
-
-.product-card:has(.cat-dot[data-cat="sweets"]) {
-  background: rgba(212, 145, 143, 0.06);
+/* رنگی کردن پس‌زمینه‌ی کارت بر اساس دسته‌بندی؛ --cat-color رو جاوااسکریپت (catColor) روی کارت می‌ذاره */
+@supports (background: color-mix(in srgb, red 6%, transparent)) {
+  .product-card {
+    background: color-mix(in srgb, var(--cat-color, transparent) 6%, var(--card-bg));
+  }
 }
 
 /* نئونی که دقیقاً روی خط لبه‌ی کادر (دور تا دور مستطیل) حرکت می‌کنه، نه چرخش از وسط */
@@ -1123,6 +1184,17 @@ body.header-hidden .menu-controls {
   stroke-linecap: round;
   stroke-dasharray: 24 76;
   animation: neonTrace 3.5s linear infinite;
+  animation-play-state: paused; /* فقط کارت‌های تو دید (کلاس neon-on) انیمیشن می‌گیرن */
+}
+
+.product-card.neon-on .card-neon rect {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-neon rect {
+    animation: none;
+  }
 }
 
 @keyframes neonTrace {
@@ -1151,12 +1223,53 @@ body.header-hidden .menu-controls {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 1;
-  transition: transform 0.6s ease;
+  opacity: 0;
+  transition: transform 0.6s ease, opacity 0.35s ease;
 }
 
-.product-card:hover .product-image img {
-  transform: scale(1.05);
+/* اسکلتونِ واقعی: تا وقتی عکس واقعاً دانلود نشده (کلاس img-ready اضافه نشده)، این
+   افکت درخشش دیده میشه؛ به‌محض لود (یا خطا) با جاوااسکریپت محو میشه و عکس/پلیس‌هولدر جاش میاد */
+.product-card .product-image::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(100deg, var(--bg-alt) 28%, rgba(255, 255, 255, 0.07) 50%, var(--bg-alt) 72%);
+  background-size: 200% 100%;
+  animation: imgSkeletonShimmer 1.4s ease-in-out infinite;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.product-card .product-image.img-ready::before {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.product-card .product-image.img-ready img {
+  opacity: 1;
+}
+
+@keyframes imgSkeletonShimmer {
+  0% {
+    background-position: 150% 0;
+  }
+
+  100% {
+    background-position: -150% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card .product-image::before {
+    animation: none;
+  }
+}
+
+@media (hover: hover) {
+  .product-card:hover .product-image img {
+    transform: scale(1.05);
+  }
 }
 
 .product-card .product-info {
@@ -1180,22 +1293,7 @@ body.header-hidden .menu-controls {
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-}
-
-.cat-dot[data-cat="coffee"] {
-  background: #B58863;
-}
-
-.cat-dot[data-cat="breakfast"] {
-  background: #E8A93E;
-}
-
-.cat-dot[data-cat="dessert"] {
-  background: #9DBA8F;
-}
-
-.cat-dot[data-cat="sweets"] {
-  background: #D4918F;
+  background: var(--cat-color, var(--accent));
 }
 
 .product-card .product-name {
@@ -1250,7 +1348,7 @@ body.header-hidden .menu-controls {
 
 .add-to-cart-btn {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
   padding: 5px 12px;
   border-radius: 50px;
@@ -1309,9 +1407,11 @@ body.header-hidden .menu-controls {
   transition: transform 0.3s ease;
 }
 
-.stat:hover {
-  transform: translateY(-4px);
-  border-color: var(--accent);
+@media (hover: hover) {
+  .stat:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+  }
 }
 
 .stat-num {
@@ -1515,7 +1615,7 @@ body.header-hidden .menu-controls {
 .map-btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #14110a;
+  color: var(--on-accent);
 }
 
 /* ============ FOOTER ============ */
@@ -1540,61 +1640,52 @@ body.header-hidden .menu-controls {
 }
 
 /* ============ PRODUCT MODAL ============ */
+/* پاپ‌آپ محصول: وسط صفحه؛ خودِ باز/بسته شدنش (زوم از کارت) با Web Animations تو script.js اجرا میشه.
+   اینجا فقط پس‌زمینه‌ی تیره و بلور محو/ظاهر میشن (opacity روی overlay نیست تا پاپ‌آپ با اون محو نشه) */
 .modal-overlay {
   position: fixed;
   inset: 0;
+  padding: 16px;
+  background: transparent;
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   z-index: 200;
   visibility: hidden;
   pointer-events: none;
-  transition: visibility 0.4s ease;
+  transition: background-color 0.3s ease, backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease, visibility 0s linear 0.34s;
 }
 
 .modal-overlay.open {
-  visibility: visible;
-  pointer-events: auto;
-}
-
-/* لایه بک‌دراپ جداگانه و کاملاً ثابت؛ backdrop-filter فقط روی این لایه است و تکان نمی‌خورد */
-.modal-backdrop {
-  position: absolute;
-  inset: 0;
   background: var(--overlay-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  opacity: 0;
-  transition: opacity 0.35s ease;
-  will-change: opacity;
+  visibility: visible;
+  pointer-events: auto;
+  transition: background-color 0.3s ease, backdrop-filter 0.3s ease, -webkit-backdrop-filter 0.3s ease, visibility 0s;
 }
 
-.modal-overlay.open .modal-backdrop {
-  opacity: 1;
-}
-
-/* خود کادر مدال: کاملاً مات (opacity: 1) و مستقل از بک‌دراپ تا هیچ محتوایی از پشت آن دیده نشود */
 .modal-box {
   background: var(--bg);
-  opacity: 1;
-  border-radius: 24px 24px 0 0;
+  border-radius: 24px;
   max-width: 500px;
   width: 100%;
-  max-height: 90vh;
-  max-height: 90svh; /* svh ثابته و پایین مدال زیر نوار مرورگر نمی‌ره */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100svh - 32px); /* svh ثابته (برخلاف dvh با جمع/باز شدن نوار آدرس تغییر نمی‌کنه) */
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: contain; /* اسکرول داخل مودال صفحه‌ی پشتش رو تکون نده */
   position: relative;
-  z-index: 1;
-  transform: translateY(100%) translateZ(0);
-  will-change: transform;
-  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-  border-top: 1px solid var(--line);
+  transform-origin: center center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--line);
 }
 
-.modal-overlay.open .modal-box {
-  transform: translateY(0) translateZ(0);
+/* کپی کارت که موقع باز/بسته شدن روی پاپ‌آپ می‌شینه و با اون زوم میشه (تو script.js ساخته میشه) */
+.card-ghost {
+  will-change: transform, opacity;
+  transform-origin: center center;
 }
 
 .modal-close {
@@ -1608,7 +1699,6 @@ body.header-hidden .menu-controls {
   border: none;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   color: #fff;
   font-size: 1.1rem;
   cursor: pointer;
@@ -1631,30 +1721,46 @@ body.header-hidden .menu-controls {
   background: var(--bg-alt);
   position: relative;
   overflow: hidden;
+  isolation: isolate;          /* z-indexهای عکس‌ها بیرون از این کادر نشت نکنن (دکمه‌ی ✕ رو نپوشونن) */
+  touch-action: pan-y;         /* اسکرول عمودی مودال آزاد؛ پینچ و کشیدن با جاوااسکریپت */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.modal-image.zoomed {
+  touch-action: none;
 }
 
 .modal-image img {
   position: absolute;
   inset: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  cursor: zoom-in;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.35s ease;
+  transform: translate3d(var(--zx, 0px), var(--zy, 0px), 0) scale(var(--zs, 1));
+  transform-origin: center center;
+  will-change: transform;
+  -webkit-user-drag: none;
 }
 
-.modal-image img.shown {
-  opacity: 1;
+.modal-image.zoomed img {
+  cursor: grab;
 }
 
-.modal-image img.m-thumb {
-  z-index: 1;
-  opacity: 1;
+.modal-image.animating img {
+  transition: opacity 0.35s ease, transform 0.25s ease;
 }
 
-.modal-image img.m-full {
-  z-index: 2;
-}
+/* دو لایه: تامبنیل (فوری) زیر، عکس واضح روش با fade؛ هیچ‌کدوم اندازه‌ی کادر رو تغییر نمیدن */
+.modal-image img.m-full { z-index: 2; }
+.modal-image img.m-hires { z-index: 3; }
+.modal-image img.shown { opacity: 1; }
+.modal-image img.m-thumb { transition: none; }
 
 .modal-image .placeholder {
   position: absolute;
@@ -1675,7 +1781,7 @@ body.header-hidden .menu-controls {
 .modal-cat {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   text-transform: uppercase;
   font-weight: 700;
   color: var(--cat-color, var(--accent));
@@ -1720,7 +1826,7 @@ body.header-hidden .menu-controls {
 
 .modal-add-btn {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
   padding: 11px 22px;
   border-radius: 50px;
@@ -1769,7 +1875,9 @@ body.header-hidden .menu-controls {
   background: var(--bg);
   z-index: 400;
   transform: translateX(-100%);
-  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+  /* visibility: وقتی بسته‌ست با Tab هم بهش نمیشه رسید و سایه‌ش لبه‌ی صفحه رو آلوده نمی‌کنه */
+  visibility: hidden;
+  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 0.4s;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
@@ -1778,6 +1886,8 @@ body.header-hidden .menu-controls {
 
 .cart-drawer.open {
   transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
 }
 
 .cart-header {
@@ -1859,6 +1969,18 @@ body.header-hidden .menu-controls {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.cart-item-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  opacity: 0.6;
 }
 
 .cart-item-main {
@@ -2000,7 +2122,7 @@ body.header-hidden .menu-controls {
   margin-bottom: 12px;
 }
 
-.cart-table-field>label {
+.cart-table-label {
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
@@ -2197,7 +2319,7 @@ body.header-hidden .menu-controls {
   border: none;
   border-radius: 14px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-family: inherit;
   font-size: 0.95rem;
   font-weight: 700;
@@ -2296,7 +2418,7 @@ body.header-hidden .menu-controls {
   flex-direction: column;
   align-items: center;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   padding: 8px 14px;
   border-radius: 12px;
 }
@@ -2395,24 +2517,6 @@ body.header-hidden .menu-controls {
 
   .location-inner {
     grid-template-columns: repeat(3, 1fr);
-  }
-
-  .modal-overlay {
-    align-items: center;
-  }
-
-  .modal-box {
-    border-radius: 24px;
-    transform: scale(0.95) translateY(20px) translateZ(0);
-    border: 1px solid var(--line);
-  }
-
-  .modal-overlay.open .modal-box {
-    transform: scale(1) translateY(0) translateZ(0);
-  }
-
-  .btn {
-    width: auto;
   }
 
   .floating-cart {

@@ -12,6 +12,11 @@ const MAX_QTY = 50;
 const MAX_LINES = 30; // سقف تعداد ردیف سبد؛ هم جلوی سوءاستفاده رو می‌گیره هم IN(...) رو کوچیک نگه می‌داره
 const TABLE_COUNT = 20; // باید با TABLE_COUNT تو public/js/script.js یکی باشه
 
+// جلوگیری از سفارش تکراری: کلاینت برای هر «تلاش ثبت» یه کلید یکتا می‌فرسته. اگه سفارش ثبت بشه ولی جواب به
+// گوشی نرسه و مشتری دوباره بزنه، همون سفارش قبلی برمی‌گرده و دوباره ثبت (و به گارسون اطلاع) نمیشه.
+const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9-]{8,64}$/;
+const IDEMPOTENCY_TTL = 60 * 10; // ۱۰ دقیقه؛ KV حداقل ۶۰ ثانیه می‌خواد
+
 function formatOrderMessage({ orderId, tableNumber, items, total }) {
   const lines = items
     .map((it) => `• ${escapeHtml(it.name)} × ${it.quantity} — ${formatToman(it.price * it.quantity)}`)
@@ -103,6 +108,18 @@ export async function handleOrdersAPI(request, env, ctx) {
   }
   const tableNumber = String(tableNum);
 
+  // کلید نامعتبر/نبودنش خطا نیست (کلاینت قدیمی)، فقط دیگه ضدتکرار نداریم
+  const idemRaw = typeof body?.idempotencyKey === "string" ? body.idempotencyKey : "";
+  const idemKey = IDEMPOTENCY_KEY_RE.test(idemRaw) ? `order:idem:${idemRaw}` : null;
+  if (idemKey) {
+    try {
+      const prev = await env.PRODUCTS_KV.get(idemKey);
+      if (prev) return json({ ok: true, orderId: Number(prev), duplicate: true });
+    } catch (err) {
+      console.error("[orders:idem:get]", err); // خرابی KV نباید ثبت سفارش رو بخوابونه
+    }
+  }
+
   const rawItems = Array.isArray(body?.items) ? body.items : [];
   if (rawItems.length === 0) return json({ error: "سبد خرید خالی است" }, 400);
   if (rawItems.length > MAX_LINES) return json({ error: "تعداد آیتم‌های سبد بیش از حد مجاز است" }, 400);
@@ -133,6 +150,14 @@ export async function handleOrdersAPI(request, env, ctx) {
   const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
   const orderId = await createOrder(env, { tableNumber, items, total });
+
+  if (idemKey) {
+    try {
+      await env.PRODUCTS_KV.put(idemKey, String(orderId), { expirationTtl: IDEMPOTENCY_TTL });
+    } catch (err) {
+      console.error("[orders:idem:put]", err);
+    }
+  }
 
   const notify = notifyAdmins(env, { orderId, tableNumber, items, total });
   if (ctx?.waitUntil) ctx.waitUntil(notify);

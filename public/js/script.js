@@ -2,21 +2,12 @@
 // فقط overflow:hidden رو body کافی نیست؛ تو سافاری موبایل صفحه‌ی پشت مودال بازم rubber-band
 // اسکرول می‌کنه و باعث بهم‌ریختگی می‌شه. این تابع body رو واقعاً fixed می‌کنه و بعد از بسته شدن
 // دقیقاً به همون نقطه‌ی اسکرول قبلی برمی‌گردونه.
-// تنظیم state اولیه تاریخچه مرورگر تا در صورت بازگشت، از سایت خارج نشود
-if (!history.state) {
-  try {
-    history.replaceState({ page: 'home' }, '');
-  } catch { }
-}
-
 let scrollLockCount = 0;
 let savedScrollY = 0;
 
 function lockScroll() {
   if (scrollLockCount === 0) {
     savedScrollY = window.scrollY || window.pageYOffset;
-    // scroll-behavior:smooth رو خاموش می‌کنیم تا fixed کردن body پرش ایجاد نکنه
-    document.documentElement.style.scrollBehavior = 'auto';
     document.body.style.position = 'fixed';
     document.body.style.top = `-${savedScrollY}px`;
     document.body.style.left = '0';
@@ -43,10 +34,7 @@ function unlockScroll() {
     const prevBehavior = document.documentElement.style.scrollBehavior;
     document.documentElement.style.scrollBehavior = 'auto';
     window.scrollTo(0, savedScrollY);
-    // restore رو یه فریم عقب میندازیم تا مرورگر اول scroll آنی رو commit کنه
-    requestAnimationFrame(() => {
-      document.documentElement.style.scrollBehavior = prevBehavior;
-    });
+    document.documentElement.style.scrollBehavior = prevBehavior;
   }
 }
 
@@ -56,31 +44,40 @@ function unlockScroll() {
 const navToggle = document.getElementById('navToggle');
 const mainNav = document.getElementById('mainNav');
 
+function closeMobileNav() {
+  if (!mainNav.classList.contains('open')) return;
+  mainNav.classList.remove('open');
+  navToggle.classList.remove('active');
+  navToggle.setAttribute('aria-expanded', 'false');
+  navToggle.setAttribute('aria-label', 'باز کردن منو');
+  unlockScroll();
+}
+
 navToggle.addEventListener('click', () => {
-  const isOpen = mainNav.classList.toggle('open');
-  navToggle.classList.toggle('active', isOpen);
-  if (isOpen) lockScroll(); else unlockScroll();
+  if (mainNav.classList.contains('open')) { closeMobileNav(); return; }
+  mainNav.classList.add('open');
+  navToggle.classList.add('active');
+  navToggle.setAttribute('aria-expanded', 'true');
+  navToggle.setAttribute('aria-label', 'بستن منو');
+  lockScroll();
 });
 
 mainNav.querySelectorAll('a').forEach(link => {
-  link.addEventListener('click', () => {
-    if (mainNav.classList.contains('open')) unlockScroll();
-    mainNav.classList.remove('open');
-    navToggle.classList.remove('active');
-  });
+  link.addEventListener('click', closeMobileNav);
 });
 
 // ============ PRICE FORMAT ============
 // جلوگیری از XSS: اسم/توضیح محصول از دیتابیس میاد و ممکنه توسط ادمین وارد شده باشه؛
 // قبل از گذاشتن تو innerHTML باید escape بشه (پنل ادمین خودش این تابع رو داره، اینجا هم لازمه)
 function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function formatPrice(price) {
-  // عدد انگلیسی + جداکننده‌ی هزارگان + حرف T به‌جای «ت»
-  const val = Math.round(price / 1000);
-  return `<span class="price-amount">${val.toLocaleString('en-US')}</span><span class="price-suffix">T</span>`;
+  // عدد انگلیسی + جداکننده‌ی هزارگان + حرف T به‌جای «ت» (واحد: هزار تومان).
+  // اگه قیمت مضرب ۱۰۰۰ نبود (مثلاً ۴۵٬۵۰۰) گرد نمی‌کنیم و ۴۵.۵ نشون میدیم تا جمع کل با جمع ردیف‌ها بخونه
+  const val = Math.round((Number(price) || 0) / 10) / 100;
+  return `<span class="price-amount">${val.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span><span class="price-suffix">T</span>`;
 }
 // ============ SPLASH SCREEN LOGIC ============
 // از window.load استفاده نمی‌کنیم چون منتظر لود کامل همه‌ی عکس‌های محصولات هم می‌مونه
@@ -102,20 +99,30 @@ function hideSplash() {
   if (!splash || splash.dataset.hidden === 'true') return;
   splash.dataset.hidden = 'true';
   splash.classList.add('hide');
-  try {
-    history.replaceState({ page: 'home' }, '');
-  } catch { }
-  // درست همین لحظه که اسپلش محو میشه، متن‌های هیرو با انیمیشن پلکانی ظاهر میشن
+  // کلاس site-loaded برای استایل‌دهی بعد از رفتن اسپلش (و رویداد siteloaded برای پیش‌لود عکس‌ها)
   document.body.classList.add('site-loaded');
   window.dispatchEvent(new Event('siteloaded'));
   setTimeout(() => splash.remove(), 250);
 }
 
-// بارگذاری و پنهان شدن اسپلش به صورت مرحله‌ای توسط initStagedLoading() در انتهای اسکریپت مدیریت می‌شود.
+document.addEventListener('DOMContentLoaded', () => {
+  // اسپلش رو تا وقتی هم منو/محصولات و هم تنظیمات سایت (لوگو) کامل لود نشدن نگه می‌داریم،
+  // تا کاربر هیچ‌وقت سایت نصفه‌کاره یا در حال لود رو نبینه. اگه لود بیشتر از ۴ ثانیه طول کشید
+  // (نت کند، سرور کند، هرچی)، همون سقف ۴ ثانیه‌ای رعایت میشه و از رو اسپلش رد میشیم.
+  // علاوه بر دیتا، منتظر عکس‌های اولِ منو و فونت‌ها هم می‌مونیم تا بعد از رفتن اسپلش،
+  // عکس‌ها یکی‌یکی نپرن و متن‌ها فونتشون عوض نشه (همه‌ی این انتظارها سقف زمانی دارن).
+  const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
+    .then(() => waitForMenuImages(2000));
+  const hardCap = new Promise((resolve) => setTimeout(resolve, 4500));
+  Promise.race([allLoaded, hardCap]).then(hideSplash);
+});
+
+// شبکه‌ی ایمنی نهایی: مهم نیست چه اتفاقی بیفته (حتی اگه DOMContentLoaded خودش گیر کنه)،
+// اسپلش بیشتر از ۴.۵ ثانیه رو صفحه نمی‌مونه.
+setTimeout(hideSplash, 4500);
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
-const modalBackdrop = document.getElementById('modalBackdrop');
 const modalClose = document.getElementById('modalClose');
 const modalImage = document.getElementById('modalImage');
 const modalPlaceholder = document.getElementById('modalPlaceholder');
@@ -130,152 +137,325 @@ let modalImgToken = 0;
 const CAT_COLORS = {
   coffee: '#B58863',
   dessert: '#9DBA8F', // دیفالت سایت
-  breakfast: '#E8A93E'
+  breakfast: '#E8A93E',
+  sweets: '#D4918F'
 };
 
+// تنها منبع رنگ دسته‌ها (CSS از متغیر --cat-color استفاده می‌کنه)؛ دسته‌ی جدیدی که از ادمین اضافه بشه
+// هم یه رنگ ثابت (از روی hash اسمش) می‌گیره و بی‌رنگ نمی‌مونه
+function catColor(id) {
+  if (Object.prototype.hasOwnProperty.call(CAT_COLORS, id)) return CAT_COLORS[id];
+  let h = 0;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h} 38% 62%)`;
+}
+
+// ============ مدیریت فوکوس دیالوگ‌ها (سبد، مودال محصول، مرتب‌سازی) ============
+// موقع باز شدن فوکوس میره داخل دیالوگ، با Tab از دیالوگ بیرون نمی‌زنه، و موقع بسته شدن به المان قبلی برمی‌گرده
+const focusReturn = new Map();
+function rememberFocus(key) { focusReturn.set(key, document.activeElement); }
+function restoreFocus(key) {
+  const el = focusReturn.get(key);
+  focusReturn.delete(key);
+  if (el && el.isConnected && typeof el.focus === 'function' && el !== document.body) el.focus({ preventScroll: true });
+}
+function focusInside(el) {
+  requestAnimationFrame(() => el && el.focus({ preventScroll: true }));
+}
+function focusableIn(root) {
+  return [...root.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => el.getClientRects().length > 0);
+}
+function topDialog() {
+  if (tableModal.classList.contains('open')) return tableModal;
+  if (cartDrawer.classList.contains('open')) return cartDrawer;
+  if (sortModal.classList.contains('open')) return sortModal;
+  if (modal.classList.contains('open')) return modal.querySelector('.modal-box');
+  return null;
+}
+
 // ============ پیش‌بارگذاری عکس مودال ============
-// ۱) کارت‌هایی که کاربر دیده، بعد از بسته شدن اسپلش، با اولویت پایین و حداکثر ۲ تا همزمان پیش‌لود میشن
-// ۲) لحظه‌ی لمس کارت، دانلودش با اولویت بالا شروع میشه
-// ۳) عکس دیکدشده همین‌جا نگه داشته میشه تا موقع باز شدن مودال دقیقاً بدون تأخیر نشون داده بشه
-// تو حالت صرفه‌جویی داده یا 2G هیچ پیش‌لودی نداریم.
+// قبلاً عکس بزرگ محصول فقط بعد از کلیک شروع به دانلود می‌کرد؛ برای همین موبایل بعد از لمس چند ثانیه
+// اسکلتون می‌دید. حالا: (۱) کارت‌هایی که کاربر واقعاً دیده تو پس‌زمینه با اولویت پایین و حداکثر ۲ تا
+// همزمان پیش‌لود میشن، (۲) لحظه‌ی لمس کارت (قبل از رها کردن انگشت) دانلودش با اولویت بالا شروع میشه.
+// تو حالت صرفه‌جویی داده یا نت 2G هیچ پیش‌لود پس‌زمینه‌ای انجام نمیشه.
+const mediumPreload = new Map();   // آدرس ← <img> (برای اینکه GC نشه و بشه فهمید تموم شده یا نه)
+const preloadQueue = [];
+let preloadActive = 0;
+
 function mediumUrlFor(imgSrc) {
   if (!imgSrc) return null;
   return /^https?:\/\//i.test(imgSrc) ? imgSrc : `images/med/${imgSrc.split('/').pop()}`;
 }
 
-const saveData = () => {
+function canBackgroundPreload() {
   const c = navigator.connection;
-  return !!(c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')));
-};
-
-const MODAL_CACHE_MAX = 16;
-const PRELOAD_CONCURRENCY = 2;
-const modalImgCache = new Map(); // medUrl -> HTMLImageElement
-const preloadQueue = [];
-let preloadActive = 0;
-let preloadEnabled = false;
-
-function preloadModalImage(imgSrc, priority = 'low') {
-  const url = mediumUrlFor(imgSrc);
-  if (!url) return null;
-  let img = modalImgCache.get(url);
-  if (img) return img;
-  img = new Image();
-  img.decoding = 'async';
-  img.fetchPriority = priority;
-  img.src = url;
-  img._ready = img.decode().then(
-    () => true,
-    () => { modalImgCache.delete(url); return false; } // شکست کش نشه
-  );
-  modalImgCache.set(url, img);
-  if (modalImgCache.size > MODAL_CACHE_MAX) {
-    modalImgCache.delete(modalImgCache.keys().next().value); // قدیمی‌ترین
-  }
-  return img;
+  return !(c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')));
 }
 
 function pumpPreload() {
-  if (!preloadEnabled) return;
-  while (preloadActive < PRELOAD_CONCURRENCY && preloadQueue.length) {
-    const src = preloadQueue.shift();
-    const url = mediumUrlFor(src);
-    if (!url || modalImgCache.has(url)) continue;
-    const img = preloadModalImage(src, 'low');
+  while (preloadActive < 2 && preloadQueue.length) {
+    const url = preloadQueue.shift();
+    if (mediumPreload.has(url)) continue;
+    const im = new Image();
+    im.decoding = 'async';
+    im.fetchPriority = 'low';
     preloadActive++;
-    img._ready.finally(() => { preloadActive--; pumpPreload(); });
+    const done = () => { preloadActive--; pumpPreload(); };
+    im.onload = done;
+    im.onerror = () => { mediumPreload.delete(url); done(); };
+    im.src = url;
+    mediumPreload.set(url, im);
   }
 }
 
-function queuePreload(src) {
-  if (!src || saveData()) return;
-  preloadQueue.push(src);
-  pumpPreload();
+function queueMediumPreload(imgSrc) {
+  const url = mediumUrlFor(imgSrc);
+  if (!url || mediumPreload.has(url) || preloadQueue.includes(url) || !canBackgroundPreload()) return;
+  preloadQueue.push(url);
+  if (window.requestIdleCallback) window.requestIdleCallback(pumpPreload, { timeout: 1500 });
+  else setTimeout(pumpPreload, 200);
 }
 
-// شروع پیش‌لود پس‌زمینه فقط بعد از رفتن اسپلش، تا با لود اولیه‌ی منو رقابت نکنه
-window.addEventListener('siteloaded', () => { preloadEnabled = true; pumpPreload(); }, { once: true });
+// لمس کارت = احتمال خیلی بالای کلیک؛ همین الان با اولویت بالا شروع کن
+function boostMediumPreload(imgSrc) {
+  const url = mediumUrlFor(imgSrc);
+  if (!url || mediumPreload.has(url)) return;
+  const im = new Image();
+  im.decoding = 'async';
+  im.fetchPriority = 'high';
+  im.onerror = () => mediumPreload.delete(url);
+  im.src = url;
+  mediumPreload.set(url, im);
+}
 
-let preloadObserver = null;
+// افکت نئون دور کارت‌ها فقط وقتی کارت تو دیده که انیمیشنش اجرا بشه (تا با ۳۰+ کارت موبایل ضعیف نکشه)
+let neonObserver = null;
+function observeCardNeon() {
+  if (neonObserver) neonObserver.disconnect();
+  const cards = document.querySelectorAll('.product-card');
+  if (!('IntersectionObserver' in window)) { cards.forEach(c => c.classList.add('neon-on')); return; }
+  neonObserver = new IntersectionObserver((entries) => {
+    for (const e of entries) e.target.classList.toggle('neon-on', e.isIntersecting);
+  }, { rootMargin: '60px 0px' });
+  cards.forEach(c => neonObserver.observe(c));
+}
+
+let cardPreloadObserver = null;
 function observeCardsForPreload() {
-  if (!('IntersectionObserver' in window) || saveData()) return;
-  if (preloadObserver) preloadObserver.disconnect();
-  preloadObserver = new IntersectionObserver((entries) => {
-    entries.forEach((en) => {
-      if (!en.isIntersecting) return;
-      preloadObserver.unobserve(en.target);
-      const p = productsData.products.find((x) => x.id === en.target.dataset.id);
-      if (p) queuePreload(p.image || getCategoryImage(p.category));
-    });
-  }, { rootMargin: '300px 0px' });
-  grid.querySelectorAll('.product-card').forEach((c) => preloadObserver.observe(c));
+  if (!('IntersectionObserver' in window)) return;
+  if (cardPreloadObserver) cardPreloadObserver.disconnect();
+  const timers = new Map();
+  cardPreloadObserver = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      const card = e.target;
+      if (!e.isIntersecting) { clearTimeout(timers.get(card)); timers.delete(card); continue; }
+      // فقط کارتی که حداقل نیم ثانیه تو دید بوده (اسکرول سریع، نصفه‌کاره‌ها رو پیش‌لود نکنه)
+      timers.set(card, setTimeout(() => {
+        timers.delete(card);
+        cardPreloadObserver.unobserve(card);
+        const product = productsData && productsData.products.find(p => p.id === card.dataset.id);
+        if (product) queueMediumPreload(product.image || getCategoryImage(product.category));
+      }, 500));
+    }
+  }, { rootMargin: '150px 0px' });
+  document.querySelectorAll('.product-card').forEach(card => cardPreloadObserver.observe(card));
 }
 
-function openModal(product, catLabelText) {
+// ============ انیمیشن باز/بسته شدن محصول: خود کارت زوم میشه و میاد وسط صفحه ============
+// ایده: کپیِ کارت (ghost) از جای کارت شروع می‌کنه و به‌اندازه‌ی پاپ‌آپ بزرگ میشه و محو میشه؛ هم‌زمان خودِ
+// پاپ‌آپ از شکل و جای کارت (با clip-path) باز میشه و محتواش محو میاد. فقط scale یکنواخت داریم، پس متن کش نمیاد.
+// موقع بستن همین مسیر برعکس میره و کارت سر جای اولش برمی‌گرده. با «کاهش حرکت» فقط پس‌زمینه محو/ظاهر میشه.
+const MODAL_OPEN_MS = 400;
+const MODAL_CLOSE_MS = 300; // کمتر از تأخیر visibility تو CSS (۰.۳۴ ثانیه) بمونه
+const MODAL_EASE_OPEN = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const MODAL_EASE_CLOSE = 'cubic-bezier(0.4, 0, 0.2, 1)';
+let modalCard = null;   // کارتی که پاپ‌آپ ازش باز شده (تا بسته شدن نیمه‌شفاف/مخفیه)
+let modalGhost = null;
+let modalAnims = [];
+
+function cancelModalAnims() {
+  modalAnims.forEach(a => { try { a.cancel(); } catch { /* مهم نیست */ } });
+  modalAnims = [];
+}
+
+// همه‌ی حالت‌های انیمیشن رو پاک می‌کنه و کارت رو به حالت عادی برمی‌گردونه
+function finishModalMotion() {
+  cancelModalAnims();
+  if (modalGhost) { modalGhost.remove(); modalGhost = null; }
+  if (modalCard) { modalCard.style.opacity = ''; modalCard = null; }
+}
+
+// مختصات شروع (کارت) و پایان (پاپ‌آپ)؛ null یعنی انیمیشن ممکن نیست و بدون حرکت ادامه میدیم
+function modalMotionGeometry(card) {
+  const box = modal.querySelector('.modal-box');
+  if (!card || !card.isConnected || !box || !box.animate || prefersReducedMotion()) return null;
+  const cr = card.getBoundingClientRect();
+  const fr = box.getBoundingClientRect();
+  if (!cr.width || !cr.height || !fr.width || !fr.height) return null;
+  const s = cr.width / fr.width;
+  const dx = (cr.left + cr.width / 2) - (fr.left + fr.width / 2);
+  const dy = (cr.top + cr.height / 2) - (fr.top + fr.height / 2);
+  // پنجره‌ی دیدِ اولیه به‌اندازه‌ی کارته (بالا/پایین پاپ‌آپ بریده میشه)
+  const v = Math.max(0, (fr.height - cr.height / s) / 2);
+  return {
+    box, cr, dx, dy, s,
+    from: { transform: `translate(${dx}px, ${dy}px) scale(${s})`, clipPath: `inset(${v}px 0px ${v}px 0px round ${16 / s}px)` },
+    to: { transform: 'translate(0px, 0px) scale(1)', clipPath: 'inset(0px 0px 0px 0px round 24px)' },
+  };
+}
+
+function makeCardGhost(card, cr) {
+  const g = card.cloneNode(true);
+  g.removeAttribute('data-id');
+  g.removeAttribute('tabindex');
+  g.setAttribute('aria-hidden', 'true');
+  g.classList.add('card-ghost');
+  g.querySelectorAll('.card-neon').forEach(n => n.remove());
+  Object.assign(g.style, {
+    position: 'fixed', left: `${cr.left}px`, top: `${cr.top}px`,
+    width: `${cr.width}px`, height: `${cr.height}px`,
+    margin: '0', zIndex: '2', pointerEvents: 'none', opacity: '1',
+  });
+  modal.append(g);
+  return g;
+}
+
+function modalContentEls() {
+  return modal.querySelectorAll('.modal-image, .modal-body, .modal-close');
+}
+
+function playModalOpen(card) {
+  cancelModalAnims();
+  const m = modalMotionGeometry(card);
+  if (!m) return;
+  const { box, cr, dx, dy, s } = m;
+
+  modalCard = card;
+  card.style.opacity = '0'; // خود کارت تا بسته شدن پاپ‌آپ خالیه؛ همون کارته که بزرگ شده
+  if (modalGhost) modalGhost.remove();
+  const ghost = modalGhost = makeCardGhost(card, cr);
+
+  modalAnims.push(box.animate([m.from, m.to], { duration: MODAL_OPEN_MS, easing: MODAL_EASE_OPEN }));
+  modalContentEls().forEach(el => {
+    modalAnims.push(el.animate([{ opacity: 0 }, { opacity: 1 }],
+      { duration: 240, delay: 110, easing: 'ease-out', fill: 'backwards' }));
+  });
+  const ghostAnim = ghost.animate([
+    { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 0 },
+    { opacity: 0, offset: 0.5 },
+    { transform: `translate(${-dx}px, ${-dy}px) scale(${1 / s})`, opacity: 0, offset: 1 },
+  ], { duration: MODAL_OPEN_MS, easing: MODAL_EASE_OPEN, fill: 'forwards' });
+  ghostAnim.onfinish = () => { if (modalGhost === ghost) { ghost.remove(); modalGhost = null; } };
+  modalAnims.push(ghostAnim);
+}
+
+function playModalClose() {
+  cancelModalAnims();
+  const card = modalCard;
+  const m = modalMotionGeometry(card);
+  if (!m) { finishModalMotion(); return; }
+  const { box, cr, dx, dy, s } = m;
+
+  if (modalGhost) modalGhost.remove();
+  const ghost = modalGhost = makeCardGhost(card, cr);
+  ghost.style.opacity = '0';
+
+  // fill:forwards یعنی تا لحظه‌ای که overlay کامل مخفی میشه، پاپ‌آپ به حالت باز برنمی‌گرده (فلش نداریم)
+  modalAnims.push(box.animate([m.to, m.from], { duration: MODAL_CLOSE_MS, easing: MODAL_EASE_CLOSE, fill: 'forwards' }));
+  modalContentEls().forEach(el => {
+    modalAnims.push(el.animate([{ opacity: 1 }, { opacity: 0 }],
+      { duration: 120, easing: 'ease-in', fill: 'forwards' }));
+  });
+  const ghostAnim = ghost.animate([
+    { transform: `translate(${-dx}px, ${-dy}px) scale(${1 / s})`, opacity: 0, offset: 0 },
+    { opacity: 0, offset: 0.45 },
+    { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 1 },
+  ], { duration: MODAL_CLOSE_MS, easing: MODAL_EASE_CLOSE, fill: 'forwards' });
+  ghostAnim.onfinish = () => {
+    // کپی و کارت اصلی دقیقاً هم‌شکل‌ان؛ هم‌زمان جابه‌جا میشن، پس هیچ پرشی دیده نمیشه
+    if (modalGhost === ghost) { ghost.remove(); modalGhost = null; }
+    if (modalCard === card) { card.style.opacity = ''; modalCard = null; }
+  };
+  modalAnims.push(ghostAnim);
+}
+
+function openModal(product, catLabelText, card) {
+  finishModalMotion(); // اگه انیمیشن بسته‌شدنِ قبلی هنوز در جریانه، تمومش کن
   modalProductId = product.id;
+  resetModalZoom();
+  modalImage.dataset.fullSrc = product.image || getCategoryImage(product.category) || '';
   modalImage.querySelectorAll('img').forEach(el => el.remove());
+  modalImage.classList.remove('img-ready');
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
 
+  // مودال عکس اصلی چندمگابایتی رو نمی‌گیره؛ نسخه‌ی متوسط (≤۸۰۰px) رو می‌گیره که معمولاً قبل از کلیک
+  // پیش‌لود شده. اگه هنوز نرسیده بود، تامبنیل کارت (که همین الان تو کش مرورگره) همون لحظه نشون داده
+  // میشه و عکس واضح روش fade میشه (دو لایه‌ی روی هم؛ بدون تغییر اندازه، پس پرشی نداریم).
+  // عکس اصلی فقط موقع زوم (data-full) لود میشه.
   const imgSrc = product.image || getCategoryImage(product.category);
   const token = ++modalImgToken;
   if (imgSrc) {
-    const alive = () => token === modalImgToken;
-    const thumbUrl = productThumbSrc(imgSrc);
+    const isLocal = !/^https?:\/\//i.test(imgSrc);
+    const fname = imgSrc.split('/').pop();
+    const medUrl = mediumUrlFor(imgSrc);
+    const cardImg = card && card.querySelector('.product-image img');
+    const thumbUrl = (cardImg && cardImg.getAttribute('src')) || (isLocal ? `images/thumb/${fname}` : null);
     const absFull = new URL(imgSrc, location.href).href;
-    const pre = preloadModalImage(imgSrc, 'high');
+    const alive = () => token === modalImgToken;
 
-    const showFull = (el) => {
-      el.className = 'm-full';
+    const mk = (cls, src) => {
+      const el = document.createElement('img');
+      el.className = cls;
       el.alt = product.name;
-      modalImage.append(el);
-      void el.offsetWidth; // یه فریم با opacity:0 تا فید واقعاً اجرا بشه
-      el.classList.add('shown');
+      el.decoding = 'async';
+      el.dataset.full = imgSrc;
+      el.src = src;
+      return el;
+    };
+    const showFailed = () => {
+      modalImage.querySelectorAll('img').forEach(el => el.remove());
+      modalImage.classList.add('img-ready');
+      modalPlaceholder.style.display = 'flex';
     };
 
-    if (pre && pre.complete && pre.naturalWidth > 0) {
-      // قبلاً دانلود شده (پیش‌لود): مستقیم و بدون فید نشون بده، هیچ مرحله‌ای دیده نمیشه
-      pre.className = 'm-full shown';
-      pre.alt = product.name;
-      modalImage.append(pre);
-    } else {
-      // تامبنیل فقط به‌عنوان بلور-آپ (بلور با CSS)، نه یه مرحله‌ی «عکس بد» که بعدش بپره
-      let thumb = null;
-      if (thumbUrl) {
-        thumb = document.createElement('img');
-        thumb.className = 'm-thumb shown';
-        thumb.alt = '';
-        thumb.src = thumbUrl;
-        modalImage.append(thumb);
-      }
+    const full = mk('m-full', medUrl);
+    const showFull = () => {
+      if (!alive()) return;
+      modalImage.classList.add('img-ready');
+      requestAnimationFrame(() => full.classList.add('shown'));
+    };
+    full.onload = showFull;
+    full.onerror = () => {
+      if (!alive()) return;
+      if (full.src !== absFull) { full.src = absFull; return; }   // نسخه‌ی متوسط نبود ← عکس اصلی
+      if (!modalImage.querySelector('.m-thumb.shown')) showFailed();
+    };
+    modalImage.append(full);
 
-      const fallbackToOriginal = () => {
-        const full = new Image();
-        full.decoding = 'async';
-        full.src = absFull;
-        full.decode().then(() => { if (alive()) showFull(full); }).catch(() => {
-          if (!alive()) return;
-          if (thumb) thumb.classList.add('no-blur');
-          else modalPlaceholder.style.display = 'flex';
-        });
+    const alreadyThere = full.complete && full.naturalWidth > 0;
+    if (alreadyThere) {
+      showFull();
+    } else if (thumbUrl) {
+      const th = mk('m-thumb', thumbUrl);
+      const showThumb = () => {
+        if (!alive()) return;
+        modalImage.classList.add('img-ready');
+        th.classList.add('shown');
       };
-
-      if (pre) {
-        // فید فقط بعد از تموم شدن دانلود «و دیکد» → دیگه وسط فید جنک نمیشه
-        pre._ready.then((ok) => {
-          if (!alive()) return;
-          if (ok) showFull(pre); else fallbackToOriginal();
-        });
-      } else {
-        fallbackToOriginal();
-      }
+      th.onload = showThumb;
+      th.onerror = () => th.remove();
+      modalImage.prepend(th);
+      if (th.complete && th.naturalWidth > 0) showThumb(); // از کش آماده‌ست؛ همون لحظه نشونش بده
     }
   } else {
+    modalImage.classList.add('img-ready');
     modalPlaceholder.style.display = 'flex';
   }
 
   modalCat.textContent = catLabelText;
-  modalCat.style.setProperty('--cat-color', CAT_COLORS[product.category] || '#9DBA8F');
+  modalCat.style.setProperty('--cat-color', catColor(product.category));
   modalName.textContent = product.name;
   modalNote.textContent = product.note;
   if (product.originalPrice && product.originalPrice > product.price) {
@@ -284,18 +464,24 @@ function openModal(product, catLabelText) {
     modalPrice.innerHTML = formatPrice(product.price);
   }
 
+  rememberFocus('modal');
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
   lockScroll();
   history.pushState({ modal: true }, "");
+  focusInside(modalClose);
+  playModalOpen(card);
 }
 
 function closeModal() {
   if (!modal.classList.contains('open')) return;
+  resetModalZoom();
   modalImgToken++; // دانلودهای نیمه‌کاره‌ی عکس مودال دیگه چیزی تغییر نمیدن
+  playModalClose();
   modal.classList.remove('open');
   modal.setAttribute('aria-hidden', 'true');
   unlockScroll();
+  restoreFocus('modal');
 }
 
 function handleClose() {
@@ -308,7 +494,7 @@ function handleClose() {
 
 modalClose.addEventListener('click', handleClose);
 modal.addEventListener('click', (e) => {
-  if (e.target === modal || (modalBackdrop && e.target === modalBackdrop)) handleClose();
+  if (e.target === modal) handleClose();
 });
 modalAddBtn.addEventListener('click', () => {
   if (!modalProductId) return;
@@ -323,37 +509,34 @@ modalAddBtn.addEventListener('click', () => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    // پاپ‌آپ انتخاب میز بالای سبد خرید بازه؛ فقط همون بسته میشه، نه سبد خرید زیرش
-    if (tableModal && tableModal.classList.contains('open')) { handleTableClose(); return; }
-    if (modal && modal.classList.contains('open')) { handleClose(); return; }
-    if (cartDrawer && cartDrawer.classList.contains('open')) { closeCart(); return; }
-    if (sortModal && sortModal.classList.contains('open')) { closeSortModal(); return; }
+    // فقط بالاترین لایه بسته میشه (هر Escape یه لایه)
+    if (tableModal.classList.contains('open')) { handleTableClose(); return; }
+    if (cartDrawer.classList.contains('open')) { requestCloseCart(); return; }
+    if (sortModal.classList.contains('open')) { requestCloseSort(); return; }
+    if (modal.classList.contains('open')) { handleClose(); return; }
+    closeMobileNav();
+    return;
+  }
+
+  // تله‌ی فوکوس: Tab/Shift+Tab داخل بالاترین دیالوگ می‌چرخه
+  if (e.key === 'Tab') {
+    const dlg = topDialog();
+    if (!dlg) return;
+    const items = focusableIn(dlg);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (!dlg.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 });
-window.addEventListener('popstate', (e) => {
+window.addEventListener('popstate', () => {
   // دکمه‌ی برگشت وقتی پاپ‌آپ میز بازه، فقط خود پاپ‌آپ رو می‌بنده و سبد خرید باز می‌مونه
-  if (tableModal && tableModal.classList.contains('open')) {
-    closeTableModal();
-    return;
-  }
-  // اگر مدال محصول باز است، فقط آن را ببند تا کاربر روی صفحه بماند
-  if (modal && modal.classList.contains('open')) {
-    closeModal();
-    return;
-  }
-  // اگر سبد خرید باز است
-  if (cartDrawer && cartDrawer.classList.contains('open')) {
-    closeCart();
-    return;
-  }
-  // اگر مدال مرتب‌سازی باز است
-  if (sortModal && sortModal.classList.contains('open')) {
-    closeSortModal();
-    return;
-  }
+  if (tableModal.classList.contains('open')) { closeTableModal(); return; }
+  closeModal();
+  closeCart();
+  closeSortModal();
 });
-
-
 
 // ============ MENU RENDER & SORT ============
 const grid = document.getElementById('productGrid');
@@ -374,28 +557,30 @@ let currentSort = 'default';
 const EAGER_IMAGE_COUNT = 12;
 let productImgIndex = 0;
 
-// منتظر می‌مونه عکس‌های دسته‌بندی‌ها واقعاً دانلود و دیکد بشن (مرحله دوم لودینگ)
-function waitForCategoryImages(timeoutMs = 1500) {
-  const imgs = Array.from(tabsEl.querySelectorAll('img'));
-  if (!imgs.length) return Promise.resolve();
-  return Promise.all(imgs.map(img => waitForImage(img, timeoutMs)));
-}
-
-// منتظر می‌مونه عکس‌های کارت‌های اول منو واقعاً دانلود و دیکد بشن (مرحله سوم لودینگ)
-function waitForMenuImages(timeoutMs = 2000) {
-  const imgs = Array.from(grid.querySelectorAll('.product-card img'))
-    .slice(0, EAGER_IMAGE_COUNT);
-  if (!imgs.length) return Promise.resolve();
+// منتظر می‌مونه عکس‌های دسته‌بندی و چند کارت اول واقعاً دانلود و دیکد بشن (یا سقف زمانی تموم بشه)
+function waitForMenuImages(timeoutMs) {
+  const imgs = Array.from(document.querySelectorAll('.cat-card-img img, .product-card img'))
+    .slice(0, EAGER_IMAGE_COUNT + 6);
   return Promise.all(imgs.map(img => {
     if (img.loading === 'lazy' && !img.complete) return Promise.resolve();
     return waitForImage(img, timeoutMs);
   }));
 }
 
-// فونت‌ها به صورت محلی و خودمیزبان (Self-hosted WOFF2) از fonts.css لود می‌شوند
+// فونت‌ها از گوگل میان (CSS غیرمسدودکننده). قبلاً فقط document.fonts.ready رو صبر می‌کردیم که
+// اگه هنوز هیچ فونتی درخواست نشده باشه همون لحظه resolve میشه؛ نتیجه: فونت وسط انیمیشن اسپلش
+// می‌رسید، عرض عنوان عوض می‌شد و کل صفحه دوباره چیده می‌شد (پرش). حالا وجه‌های واقعی رو صراحتاً
+// درخواست می‌کنیم و انیمیشن اسپلش فقط بعد از رسیدنشون (با سقف زمانی) شروع میشه.
 let fontsPromise = null;
-function waitForFonts(timeoutMs = 1200) {
+function waitForFonts(timeoutMs) {
   if (fontsPromise) return fontsPromise;
+  const css = document.getElementById('fontCss');
+  const cssReady = (!css || css.dataset.ready)
+    ? Promise.resolve()
+    : new Promise(resolve => {
+        css.addEventListener('load', resolve, { once: true });
+        css.addEventListener('error', resolve, { once: true });
+      });
   const loadFaces = () => {
     if (!document.fonts || !document.fonts.load) return null;
     const fa = 'سلام کافه روشن';
@@ -405,17 +590,16 @@ function waitForFonts(timeoutMs = 1200) {
       document.fonts.load('700 16px Vazirmatn', fa),
       document.fonts.load('900 16px Estedad', fa),
       document.fonts.load('italic 500 16px "Cormorant Garamond"', 'Roshan Cafe'),
-    ]).catch(() => { });
+    ]).catch(() => {});
   };
   fontsPromise = Promise.race([
-    Promise.resolve().then(loadFaces),
+    cssReady.then(loadFaces),
     new Promise(resolve => setTimeout(resolve, timeoutMs)),
   ]);
   return fontsPromise;
 }
 
-async function fetchProductsData() {
-  if (productsData.products && productsData.products.length > 0) return productsData;
+async function loadProducts() {
   try {
     // Worker دیتا رو مستقیم تو HTML گذاشته؛ فقط اگه نبود (مثلاً خطای سرور) fetch می‌کنیم
     const boot = getBoot() && getBoot().products;
@@ -427,14 +611,11 @@ async function fetchProductsData() {
     }
   } catch (err) {
     console.error('محصولات لود نشدند:', err);
+    return;
   }
-  return productsData;
-}
-
-async function loadProducts() {
-  await fetchProductsData();
   renderTabs();
   renderProducts();
+  restoreCart();
 }
 
 // اگه محصولی عکس نداشت، عکس دسته‌بندیش (یا اولین محصول دارای عکس تو همون دسته) رو نشون میده
@@ -448,15 +629,15 @@ function getCategoryImage(catId) {
 function renderTabs() {
   const allBtn = `<button class="cat-card active" data-cat="all">
     <span class="cat-card-img cat-card-img--all">✦</span>
-    <span class="cat-card-label">All</span>
+    <span class="cat-card-label">همه</span>
   </button>`;
 
   const catBtns = productsData.categories.map(c => {
     const img = getCategoryImage(c.id);
     const imgHtml = img
-      ? `<img src="${productThumbSrc(img)}" alt="${esc(c.label)}" loading="eager" fetchpriority="high" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
+      ? `<img src="${productThumbSrc(img)}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
       : esc(c.label.charAt(0));
-    return `<button class="cat-card" data-cat="${c.id}">
+    return `<button class="cat-card" data-cat="${esc(c.id)}">
       <span class="cat-card-img">${imgHtml}</span>
       <span class="cat-card-label">${esc(c.label)}</span>
     </button>`;
@@ -576,7 +757,6 @@ function scrollToCategory(catId) {
 let spyTicking = false;
 function updateActiveFromScroll() {
   spyTicking = false;
-  if (document.body.classList.contains('nav-open')) return;
   if (window.__menuAutoScrolling) return;
   const groups = grid.querySelectorAll('.menu-group[data-cat]');
   if (!groups.length) return;
@@ -597,11 +777,14 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 function openSortModal() {
+  if (sortModal.classList.contains('open')) return;
+  rememberFocus('sort');
   sortModal.classList.add('open');
   sortOverlay.classList.add('open');
   sortToggle.classList.add('active');
   lockScroll();
   history.pushState({ sort: true }, "");
+  focusInside(sortModal.querySelector('.sort-option.active') || sortModalClose);
 }
 
 function closeSortModal() {
@@ -610,6 +793,12 @@ function closeSortModal() {
   sortOverlay.classList.remove('open');
   sortToggle.classList.remove('active');
   unlockScroll();
+  restoreFocus('sort');
+}
+
+function requestCloseSort() {
+  if (history.state && history.state.sort) history.back();
+  else closeSortModal();
 }
 
 sortToggle.addEventListener('click', (e) => {
@@ -617,15 +806,8 @@ sortToggle.addEventListener('click', (e) => {
   openSortModal();
 });
 
-sortModalClose.addEventListener('click', () => {
-  if (history.state && history.state.sort) history.back();
-  else closeSortModal();
-});
-
-sortOverlay.addEventListener('click', () => {
-  if (history.state && history.state.sort) history.back();
-  else closeSortModal();
-});
+sortModalClose.addEventListener('click', requestCloseSort);
+sortOverlay.addEventListener('click', requestCloseSort);
 
 sortModal.querySelectorAll('.sort-option').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -633,8 +815,7 @@ sortModal.querySelectorAll('.sort-option').forEach(btn => {
     btn.classList.add('active');
     currentSort = btn.dataset.sort;
     renderProducts();
-    if (history.state && history.state.sort) history.back();
-    else closeSortModal();
+    requestCloseSort();
   });
 });
 
@@ -652,7 +833,7 @@ function productCardHtml(p) {
   const thumbSrc = productThumbSrc(imgSrc);
   const lazy = productImgIndex++ >= EAGER_IMAGE_COUNT ? 'lazy' : 'eager';
   return `
-    <article class="product-card" data-id="${p.id}">
+    <article class="product-card" data-id="${esc(p.id)}" tabindex="0" style="--cat-color:${catColor(p.category)}">
       <svg class="card-neon" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <rect x="1" y="1" width="98" height="98" rx="7" ry="7" pathLength="100"></rect>
       </svg>
@@ -662,7 +843,7 @@ function productCardHtml(p) {
       </div>
       <div class="product-info">
         <div class="product-header">
-          <span class="cat-dot" data-cat="${p.category}"></span>
+          <span class="cat-dot"></span>
           <div class="product-name">${esc(p.name)}</div>
           ${p.originalPrice ? '<span class="discount-badge">تخفیف</span>' : ''}
         </div>
@@ -672,7 +853,7 @@ function productCardHtml(p) {
             ${p.originalPrice ? `<span class="price-old mono">${formatPrice(p.originalPrice)}</span>` : ''}
             <span class="product-price mono">${formatPrice(p.price)}</span>
           </div>
-          <button class="add-to-cart-btn" data-id="${p.id}">افزودن +</button>
+          <button class="add-to-cart-btn" data-id="${esc(p.id)}">افزودن +</button>
         </div>
       </div>
     </article>
@@ -711,44 +892,46 @@ function renderProducts() {
   `).join('');
 
   updateActiveFromScroll();
-  observeCardsForPreload();
+
+  grid.querySelectorAll('.product-card').forEach(card => {
+    card.addEventListener('pointerdown', () => {
+      const pr = productsData.products.find(p => p.id === card.dataset.id);
+      if (pr) boostMediumPreload(pr.image || getCategoryImage(pr.category));
+    }, { passive: true });
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.add-to-cart-btn')) return;
+      const product = productsData.products.find(p => p.id === card.dataset.id);
+      if (product) openModal(product, catLabel(product.category), card);
+    });
+    // دسترسی با کیبورد: Enter/Space روی خود کارت مودال محصول رو باز می‌کنه
+    card.addEventListener('keydown', (e) => {
+      if (e.target !== card || (e.key !== 'Enter' && e.key !== ' ')) return;
+      e.preventDefault();
+      card.click();
+    });
+  });
+
+  observeCardNeon();
+
+  // پیش‌لود پس‌زمینه فقط بعد از رفتن اسپلش شروع میشه تا با لود اولیه‌ی صفحه سر پهنای باند دعوا نکنه
+  if (document.body.classList.contains('site-loaded')) observeCardsForPreload();
+  else window.addEventListener('siteloaded', observeCardsForPreload, { once: true });
+
+  grid.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const productId = btn.dataset.id;
+      addToCart(productId);
+
+      btn.textContent = "افزوده شد ✓";
+      btn.classList.add('added');
+      setTimeout(() => {
+        btn.textContent = "افزودن +";
+        btn.classList.remove('added');
+      }, 1500);
+    });
+  });
 }
-
-// لحظه‌ی لمس (قبل از رها کردن انگشت)، دانلود عکس مودال با اولویت بالا شروع میشه
-grid.addEventListener('pointerdown', (e) => {
-  if (saveData()) return;
-  const card = e.target.closest('.product-card');
-  if (!card) return;
-  const p = productsData.products.find((x) => x.id === card.dataset.id);
-  if (p) preloadModalImage(p.image || getCategoryImage(p.category), 'high');
-}, { passive: true });
-
-// Event Delegation یکپارچه برای کلیک کارت‌ها و افزودن به سبد خرید (بدون ساخت ده‌ها لیسنر در هر رندر)
-grid.addEventListener('click', (e) => {
-  const addBtn = e.target.closest('.add-to-cart-btn');
-  if (addBtn) {
-    e.stopPropagation();
-    const productId = addBtn.dataset.id;
-    addToCart(productId);
-
-    addBtn.textContent = "افزوده شد ✓";
-    addBtn.classList.add('added');
-    setTimeout(() => {
-      addBtn.textContent = "افزودن +";
-      addBtn.classList.remove('added');
-    }, 1500);
-    return;
-  }
-
-  const card = e.target.closest('.product-card');
-  if (card) {
-    const product = productsData.products.find(p => p.id === card.dataset.id);
-    if (product) {
-      const cat = productsData.categories.find(c => c.id === product.category);
-      openModal(product, cat ? cat.label : product.category);
-    }
-  }
-});
 
 // ============ CART SYSTEM ============
 const cartDrawer = document.getElementById('cartDrawer');
@@ -773,31 +956,78 @@ const floatCartCount = document.getElementById('floatCartCount');
 const floatCartTotal = document.getElementById('floatCartTotal');
 
 let cart = [];
+const MAX_QTY = 50; // باید با MAX_QTY سمت سرور (src/handlers/orders.js) یکی باشه
+const CART_STORAGE_KEY = 'cafe-roshan-cart-v1';
+
+// کلید یکتای هر «تلاش ثبت سفارش»: اگه سرور سفارش رو ثبت کنه ولی جواب به گوشی نرسه و مشتری دوباره بزنه،
+// سرور با همین کلید می‌فهمه سفارش تکراریه. با هر تغییر سبد/میز کلید عوض میشه (سفارش جدیده)
+let orderAttemptKey = null;
+function newOrderKey() {
+  return (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+}
+
+// سبد (فقط id و تعداد) تو sessionStorage می‌مونه تا رفرش یا برگشت از تب دیگه سبد رو پاک نکنه؛
+// قیمت و اسم هر بار از دیتای تازه‌ی منو خونده میشه
+function saveCart() {
+  orderAttemptKey = null;
+  try {
+    sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({
+      items: cart.map(i => ({ id: i.id, quantity: i.quantity })),
+      table: selectedTable,
+    }));
+  } catch { /* حالت خصوصی/حافظه پر؛ مهم نیست */ }
+}
+
+function restoreCart() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(CART_STORAGE_KEY) || 'null');
+    for (const s of (Array.isArray(saved?.items) ? saved.items : [])) {
+      const p = productsData.products.find(x => x.id === s?.id);
+      const q = Math.min(MAX_QTY, Math.floor(Number(s?.quantity)));
+      if (!p || !(q > 0)) continue; // محصولی که دیگه تو منو نیست حذف میشه
+      cart.push({ ...p, image: p.image || getCategoryImage(p.category), quantity: q });
+    }
+    const t = String(saved?.table ?? '');
+    if (/^\d{1,3}$/.test(t) && Number(t) >= 1 && Number(t) <= TABLE_COUNT) selectedTable = t;
+  } catch { /* داده‌ی خراب؛ با سبد خالی شروع می‌کنیم */ }
+  renderTableSelect();
+  renderCart();
+}
 
 function openCart() {
+  if (cartDrawer.classList.contains('open')) return;
+  rememberFocus('cart');
   cartDrawer.classList.add('open');
+  cartDrawer.setAttribute('aria-hidden', 'false');
   cartOverlay.classList.add('open');
   lockScroll();
   history.pushState({ cart: true }, "");
+  focusInside(cartClose);
 }
 
 function closeCart() {
   if (!cartDrawer.classList.contains('open')) return;
   cartDrawer.classList.remove('open');
+  cartDrawer.setAttribute('aria-hidden', 'true');
   cartOverlay.classList.remove('open');
   unlockScroll();
+  restoreFocus('cart');
 }
 
-// باز شدن پنل با کلیک روی نوار شناور
+function requestCloseCart() {
+  if (history.state && history.state.cart) history.back();
+  else closeCart();
+}
+
+// باز شدن پنل با کلیک (یا Enter/Space) روی نوار شناور
 floatingCart.addEventListener('click', openCart);
-cartClose.addEventListener('click', () => {
-  if (history.state && history.state.cart) history.back();
-  else closeCart();
+floatingCart.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCart(); }
 });
-cartOverlay.addEventListener('click', () => {
-  if (history.state && history.state.cart) history.back();
-  else closeCart();
-});
+cartClose.addEventListener('click', requestCloseCart);
+cartOverlay.addEventListener('click', requestCloseCart);
 
 function addToCart(productId) {
   const product = productsData.products.find(p => p.id === productId);
@@ -805,29 +1035,42 @@ function addToCart(productId) {
 
   const existingItem = cart.find(item => item.id === productId);
   if (existingItem) {
-    existingItem.quantity++;
+    existingItem.quantity = Math.min(MAX_QTY, existingItem.quantity + 1);
   } else {
     cart.push({ ...product, image: product.image || getCategoryImage(product.category), quantity: 1 });
   }
+  saveCart();
   renderCart();
 }
 
 function removeFromCart(productId) {
   cart = cart.filter(item => item.id !== productId);
+  saveCart();
   renderCart();
 }
 
 function changeQty(productId, delta) {
   const item = cart.find(item => item.id === productId);
   if (item) {
-    item.quantity += delta;
+    item.quantity = Math.min(MAX_QTY, item.quantity + delta);
     if (item.quantity <= 0) {
       removeFromCart(productId);
     } else {
+      saveCart();
       renderCart();
     }
   }
 }
+
+// به‌جای onclick درون‌خطی (که id رو مستقیم تو رشته‌ی جاوااسکریپت می‌ذاشت): یه لیسنر روی کل لیست
+cartItemsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (btn.dataset.action === 'remove') removeFromCart(id);
+  else if (btn.dataset.action === 'inc') changeQty(id, 1);
+  else if (btn.dataset.action === 'dec') changeQty(id, -1);
+});
 
 function renderCart() {
   const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -836,9 +1079,19 @@ function renderCart() {
   // مدیریت نوار شناور پایین صفحه
   if (cart.length > 0) {
     const lastItem = cart[cart.length - 1]; // آخرین محصول اضافه شده
-    floatCartImg.src = lastItem.image;
-    floatCartImg.onerror = () => floatCartImg.style.display = 'none';
-    floatCartImg.style.display = 'block';
+    // برای ۴۰ پیکسل همون تامبنیل کوچیک کافیه، نه عکس اصلی
+    const thumb = lastItem.image ? productThumbSrc(lastItem.image) : null;
+    if (thumb) {
+      if (floatCartImg.getAttribute('src') !== thumb) {
+        floatCartImg.dataset.failed = '';
+        floatCartImg.onerror = () => { floatCartImg.dataset.failed = thumb; floatCartImg.style.display = 'none'; };
+        floatCartImg.src = thumb;
+      }
+      floatCartImg.style.display = floatCartImg.dataset.failed === thumb ? 'none' : 'block';
+    } else {
+      floatCartImg.removeAttribute('src'); // نه src="null" که یه درخواست الکی می‌زنه
+      floatCartImg.style.display = 'none';
+    }
     floatCartName.textContent = lastItem.name;
     floatCartCount.textContent = `${totalQty.toLocaleString('fa-IR')} مورد در سبد`;
     floatCartTotal.innerHTML = formatPrice(totalPrice);
@@ -857,14 +1110,16 @@ function renderCart() {
   cartItemsEl.innerHTML = cart.map((item, i) => `
     <div class="cart-item" style="animation-delay: ${i * 60}ms">
       <div class="cart-item-thumb">
-        <img src="${item.image}" alt="${esc(item.name)}" onerror="this.parentElement.style.display='none'">
+        ${item.image
+          ? `<img src="${esc(productThumbSrc(item.image))}" alt="${esc(item.name)}" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'">`
+          : `<span class="cart-item-ph" aria-hidden="true">${esc(item.name.charAt(0))}</span>`}
       </div>
       <div class="cart-item-main">
         <div class="cart-item-line1">
           <span class="cart-item-name">${esc(item.name)}</span>
-          <button class="remove-item" onclick="removeFromCart('${item.id}')" aria-label="حذف محصول">
+          <button type="button" class="remove-item" data-action="remove" data-id="${esc(item.id)}" aria-label="حذف ${esc(item.name)}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
               <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
@@ -873,9 +1128,9 @@ function renderCart() {
         </div>
         <div class="cart-item-line2">
           <div class="qty-control">
-            <button class="qty-btn" onclick="changeQty('${item.id}', -1)" aria-label="کم کردن">−</button>
+            <button type="button" class="qty-btn" data-action="dec" data-id="${esc(item.id)}" aria-label="کم کردن">−</button>
             <span class="qty-value mono">${item.quantity.toLocaleString('fa-IR')}</span>
-            <button class="qty-btn" onclick="changeQty('${item.id}', 1)" aria-label="اضافه کردن">+</button>
+            <button type="button" class="qty-btn" data-action="inc" data-id="${esc(item.id)}" aria-label="اضافه کردن">+</button>
           </div>
           <span class="cart-item-price mono">${formatPrice(item.price * item.quantity)}</span>
         </div>
@@ -941,6 +1196,7 @@ tableGrid.addEventListener('click', (e) => {
   const opt = e.target.closest('.table-option');
   if (!opt) return;
   selectedTable = opt.dataset.table;
+  saveCart(); // میز هم ذخیره میشه و کلید ثبت سفارش عوض میشه
   tableGrid.querySelectorAll('.table-option').forEach(b => {
     const on = b === opt;
     b.classList.toggle('selected', on);
@@ -969,6 +1225,7 @@ async function submitOrder() {
   if (cart.length === 0) return;
 
   checkoutBtn.disabled = true;
+  if (!orderAttemptKey) orderAttemptKey = newOrderKey();
   const originalLabel = checkoutBtn.textContent;
   checkoutBtn.textContent = 'در حال ثبت...';
   setCheckoutMsg('');
@@ -980,6 +1237,7 @@ async function submitOrder() {
       body: JSON.stringify({
         table,
         items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+        idempotencyKey: orderAttemptKey,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -987,6 +1245,7 @@ async function submitOrder() {
       throw new Error(data.error || 'خطایی رخ داد، لطفاً دوباره امتحان کنید.');
     }
     cart = [];
+    saveCart(); // سبد خالی ذخیره میشه و کلید تلاش بعدی عوض میشه
     renderCart();
     setCheckoutMsg('سفارش شما ثبت شد. لطفاً منتظر تایید گارسون در میز بمونید.', 'success');
   } catch (err) {
@@ -1043,7 +1302,6 @@ async function revealSplash(hasLogo) {
 // اگه مسیر واقعی لوگو (اونی که از ربات اومده) هم لود نشد، به فالبک متنی برمی‌گردیم
 window.showSplashFallback = function () {
   const splashLogo = document.getElementById('splashLogoImg');
-  if (!splashLogo || !splashLogo.getAttribute('src')) return;
   const splashFallback = document.getElementById('splashFallback');
   if (splashLogo) splashLogo.classList.remove('show');
   if (splashFallback) splashFallback.classList.add('show');
@@ -1170,6 +1428,13 @@ async function loadSiteConfig() {
 
   window.addEventListener('resize', update);
   update();
+
+  // انیمیشن درخشش عنوان هیرو بی‌نهایته؛ وقتی هیرو از دید رفت، CSS متوقفش می‌کنه (صرفه‌جویی باتری)
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => {
+      document.documentElement.classList.toggle('hero-offscreen', !entry.isIntersecting);
+    }).observe(heroCover);
+  }
 })();
 
 // ============ مخفی/نمایش هدر با جهت اسکرول (فضای بیشتر برای منو تو موبایل) ============
@@ -1227,55 +1492,156 @@ async function loadSiteConfig() {
   }, { passive: true });
 })();
 
+// ============ زوم داخل مودال (پینچ / دابل‌تپ / ctrl+چرخ) ============
+// transform روی خود عکس‌ها (CSS variable) اعمال میشه؛ کادر ثابت می‌مونه و overflow:hidden برش میده.
+// وقتی زوم نیست، touch-action: pan-y یعنی اسکرول عمودی مودال مثل قبل کار می‌کنه؛ وقتی زوم هست،
+// touch-action: none میشه تا کشیدن، عکس رو جابه‌جا کنه نه مودال رو.
+const ZOOM_MAX = 4;
+const zoomState = { s: 1, tx: 0, ty: 0 };
 
-
-// ============ بارگذاری مرحله‌ای آبشاری (Staged Loading Waterfall) ============
-// ۱. اول فقط لوگو، عکس هیرو و متن‌های اسپلش لود و نمایش داده می‌شوند.
-// ۲. پس از لود کامل و نمایش لوگو و هیرو، کاربر ۲ ثانیه در صفحه اسپلش می‌ماند.
-// ۳. در طول این ۲ ثانیه، سایت در پس‌زمینه (Background) به ترتیب لود می‌شود:
-//    - دوم: کتگوری‌ها لود و رندر می‌شوند.
-//    - سوم: محصولات و عکس‌های کارت‌های منو لود می‌شوند.
-// ۴. پس از پایان ۲ ثانیه (و اتمام لود بک‌گراند)، اسپلش محو شده و کاربر وارد سایت می‌شود.
-async function initStagedLoading() {
-  // سقف زمانی نهایی: در صورت بروز هرگونه مشکل شبکه، اسپلش حداکثر بعد از ۶ ثانیه بسته می‌شود
-  const hardCapTimer = setTimeout(hideSplash, 6000);
-
-  try {
-    // مرحله اول: ابتدا فقط لوگو، عکس هیرو و انیمیشن متن‌های اسپلش لود و کامل می‌شوند
-    await loadSiteConfig();
-
-    // مرحله دوم و سوم: شروع تایمر ۲ ثانیه + لود همزمان پس‌زمینه سایت
-    const wait2SecondsPromise = new Promise((resolve) => setTimeout(resolve, 2000));
-
-    const backgroundLoadingPromise = (async () => {
-      // دریافت و آماده‌سازی دیتای منو
-      await fetchProductsData();
-
-      // دوم: لود کتگوری‌ها
-      renderTabs();
-      await waitForCategoryImages(1200);
-
-      // سوم: لود عکس محصولات
-      renderProducts();
-      await waitForMenuImages(1500);
-    })();
-
-    // صبر می‌کنیم تا هم ۲ ثانیه تمام شود و هم لود پس‌زمینه کامل شود (سقف حداکثر ۳ ثانیه برای پس‌زمینه)
-    await Promise.all([
-      wait2SecondsPromise,
-      Promise.race([
-        backgroundLoadingPromise,
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ]),
-    ]);
-  } catch (err) {
-    console.error('خطا در بارگذاری مرحله‌ای:', err);
-  } finally {
-    clearTimeout(hardCapTimer);
-    hideSplash();
-  }
+function applyModalZoom() {
+  modalImage.style.setProperty('--zs', zoomState.s);
+  modalImage.style.setProperty('--zx', zoomState.tx + 'px');
+  modalImage.style.setProperty('--zy', zoomState.ty + 'px');
+  modalImage.classList.toggle('zoomed', zoomState.s > 1.01);
 }
 
+function clampModalZoom() {
+  const r = modalImage.getBoundingClientRect();
+  zoomState.s = Math.min(ZOOM_MAX, Math.max(1, zoomState.s));
+  const mx = (zoomState.s - 1) * r.width / 2;
+  const my = (zoomState.s - 1) * r.height / 2;
+  zoomState.tx = Math.min(mx, Math.max(-mx, zoomState.tx));
+  zoomState.ty = Math.min(my, Math.max(-my, zoomState.ty));
+}
+
+function resetModalZoom() {
+  zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0;
+  modalImage.classList.remove('animating');
+  applyModalZoom();
+}
+
+// وقتی کاربر واقعاً زوم کرد، نسخه‌ی با کیفیت (عکس اصلی) رو روی نسخه‌ی متوسط می‌ذاریم؛
+// برای کسی که زوم نمی‌کنه هیچ بایت اضافه‌ای دانلود نمیشه.
+function ensureHiresForZoom() {
+  const src = modalImage.dataset.fullSrc;
+  if (!src || modalImage.querySelector('.m-hires')) return;
+  const token = modalImgToken;
+  const hi = document.createElement('img');
+  hi.className = 'm-hires';
+  hi.decoding = 'async';
+  hi.alt = '';
+  hi.onload = () => { if (token === modalImgToken) requestAnimationFrame(() => hi.classList.add('shown')); };
+  hi.onerror = () => hi.remove();
+  hi.src = src;
+  modalImage.append(hi);
+}
+
+function initModalZoom() {
+  const pointers = new Map();
+  let pinch = null;          // { d0, s0, tx0, ty0, fx0, fy0 }
+  let pan = null;            // آخرین مختصات تک‌انگشتی
+  let tap = null;            // برای تشخیص تپ
+  let lastTap = { t: 0, x: 0, y: 0 };
+
+  const rel = (e) => {
+    const r = modalImage.getBoundingClientRect();
+    return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 };
+  };
+  const two = () => { const [a, b] = [...pointers.values()]; return { a, b }; };
+
+  modalImage.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    try { modalImage.setPointerCapture(e.pointerId); } catch { /* پوینتر ساختگی/منقضی؛ مهم نیست */ }
+    pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    modalImage.classList.remove('animating');
+    if (pointers.size === 2) {
+      const { a, b } = two();
+      const mid = rel({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
+      pinch = { d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, s0: zoomState.s, tx0: zoomState.tx, ty0: zoomState.ty, fx0: mid.x, fy0: mid.y };
+      pan = null; tap = null;
+      ensureHiresForZoom();
+    } else if (pointers.size === 1) {
+      pan = { x: e.clientX, y: e.clientY };
+      tap = { t: performance.now(), x: e.clientX, y: e.clientY, moved: false };
+    }
+  });
+
+  modalImage.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    if (pinch && pointers.size >= 2) {
+      const { a, b } = two();
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const mid = rel({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
+      const s = Math.min(ZOOM_MAX, Math.max(1, pinch.s0 * d / pinch.d0));
+      zoomState.s = s;
+      zoomState.tx = mid.x - s * (pinch.fx0 - pinch.tx0) / pinch.s0;
+      zoomState.ty = mid.y - s * (pinch.fy0 - pinch.ty0) / pinch.s0;
+      clampModalZoom(); applyModalZoom();
+    } else if (pan && zoomState.s > 1.01) {
+      zoomState.tx += e.clientX - pan.x;
+      zoomState.ty += e.clientY - pan.y;
+      pan = { x: e.clientX, y: e.clientY };
+      clampModalZoom(); applyModalZoom();
+    }
+    if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap.moved = true;
+  });
+
+  const end = (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 1) { const [p] = [...pointers.values()]; pan = { x: p.clientX, y: p.clientY }; }
+    if (pointers.size === 0) {
+      pan = null;
+      if (e.type === 'pointerup' && tap && !tap.moved && performance.now() - tap.t < 300) {
+        const now = performance.now();
+        if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+          // دابل‌تپ: اگه زوم هست برگرد، اگه نه ۲.۵ برابر دور همون نقطه
+          const f = rel(e);
+          modalImage.classList.add('animating');
+          if (zoomState.s > 1.05) { zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0; }
+          else { ensureHiresForZoom(); zoomState.s = 2.5; zoomState.tx = -1.5 * f.x; zoomState.ty = -1.5 * f.y; }
+          clampModalZoom(); applyModalZoom();
+          lastTap = { t: 0, x: 0, y: 0 };
+        } else {
+          lastTap = { t: now, x: e.clientX, y: e.clientY };
+        }
+      }
+      tap = null;
+      if (zoomState.s < 1.02) { zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0; applyModalZoom(); }
+    }
+  };
+  modalImage.addEventListener('pointerup', end);
+  modalImage.addEventListener('pointercancel', end);
+
+  // دسکتاپ: ctrl+چرخ (و پینچ تاچ‌پد) یا چرخ وقتی از قبل زوم شده
+  modalImage.addEventListener('wheel', (e) => {
+    if (!(e.ctrlKey || zoomState.s > 1.01)) return;
+    e.preventDefault();
+    const f = rel(e);
+    const s0 = zoomState.s;
+    const s = Math.min(ZOOM_MAX, Math.max(1, s0 * Math.exp(-e.deltaY * 0.0025)));
+    zoomState.s = s;
+    zoomState.tx = f.x - s * (f.x - zoomState.tx) / s0;
+    zoomState.ty = f.y - s * (f.y - zoomState.ty) / s0;
+    if (s > 1.3) ensureHiresForZoom();
+    clampModalZoom(); applyModalZoom();
+  }, { passive: false });
+
+  modalImage.addEventListener('dragstart', (e) => e.preventDefault());
+}
+initModalZoom();
+
+// سال فوتر (شمسی)؛ اگه مرورگر Intl فارسی نداشت، همون مقدار ثابت داخل HTML می‌مونه
+(function setFooterYear() {
+  const el = document.getElementById('footerYear');
+  if (!el) return;
+  try { el.textContent = new Intl.DateTimeFormat('fa-IR', { year: 'numeric' }).format(new Date()); } catch { /* مقدار پیش‌فرض HTML */ }
+})();
+
 // Init
+const productsLoadedPromise = loadProducts();
+const siteConfigPromise = loadSiteConfig();
 renderCart();
-initStagedLoading();

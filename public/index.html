@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>کافه روشن</title>
   <meta name="description"
     content="کافه روشن — قهوه‌ی تازه رست‌شده، شیرینی‌های دست‌ساز و صبحانه‌ی ساده، در خیابان ولیعصر، نزدیک میدان ونک. منو، ساعات کاری و آدرس رو همین‌جا ببینید.">
@@ -22,7 +22,14 @@
   <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- CSS فونت غیرمسدودکننده است (media=print تا لود شدن)؛ اگه گوگل کند یا فیلتر بود، صفحه و اسپلش
+       منتظرش نمی‌مونن. script.js قبل از بسته شدن اسپلش صبر می‌کنه فونت‌ها برسن (با سقف زمانی). -->
+  <link id="fontCss" rel="stylesheet" media="print"
+    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Estedad:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&display=swap"
+    onload="this.media='all';this.dataset.ready='1'" onerror="this.dataset.ready='1'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Estedad:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&display=swap"></noscript>
   <link rel="stylesheet" href="css/style.css?v=2">
 
   <script type="application/ld+json">
@@ -36,20 +43,18 @@
       "streetAddress": "خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲",
       "addressLocality": "تهران",
       "addressCountry": "IR"
-    },
+    }
+  }
   </script>
 </head>
 
 <body id="top" style="background:#0B0D12;">
 
-  <!-- بک‌گراند تزئینی: مش گرادیانت ارگانیک (Aurora) + بخار قهوه متحرک -->
+  <!-- بک‌گراند تزئینی: مش گرادیانت ارگانیک (Aurora) -->
   <div class="bg-decor" aria-hidden="true">
     <div class="aurora-blob aurora-1"></div>
     <div class="aurora-blob aurora-2"></div>
     <div class="aurora-blob aurora-3"></div>
-    <div class="steam-wisp steam-1"></div>
-    <div class="steam-wisp steam-2"></div>
-    <div class="steam-wisp steam-3"></div>
   </div>
 
   <!-- گرادیانت مشترک برای افکت نئونِ دور کارت محصولات -->
@@ -69,7 +74,7 @@
       <div class="splash-logo-wrap">
         <span class="splash-ring" id="splashRing" aria-hidden="true"></span>
         <img alt="کافه روشن" class="splash-logo" id="splashLogoImg" fetchpriority="high"
-          onerror="if (this.getAttribute('src')) window.showSplashFallback && window.showSplashFallback();">
+          onerror="window.showSplashFallback && window.showSplashFallback();">
         <div id="splashFallback" class="logo-fallback splash-fallback" style="font-size: 2.5rem;">کافه روشن</div>
       </div>
       <p class="splash-title" id="splashTitle">Roshan Café</p>
@@ -92,7 +97,7 @@
       </nav>
 
       <div class="header-actions">
-        <button class="nav-toggle" id="navToggle" aria-label="باز کردن منو">
+        <button class="nav-toggle" id="navToggle" type="button" aria-label="باز کردن منو" aria-expanded="false" aria-controls="mainNav">
           <span></span><span></span><span></span>
         </button>
       </div>
@@ -107,7 +112,7 @@
           onerror="this.style.display='none'; this.closest('.hero-cover').classList.add('no-cover');">
       </div>
       <div class="hero-cover-logo-wrap">
-        <span class="hero-cover-title">ROSHAN CAFÉ</span>
+        <h1 class="hero-cover-title">ROSHAN CAFÉ</h1>
         <img alt="کافه روشن" class="hero-cover-logo" id="heroCoverLogo" style="display:none"
           onerror="this.style.display='none'">
       </div>
@@ -131,7 +136,19 @@
         <div class="menu-controls">
           <div class="tabs" id="categoryTabs"></div>
         </div>
-        <div class="menu-groups" id="productGrid"></div>
+        <div class="menu-groups" id="productGrid">
+          <!-- اسکلتون: تا وقتی محصولات واقعی لود بشن، همین فضا رو نگه می‌داره تا با رسیدن
+               دیتا، بخش‌های پایین‌تر (درباره‌ما/آدرس/فوتر) ناگهان و شدید جابه‌جا نشن (CLS) -->
+          <div class="menu-group skeleton-group" aria-hidden="true">
+            <div class="menu-group-title skeleton-shimmer skeleton-title"></div>
+            <div class="product-list">
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -216,7 +233,6 @@
 
   <!-- PRODUCT MODAL -->
   <div class="modal-overlay" id="productModal" aria-hidden="true">
-    <div class="modal-backdrop" id="modalBackdrop"></div>
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalName">
       <button class="modal-close" id="modalClose" aria-label="بستن">✕</button>
       <div class="modal-image" id="modalImage">
@@ -234,7 +250,6 @@
     </div>
   </div>
 
-
   <!-- SORT MODAL (پاپ‌آپ وسط صفحه با بک‌گراند بلور) -->
   <div class="sort-overlay" id="sortOverlay"></div>
   <div class="sort-modal" id="sortModal" role="dialog" aria-modal="true" aria-labelledby="sortModalTitle">
@@ -242,6 +257,7 @@
       <h3 id="sortModalTitle">مرتب‌سازی</h3>
       <button class="sort-modal-close" id="sortModalClose" aria-label="بستن">✕</button>
     </div>
+    <p class="sort-modal-hint">مرتب‌سازی داخل هر دسته اعمال می‌شود</p>
     <div class="sort-modal-options">
       <button class="sort-option active" data-sort="default">مرتب‌سازی: پیش‌فرض</button>
       <button class="sort-option" data-sort="low-high">ارزان‌ترین</button>
@@ -251,17 +267,17 @@
 
   <!-- CART DRAWER -->
   <div class="cart-overlay" id="cartOverlay"></div>
-  <aside class="cart-drawer" id="cartDrawer">
+  <aside class="cart-drawer" id="cartDrawer" role="dialog" aria-modal="true" aria-labelledby="cartTitle" aria-hidden="true">
     <div class="cart-header">
-      <h3>سبد خرید</h3>
-      <button class="cart-close" id="cartClose">✕</button>
+      <h3 id="cartTitle">سبد خرید</h3>
+      <button class="cart-close" id="cartClose" type="button" aria-label="بستن سبد خرید">✕</button>
     </div>
     <div class="cart-items" id="cartItems">
       <p class="cart-empty">سبد خرید شما خالی است.</p>
     </div>
     <div class="cart-footer">
       <div class="cart-table-field">
-        <label id="tableFieldLabel">شماره میز</label>
+        <span class="cart-table-label" id="tableFieldLabel">شماره میز</span>
         <button type="button" class="table-select-btn" id="tableSelectBtn" aria-haspopup="dialog"
           aria-labelledby="tableFieldLabel tableSelectValue">
           <span id="tableSelectValue">انتخاب شماره میز</span>
@@ -276,7 +292,7 @@
         <span id="cartTotalPrice" class="cart-total-value mono">۰ ت</span>
       </div>
       <button class="cart-checkout" id="checkoutBtn">ثبت سفارش</button>
-      <p class="cart-checkout-msg" id="checkoutMsg"></p>
+      <p class="cart-checkout-msg" id="checkoutMsg" role="status" aria-live="polite"></p>
     </div>
   </aside>
 
@@ -292,8 +308,8 @@
   </div>
 
   <!-- FLOATING CART (نوار شناور پایین صفحه) -->
-  <div class="floating-cart" id="floatingCart">
-    <img src="" alt="محصول" id="floatCartImg">
+  <div class="floating-cart" id="floatingCart" role="button" tabindex="0" aria-label="مشاهده سبد خرید">
+    <img alt="" id="floatCartImg" style="display:none">
     <div class="float-cart-info">
       <span id="floatCartName"></span>
       <span id="floatCartCount" class="mono"></span>
@@ -306,7 +322,7 @@
 
   <footer class="site-footer">
     <div class="wrap footer-inner">
-      <span>© ۱۴۰۴ کافه روشن</span>
+      <span>© <span id="footerYear">۱۴۰۵</span> کافه روشن</span>
       <a href="#top" id="backToTopBtn">بازگشت به بالا ↑</a>
     </div>
   </footer>
