@@ -265,33 +265,71 @@
     </div>
   </div>
 
-  <!-- CART DRAWER -->
+  <!-- CART BOTTOM SHEET -->
   <div class="cart-overlay" id="cartOverlay"></div>
   <aside class="cart-drawer" id="cartDrawer" role="dialog" aria-modal="true" aria-labelledby="cartTitle" aria-hidden="true">
+    <div class="cart-sheet-handle-wrap" id="cartSheetHandle" aria-hidden="true">
+      <div class="cart-sheet-handle"></div>
+    </div>
     <div class="cart-header">
-      <h3 id="cartTitle">سبد خرید</h3>
-      <button class="cart-close" id="cartClose" type="button" aria-label="بستن سبد خرید">✕</button>
-    </div>
-    <div class="cart-items" id="cartItems">
-      <p class="cart-empty">سبد خرید شما خالی است.</p>
-    </div>
-    <div class="cart-footer">
-      <div class="cart-table-field">
-        <span class="cart-table-label" id="tableFieldLabel">شماره میز</span>
-        <button type="button" class="table-select-btn" id="tableSelectBtn" aria-haspopup="dialog"
-          aria-labelledby="tableFieldLabel tableSelectValue">
-          <span id="tableSelectValue">انتخاب شماره میز</span>
-          <svg class="table-select-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9"></polyline>
+      <div class="cart-header-title-wrap">
+        <h3 id="cartTitle">سفارش شما</h3>
+        <span class="cart-badge-count mono" id="cartBadgeCount">۰</span>
+      </div>
+      <div class="cart-header-actions">
+        <button class="cart-clear-btn" id="cartClearBtn" type="button" aria-label="خالی کردن سبد خرید">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+          </svg>
+          <span>خالی کردن</span>
+        </button>
+        <button class="cart-close" id="cartClose" type="button" aria-label="بستن سبد خرید">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
       </div>
+    </div>
+    <div class="cart-items" id="cartItems">
+      <div class="cart-empty-state">
+        <div class="cart-empty-icon-wrap" aria-hidden="true">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+            <line x1="6" y1="1" x2="6" y2="4"></line>
+            <line x1="10" y1="1" x2="10" y2="4"></line>
+            <line x1="14" y1="1" x2="14" y2="4"></line>
+          </svg>
+        </div>
+        <h4>سبد خرید شما خالی است</h4>
+        <p>یک فنجان قهوه یا نوشیدنی دلخواه از منو انتخاب کنید</p>
+        <button type="button" class="cart-empty-cta" id="cartEmptyCta">مشاهده منوی کافه</button>
+      </div>
+    </div>
+    <div class="cart-footer" id="cartFooter">
+      <div class="cart-table-field">
+        <span class="cart-table-label" id="tableFieldLabel">میز شما در کافه</span>
+        <button type="button" class="table-select-btn" id="tableSelectBtn" aria-haspopup="dialog"
+          aria-labelledby="tableFieldLabel tableSelectValue">
+          <div class="table-select-btn-info">
+            <span class="table-chip-status" id="tableChipStatus" aria-hidden="true"></span>
+            <span id="tableSelectValue">انتخاب شماره میز</span>
+          </div>
+          <span class="table-select-action">تغییر میز</span>
+        </button>
+      </div>
       <div class="cart-total">
-        <span class="cart-total-label">مبلغ کل</span>
+        <span class="cart-total-label">مبلغ کل سفارش</span>
         <span id="cartTotalPrice" class="cart-total-value mono">۰ ت</span>
       </div>
-      <button class="cart-checkout" id="checkoutBtn">ثبت سفارش</button>
+      <button class="cart-checkout" id="checkoutBtn">
+        <span>ثبت و ارسال سفارش</span>
+        <svg class="cart-checkout-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
       <p class="cart-checkout-msg" id="checkoutMsg" role="status" aria-live="polite"></p>
     </div>
   </aside>

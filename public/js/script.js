@@ -827,12 +827,16 @@ function renderProducts() {
   });
 }
 
-// ============ CART SYSTEM ============
+// ============ CART SYSTEM (MODERN BOTTOM SHEET) ============
 const cartDrawer = document.getElementById('cartDrawer');
 const cartOverlay = document.getElementById('cartOverlay');
 const cartClose = document.getElementById('cartClose');
 const cartItemsEl = document.getElementById('cartItems');
 const cartTotalPriceEl = document.getElementById('cartTotalPrice');
+const cartBadgeCount = document.getElementById('cartBadgeCount');
+const cartClearBtn = document.getElementById('cartClearBtn');
+const cartFooter = document.getElementById('cartFooter');
+const cartSheetHandle = document.getElementById('cartSheetHandle');
 const tableSelectBtn = document.getElementById('tableSelectBtn');
 const tableSelectValue = document.getElementById('tableSelectValue');
 const tableOverlay = document.getElementById('tableOverlay');
@@ -896,7 +900,6 @@ function openCart() {
   cartDrawer.classList.add('open');
   cartDrawer.setAttribute('aria-hidden', 'false');
   cartOverlay.classList.add('open');
-  lockScroll();
   history.pushState({ cart: true }, "");
   focusInside(cartClose);
 }
@@ -905,8 +908,8 @@ function closeCart() {
   if (!cartDrawer.classList.contains('open')) return;
   cartDrawer.classList.remove('open');
   cartDrawer.setAttribute('aria-hidden', 'true');
+  cartDrawer.style.transform = '';
   cartOverlay.classList.remove('open');
-  unlockScroll();
   restoreFocus('cart');
 }
 
@@ -922,6 +925,57 @@ floatingCart.addEventListener('keydown', (e) => {
 });
 cartClose.addEventListener('click', requestCloseCart);
 cartOverlay.addEventListener('click', requestCloseCart);
+
+// دکمه خالی کردن کل سبد
+if (cartClearBtn) {
+  cartClearBtn.addEventListener('click', () => {
+    if (!cart.length) return;
+    cart = [];
+    saveCart();
+    renderCart();
+  });
+}
+
+// پشتیبانی از اسوایپ به پایین روی دستگیره یا هدر شیت برای بستن سریع روی موبایل
+(function initSheetSwipeGesture() {
+  let startY = 0;
+  let currentDelta = 0;
+  let isSwiping = false;
+
+  const target = cartSheetHandle || document.querySelector('.cart-header');
+  if (!target) return;
+
+  target.addEventListener('touchstart', (e) => {
+    startY = e.touches[0].clientY;
+    currentDelta = 0;
+    isSwiping = true;
+  }, { passive: true });
+
+  target.addEventListener('touchmove', (e) => {
+    if (!isSwiping) return;
+    const y = e.touches[0].clientY;
+    currentDelta = Math.max(0, y - startY);
+    if (currentDelta > 0) {
+      cartDrawer.style.transition = 'none';
+      cartDrawer.style.transform = `translateY(${currentDelta}px)`;
+    }
+  }, { passive: true });
+
+  const endSwipe = () => {
+    if (!isSwiping) return;
+    isSwiping = false;
+    cartDrawer.style.transition = '';
+    if (currentDelta > 75) {
+      requestCloseCart();
+    } else {
+      cartDrawer.style.transform = '';
+    }
+    currentDelta = 0;
+  };
+
+  target.addEventListener('touchend', endSwipe, { passive: true });
+  target.addEventListener('touchcancel', endSwipe, { passive: true });
+})();
 
 function addToCart(productId) {
   const product = productsData.products.find(p => p.id === productId);
@@ -956,8 +1010,26 @@ function changeQty(productId, delta) {
   }
 }
 
-// به‌جای onclick درون‌خطی (که id رو مستقیم تو رشته‌ی جاوااسکریپت می‌ذاشت): یه لیسنر روی کل لیست
+// لیسنر کلی روی آیتم‌های سبد خرید
 cartItemsEl.addEventListener('click', (e) => {
+  const cta = e.target.closest('#cartEmptyCta');
+  if (cta) {
+    requestCloseCart();
+    const menuSection = document.getElementById('menu');
+    if (menuSection) {
+      setTimeout(() => {
+        menuSection.scrollIntoView({ behavior: 'smooth' });
+      }, 200);
+    }
+    return;
+  }
+
+  const receiptClose = e.target.closest('.receipt-close-btn');
+  if (receiptClose) {
+    requestCloseCart();
+    return;
+  }
+
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const id = btn.dataset.id;
@@ -970,10 +1042,18 @@ function renderCart() {
   const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+  // بروزرسانی بج تعداد اقلام و دکمه خالی‌کردن
+  if (cartBadgeCount) {
+    cartBadgeCount.textContent = totalQty.toLocaleString('fa-IR');
+    cartBadgeCount.style.display = totalQty > 0 ? 'inline-flex' : 'none';
+  }
+  if (cartClearBtn) {
+    cartClearBtn.style.display = totalQty > 0 ? 'inline-flex' : 'none';
+  }
+
   // مدیریت نوار شناور پایین صفحه
   if (cart.length > 0) {
     const lastItem = cart[cart.length - 1]; // آخرین محصول اضافه شده
-    // برای ۴۰ پیکسل همون تامبنیل کوچیک کافیه، نه عکس اصلی
     const thumb = lastItem.image ? productThumbSrc(lastItem.image) : null;
     if (thumb) {
       if (floatCartImg.getAttribute('src') !== thumb) {
@@ -983,50 +1063,70 @@ function renderCart() {
       }
       floatCartImg.style.display = floatCartImg.dataset.failed === thumb ? 'none' : 'block';
     } else {
-      floatCartImg.removeAttribute('src'); // نه src="null" که یه درخواست الکی می‌زنه
+      floatCartImg.removeAttribute('src');
       floatCartImg.style.display = 'none';
     }
     floatCartName.textContent = lastItem.name;
     floatCartCount.textContent = `${totalQty.toLocaleString('fa-IR')} مورد در سبد`;
     floatCartTotal.innerHTML = formatPrice(totalPrice);
-    floatingCart.classList.add('active'); // نمایش با انیمیشن
+    floatingCart.classList.add('active');
   } else {
-    floatingCart.classList.remove('active'); // مخفی کردن وقتی سبد خالیه
+    floatingCart.classList.remove('active');
   }
 
   // آپدیت محتوای داخل پنل سبد خرید
   if (cart.length === 0) {
-    cartItemsEl.innerHTML = `<p class="cart-empty">سبد خرید شما خالی است.</p>`;
+    cartItemsEl.innerHTML = `
+      <div class="cart-empty-state">
+        <div class="cart-empty-icon-wrap" aria-hidden="true">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+            <line x1="6" y1="1" x2="6" y2="4"></line>
+            <line x1="10" y1="1" x2="10" y2="4"></line>
+            <line x1="14" y1="1" x2="14" y2="4"></line>
+          </svg>
+        </div>
+        <h4>سبد خرید شما خالی است</h4>
+        <p>یک فنجان قهوه یا نوشیدنی دلخواه از منو انتخاب کنید</p>
+        <button type="button" class="cart-empty-cta" id="cartEmptyCta">مشاهده منوی کافه</button>
+      </div>
+    `;
     cartTotalPriceEl.innerHTML = formatPrice(0);
+    if (cartFooter) cartFooter.style.display = 'none';
     return;
   }
 
+  if (cartFooter) cartFooter.style.display = 'block';
+
   cartItemsEl.innerHTML = cart.map((item, i) => `
-    <div class="cart-item" style="animation-delay: ${i * 60}ms">
+    <div class="cart-item" style="animation-delay: ${i * 45}ms">
       <div class="cart-item-thumb">
         ${item.image
           ? `<img src="${esc(productThumbSrc(item.image))}" alt="${esc(item.name)}" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'">`
           : `<span class="cart-item-ph" aria-hidden="true">${esc(item.name.charAt(0))}</span>`}
       </div>
-      <div class="cart-item-main">
-        <div class="cart-item-line1">
+      <div class="cart-item-info">
+        <div class="cart-item-header">
           <span class="cart-item-name">${esc(item.name)}</span>
-          <button type="button" class="remove-item" data-action="remove" data-id="${esc(item.id)}" aria-label="حذف ${esc(item.name)}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-              <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+          <button type="button" class="cart-item-remove" data-action="remove" data-id="${esc(item.id)}" aria-label="حذف ${esc(item.name)}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </div>
-        <div class="cart-item-line2">
+        <div class="cart-item-meta">
+          <span>هر عدد: </span>
+          <span class="mono">${formatPrice(item.price)}</span>
+        </div>
+        <div class="cart-item-bottom">
           <div class="qty-control">
             <button type="button" class="qty-btn" data-action="dec" data-id="${esc(item.id)}" aria-label="کم کردن">−</button>
             <span class="qty-value mono">${item.quantity.toLocaleString('fa-IR')}</span>
             <button type="button" class="qty-btn" data-action="inc" data-id="${esc(item.id)}" aria-label="اضافه کردن">+</button>
           </div>
-          <span class="cart-item-price mono">${formatPrice(item.price * item.quantity)}</span>
+          <span class="cart-item-total mono">${formatPrice(item.price * item.quantity)}</span>
         </div>
       </div>
     </div>
@@ -1041,9 +1141,8 @@ let selectedTable = '';
 
 function renderTableSelect() {
   if (selectedTable) {
-    // اگه شماره‌ی عددی بود با ارقام فارسی نشون میدیم؛ اگه مقدار غیرعددی بود، همون رو
     const label = /^\d+$/.test(selectedTable) ? Number(selectedTable).toLocaleString('fa-IR') : selectedTable;
-    tableSelectValue.textContent = `میز ${label}`;
+    tableSelectValue.textContent = `میز شماره ${label}`;
     tableSelectBtn.classList.add('has-value');
   } else {
     tableSelectValue.textContent = 'انتخاب شماره میز';
@@ -1064,7 +1163,6 @@ function openTableModal() {
   renderTableGrid();
   tableModal.classList.add('open');
   tableOverlay.classList.add('open');
-  lockScroll();
   history.pushState({ table: true }, "");
   (tableGrid.querySelector('.selected') || tableModalClose).focus({ preventScroll: true });
 }
@@ -1073,7 +1171,6 @@ function closeTableModal() {
   if (!tableModal.classList.contains('open')) return;
   tableModal.classList.remove('open');
   tableOverlay.classList.remove('open');
-  unlockScroll();
   tableSelectBtn.focus({ preventScroll: true });
 }
 
@@ -1120,8 +1217,8 @@ async function submitOrder() {
 
   checkoutBtn.disabled = true;
   if (!orderAttemptKey) orderAttemptKey = newOrderKey();
-  const originalLabel = checkoutBtn.textContent;
-  checkoutBtn.textContent = 'در حال ثبت...';
+  const originalLabel = checkoutBtn.innerHTML;
+  checkoutBtn.innerHTML = '<span>در حال ثبت...</span>';
   setCheckoutMsg('');
 
   try {
@@ -1138,15 +1235,34 @@ async function submitOrder() {
     if (!res.ok || !data.ok) {
       throw new Error(data.error || 'خطایی رخ داد، لطفاً دوباره امتحان کنید.');
     }
+
+    const tableLabel = /^\d+$/.test(table) ? Number(table).toLocaleString('fa-IR') : table;
     cart = [];
-    saveCart(); // سبد خالی ذخیره میشه و کلید تلاش بعدی عوض میشه
-    renderCart();
-    setCheckoutMsg('سفارش شما ثبت شد. لطفاً منتظر تایید گارسون در میز بمونید.', 'success');
+    saveCart();
+    floatingCart.classList.remove('active');
+    if (cartBadgeCount) cartBadgeCount.style.display = 'none';
+    if (cartClearBtn) cartClearBtn.style.display = 'none';
+    if (cartFooter) cartFooter.style.display = 'none';
+
+    // نمایش رسید لوکس ثبت سفارش در شیت
+    cartItemsEl.innerHTML = `
+      <div class="order-success-receipt">
+        <div class="receipt-icon-wrap" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <h3>سفارش شما با موفقیت ثبت شد</h3>
+        <div class="receipt-table-badge">میز شماره ${tableLabel}</div>
+        <p class="receipt-hint">سفارش شما برای باریستای کافه ارسال شد و در حال آماده‌سازی است. نیازی به مراجعه به صندوق نیست.</p>
+        <button type="button" class="receipt-close-btn">متوجه شدم ✓</button>
+      </div>
+    `;
   } catch (err) {
     setCheckoutMsg(err.message || 'خطایی رخ داد، لطفاً دوباره امتحان کنید.', 'error');
   } finally {
     checkoutBtn.disabled = false;
-    checkoutBtn.textContent = originalLabel;
+    checkoutBtn.innerHTML = originalLabel;
   }
 }
 
