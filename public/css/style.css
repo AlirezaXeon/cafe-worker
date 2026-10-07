@@ -27,10 +27,13 @@
   --aurora-blur: 90px;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
@@ -39,6 +42,11 @@ html {
   overflow-x: hidden;
   max-width: 100%;
   scrollbar-gutter: stable;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 body {
@@ -51,6 +59,40 @@ body {
   max-width: 100%;
   position: relative;
   transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* فیلدهای ورودی و فرم‌ها همچنان قابل تایپ و انتخاب متن باشند */
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* جلوگیری از هایلایت یا درگ ناخواسته تصاویر */
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* اگر متنی انتخاب شد، رنگ هایلایت به طلایی لوکس تم کافه تغییر کند */
+::selection {
+  background: rgba(180, 146, 90, 0.35);
+  color: var(--ink);
+}
+
+::-moz-selection {
+  background: rgba(180, 146, 90, 0.35);
+  color: var(--ink);
 }
 
 /* بافت ظریف نویز (مثل دون فیلم/مخمل) که سادگی تخت بک‌گراند رو می‌شکنه، بدون شلوغ کردنش */
