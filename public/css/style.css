@@ -1661,6 +1661,8 @@ body.header-hidden .menu-controls {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  touch-action: none;
+  overscroll-behavior: contain;
   transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
               backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
               -webkit-backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
@@ -1689,6 +1691,7 @@ body.header-hidden .menu-controls {
   max-height: calc(100svh - 32px); /* svh ثابته (برخلاف dvh با جمع/باز شدن نوار آدرس تغییر نمی‌کنه) */
   overflow-y: auto;
   overscroll-behavior: contain; /* اسکرول داخل مودال صفحه‌ی پشتش رو تکون نده */
+  touch-action: pan-y;
   position: relative;
   transform-origin: center center;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);

@@ -349,7 +349,6 @@ function openModal(product, catLabelText, card) {
   }
 
   rememberFocus('modal');
-  lockScroll();
   modal.classList.remove('closing');
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
@@ -369,9 +368,15 @@ function closeModal() {
   modal.classList.add('closing');
   modalCloseTimer = setTimeout(() => {
     modal.classList.remove('open', 'closing');
-    unlockScroll();
   }, 220);
 }
+
+// جلوگیری از اسکرول خوردن ناخواسته پس‌زمینه هنگام تاچ روی فضای اطراف مودال در موبایل
+modal.addEventListener('touchmove', (e) => {
+  if (modal.classList.contains('open') && !e.target.closest('.modal-box')) {
+    e.preventDefault();
+  }
+}, { passive: false });
 
 function handleClose() {
   if (history.state && history.state.modal) {
