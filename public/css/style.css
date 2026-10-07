@@ -667,12 +667,12 @@ body.header-hidden .menu-controls {
   }
 }
 
-/* سایه‌ی نرم روی عکس تا لوگو و محتوای زیرش خواناتر بمونه */
+/* سایه‌ی نرم روی عکس با فید یکدست به پس‌زمینه تا مرز عکس و منو بریده دیده نشه */
 .hero-cover::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.15) 40%, rgba(0, 0, 0, 0.5) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.1) 40%, rgba(11, 13, 18, 0.65) 80%, var(--bg) 100%);
   pointer-events: none;
 }
 
@@ -786,40 +786,169 @@ body.header-hidden .menu-controls {
 }
 
 
+/* ============ MENU HIGHLIGHT BAR (بین هیرو و منو) ============ */
+.menu-highlight-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 12px 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.3s ease;
+}
+
+.menu-highlight-bar:hover {
+  border-color: rgba(198, 159, 84, 0.2);
+}
+
+.highlight-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.live-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #52c41a;
+  box-shadow: 0 0 10px rgba(82, 196, 26, 0.7);
+  animation: liveDotPulse 2s ease-in-out infinite;
+}
+
+@keyframes liveDotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+
+.highlight-pills {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  flex-wrap: wrap;
+}
+
+.highlight-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pill-icon {
+  font-size: 0.95rem;
+}
+
+.pill-divider {
+  color: var(--gold);
+  opacity: 0.4;
+  font-size: 0.6rem;
+}
+
+@media (max-width: 600px) {
+  .menu-highlight-bar {
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+  }
+
+  .highlight-pills {
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.76rem;
+  }
+
+  .menu-section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .sort-menu-wrap {
+    align-self: flex-start;
+  }
+}
+
 /* ============ SECTION HEAD ============ */
 .section-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .menu-section-head {
+  display: flex;
   justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.section-head-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.section-head-tag-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .section-num {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: var(--accent);
-  font-weight: 600;
-  background: var(--accent-soft);
+  color: var(--gold);
+  font-weight: 700;
+  background: rgba(198, 159, 84, 0.12);
+  border: 1px solid rgba(198, 159, 84, 0.25);
   border-radius: 20px;
-  padding: 4px 12px;
+  padding: 3px 12px;
+}
+
+.section-meta-tag {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  opacity: 0.8;
 }
 
 .section-head h2,
 .about-text h2,
 .location-block h2 {
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
-  font-weight: 500;
+  font-size: clamp(1.8rem, 3.2vw, 2.3rem);
+  font-weight: 600;
   letter-spacing: 0;
+  color: var(--ink);
+  line-height: 1.25;
+  margin: 0;
+}
+
+.section-subtitle {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  margin-top: 3px;
+  line-height: 1.5;
 }
 
 /* ============ MENU ============ */
 .menu-section {
-  padding: 24px 0 80px;
+  padding: 20px 0 80px;
 }
 
 .menu-controls {
@@ -827,35 +956,30 @@ body.header-hidden .menu-controls {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
   position: sticky;
-  /* درست زیر هدر بچسبه؛ وقتی هدر با اسکرول مخفی میشه، --header-h صفر میشه و این خودش میاد بالا */
   --header-h: 64px;
   top: var(--header-h);
   transition: top 0.3s ease;
   z-index: 40;
-  /* فید از هر دو طرف: هم از بالا (شفاف → پررنگ) و هم از پایین (پررنگ → شفاف) */
-  background: linear-gradient(to bottom, transparent 0, var(--bg) 18%, var(--bg) 68%, transparent 100%);
-  padding: 24px 0 20px;
+  background: linear-gradient(to bottom, transparent 0, var(--bg) 18%, var(--bg) 75%, transparent 100%);
+  padding: 14px 0 16px;
   margin-inline: -16px;
   padding-inline: 16px;
 }
 
-/* خط جداکننده حذف شد — با طراحی جدید شفاف نوار کتگوری نیازی نیست */
-
 /* فیکس اسکرول افقی تب‌ها */
 .tabs {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding: 4px 16px 12px;
+  padding: 4px 16px 10px;
   -webkit-overflow-scrolling: touch;
   margin-right: -16px;
   margin-left: -16px;
   width: calc(100% + 32px);
-  /* مخفی کردن scrollbar افقی: ظاهر/پنهان شدنش height نوار رو تغییر میداد و CLS ایجاد می‌کرد */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -870,26 +994,27 @@ body.header-hidden .menu-controls {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
   flex-shrink: 0;
-  width: 78px;
+  width: 74px;
+  transition: transform 0.2s ease;
 }
 
 .cat-card-img {
-  width: 72px;
-  height: 72px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
   overflow: hidden;
-  background: var(--card-bg);
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--ink-soft);
-  transition: border-color 0.3s ease, box-shadow 0.35s ease;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cat-card-img img {
@@ -899,32 +1024,34 @@ body.header-hidden .menu-controls {
 }
 
 .cat-card-img--all {
-  color: var(--accent);
-  font-size: 1.6rem;
+  color: var(--gold);
+  font-size: 1.5rem;
 }
 
 .cat-card-label {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 500;
+  font-size: 0.72rem;
+  font-weight: 600;
   letter-spacing: 0;
-  text-transform: uppercase;
   color: var(--ink-soft);
   white-space: nowrap;
-  transition: color 0.3s ease;
+  transition: color 0.25s ease;
 }
 
 .cat-card:hover .cat-card-img {
-  border-color: var(--accent);
+  border-color: rgba(198, 159, 84, 0.5);
+  transform: translateY(-2px);
 }
 
 .cat-card.active .cat-card-img {
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--accent-soft), 0 4px 16px rgba(201, 162, 39, 0.25);
+  box-shadow: 0 0 0 3px rgba(198, 159, 84, 0.2), 0 6px 20px rgba(198, 159, 84, 0.25);
+  transform: translateY(-2px);
 }
 
 .cat-card.active .cat-card-label {
   color: var(--gold);
+  font-weight: 700;
 }
 
 .sort-menu-wrap {
@@ -932,24 +1059,33 @@ body.header-hidden .menu-controls {
 }
 
 .sort-icon-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--card-bg);
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 50px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.25s ease;
   box-shadow: var(--shadow-sm);
 }
 
+.sort-icon-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .sort-icon-btn:hover,
 .sort-icon-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(198, 159, 84, 0.08);
+  box-shadow: 0 4px 14px rgba(198, 159, 84, 0.15);
 }
 
 /* پاپ‌آپ مرتب‌سازی وسط صفحه + بک‌گراند بلور */

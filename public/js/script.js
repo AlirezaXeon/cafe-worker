@@ -111,20 +111,21 @@ function hideSplash() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // اسپلش رو تا وقتی هم منو/محصولات و هم تنظیمات سایت (لوگو) کامل لود نشدن نگه می‌داریم،
-  // تا کاربر هیچ‌وقت سایت نصفه‌کاره یا در حال لود رو نبینه. اگه لود بیشتر از ۴ ثانیه طول کشید
-  // (نت کند، سرور کند، هرچی)، همون سقف ۴ ثانیه‌ای رعایت میشه و از رو اسپلش رد میشیم.
-  // علاوه بر دیتا، منتظر عکس‌های اولِ منو و فونت‌ها هم می‌مونیم تا بعد از رفتن اسپلش،
-  // عکس‌ها یکی‌یکی نپرن و متن‌ها فونتشون عوض نشه (همه‌ی این انتظارها سقف زمانی دارن).
+  // مکث عمدی حداقل ۲.۲ ثانیه برای ماندگاری اسپلش و فرصت لود کامل تصاویر در بک‌گراند (مخصوصاً هیرو)
+  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, 2200));
+
   const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
-    .then(() => waitForMenuImages(2000));
-  const hardCap = new Promise((resolve) => setTimeout(resolve, 4500));
-  Promise.race([allLoaded, hardCap]).then(hideSplash);
+    .then(() => waitForMenuImages(4000));
+
+  const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
+
+  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان ۲.۲ ثانیه سپری شده باشد
+  const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
+  Promise.race([readyPromise, hardCap]).then(hideSplash);
 });
 
-// شبکه‌ی ایمنی نهایی: مهم نیست چه اتفاقی بیفته (حتی اگه DOMContentLoaded خودش گیر کنه)،
-// اسپلش بیشتر از ۴.۵ ثانیه رو صفحه نمی‌مونه.
-setTimeout(hideSplash, 4500);
+// شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
+setTimeout(hideSplash, 6500);
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -1369,7 +1370,7 @@ async function loadSiteConfig() {
       coverImg.addEventListener('load', () => heroCover?.classList.add('cover-ready'), { once: true });
       coverImg.addEventListener('error', () => heroCover?.classList.add('cover-ready'), { once: true });
     }
-    coverReady = waitForImage(coverImg, 2500);
+    coverReady = waitForImage(coverImg, 4500);
   } else {
     heroCover?.classList.add('no-cover', 'cover-ready');
     coverReady = Promise.resolve();
