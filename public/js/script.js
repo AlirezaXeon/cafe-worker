@@ -8,6 +8,10 @@ let savedScrollY = 0;
 function lockScroll() {
   if (scrollLockCount === 0) {
     savedScrollY = window.scrollY || window.pageYOffset;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
     document.body.style.position = 'fixed';
     document.body.style.top = `-${savedScrollY}px`;
     document.body.style.left = '0';
@@ -27,6 +31,7 @@ function unlockScroll() {
     document.body.style.left = '';
     document.body.style.right = '';
     document.body.style.width = '';
+    document.body.style.paddingRight = '';
     document.documentElement.classList.remove('nav-open');
     document.body.classList.remove('nav-open');
     // چون scroll-behavior:smooth رو html ست شده، اسکرول مستقیم انیمیشن‌دار میشه
@@ -170,7 +175,7 @@ function topDialog() {
   if (tableModal.classList.contains('open')) return tableModal;
   if (cartDrawer.classList.contains('open')) return cartDrawer;
   if (sortModal.classList.contains('open')) return sortModal;
-  if (modal.classList.contains('open')) return modal.querySelector('.modal-box');
+  if (modal.classList.contains('open') && !modal.classList.contains('closing')) return modal.querySelector('.modal-box');
   return null;
 }
 
@@ -262,126 +267,11 @@ function observeCardsForPreload() {
   document.querySelectorAll('.product-card').forEach(card => cardPreloadObserver.observe(card));
 }
 
-// ============ انیمیشن باز/بسته شدن محصول: خود کارت زوم میشه و میاد وسط صفحه ============
-// ایده: کپیِ کارت (ghost) از جای کارت شروع می‌کنه و به‌اندازه‌ی پاپ‌آپ بزرگ میشه و محو میشه؛ هم‌زمان خودِ
-// پاپ‌آپ از شکل و جای کارت (با clip-path) باز میشه و محتواش محو میاد. فقط scale یکنواخت داریم، پس متن کش نمیاد.
-// موقع بستن همین مسیر برعکس میره و کارت سر جای اولش برمی‌گرده. با «کاهش حرکت» فقط پس‌زمینه محو/ظاهر میشه.
-const MODAL_OPEN_MS = 400;
-const MODAL_CLOSE_MS = 300; // کمتر از تأخیر visibility تو CSS (۰.۳۴ ثانیه) بمونه
-const MODAL_EASE_OPEN = 'cubic-bezier(0.22, 1, 0.36, 1)';
-const MODAL_EASE_CLOSE = 'cubic-bezier(0.4, 0, 0.2, 1)';
-let modalCard = null;   // کارتی که پاپ‌آپ ازش باز شده (تا بسته شدن نیمه‌شفاف/مخفیه)
-let modalGhost = null;
-let modalAnims = [];
-
-function cancelModalAnims() {
-  modalAnims.forEach(a => { try { a.cancel(); } catch { /* مهم نیست */ } });
-  modalAnims = [];
-}
-
-// همه‌ی حالت‌های انیمیشن رو پاک می‌کنه و کارت رو به حالت عادی برمی‌گردونه
-function finishModalMotion() {
-  cancelModalAnims();
-  if (modalGhost) { modalGhost.remove(); modalGhost = null; }
-  if (modalCard) { modalCard.style.opacity = ''; modalCard = null; }
-}
-
-// مختصات شروع (کارت) و پایان (پاپ‌آپ)؛ null یعنی انیمیشن ممکن نیست و بدون حرکت ادامه میدیم
-function modalMotionGeometry(card) {
-  const box = modal.querySelector('.modal-box');
-  if (!card || !card.isConnected || !box || !box.animate || prefersReducedMotion()) return null;
-  const cr = card.getBoundingClientRect();
-  const fr = box.getBoundingClientRect();
-  if (!cr.width || !cr.height || !fr.width || !fr.height) return null;
-  const s = cr.width / fr.width;
-  const dx = (cr.left + cr.width / 2) - (fr.left + fr.width / 2);
-  const dy = (cr.top + cr.height / 2) - (fr.top + fr.height / 2);
-  // پنجره‌ی دیدِ اولیه به‌اندازه‌ی کارته (بالا/پایین پاپ‌آپ بریده میشه)
-  const v = Math.max(0, (fr.height - cr.height / s) / 2);
-  return {
-    box, cr, dx, dy, s,
-    from: { transform: `translate(${dx}px, ${dy}px) scale(${s})`, clipPath: `inset(${v}px 0px ${v}px 0px round ${16 / s}px)` },
-    to: { transform: 'translate(0px, 0px) scale(1)', clipPath: 'inset(0px 0px 0px 0px round 24px)' },
-  };
-}
-
-function makeCardGhost(card, cr) {
-  const g = card.cloneNode(true);
-  g.removeAttribute('data-id');
-  g.removeAttribute('tabindex');
-  g.setAttribute('aria-hidden', 'true');
-  g.classList.add('card-ghost');
-  g.querySelectorAll('.card-neon').forEach(n => n.remove());
-  Object.assign(g.style, {
-    position: 'fixed', left: `${cr.left}px`, top: `${cr.top}px`,
-    width: `${cr.width}px`, height: `${cr.height}px`,
-    margin: '0', zIndex: '2', pointerEvents: 'none', opacity: '1',
-  });
-  modal.append(g);
-  return g;
-}
-
-function modalContentEls() {
-  return modal.querySelectorAll('.modal-image, .modal-body, .modal-close');
-}
-
-function playModalOpen(card) {
-  cancelModalAnims();
-  const m = modalMotionGeometry(card);
-  if (!m) return;
-  const { box, cr, dx, dy, s } = m;
-
-  modalCard = card;
-  card.style.opacity = '0'; // خود کارت تا بسته شدن پاپ‌آپ خالیه؛ همون کارته که بزرگ شده
-  if (modalGhost) modalGhost.remove();
-  const ghost = modalGhost = makeCardGhost(card, cr);
-
-  modalAnims.push(box.animate([m.from, m.to], { duration: MODAL_OPEN_MS, easing: MODAL_EASE_OPEN }));
-  modalContentEls().forEach(el => {
-    modalAnims.push(el.animate([{ opacity: 0 }, { opacity: 1 }],
-      { duration: 240, delay: 110, easing: 'ease-out', fill: 'backwards' }));
-  });
-  const ghostAnim = ghost.animate([
-    { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 0 },
-    { opacity: 0, offset: 0.5 },
-    { transform: `translate(${-dx}px, ${-dy}px) scale(${1 / s})`, opacity: 0, offset: 1 },
-  ], { duration: MODAL_OPEN_MS, easing: MODAL_EASE_OPEN, fill: 'forwards' });
-  ghostAnim.onfinish = () => { if (modalGhost === ghost) { ghost.remove(); modalGhost = null; } };
-  modalAnims.push(ghostAnim);
-}
-
-function playModalClose() {
-  cancelModalAnims();
-  const card = modalCard;
-  const m = modalMotionGeometry(card);
-  if (!m) { finishModalMotion(); return; }
-  const { box, cr, dx, dy, s } = m;
-
-  if (modalGhost) modalGhost.remove();
-  const ghost = modalGhost = makeCardGhost(card, cr);
-  ghost.style.opacity = '0';
-
-  // fill:forwards یعنی تا لحظه‌ای که overlay کامل مخفی میشه، پاپ‌آپ به حالت باز برنمی‌گرده (فلش نداریم)
-  modalAnims.push(box.animate([m.to, m.from], { duration: MODAL_CLOSE_MS, easing: MODAL_EASE_CLOSE, fill: 'forwards' }));
-  modalContentEls().forEach(el => {
-    modalAnims.push(el.animate([{ opacity: 1 }, { opacity: 0 }],
-      { duration: 120, easing: 'ease-in', fill: 'forwards' }));
-  });
-  const ghostAnim = ghost.animate([
-    { transform: `translate(${-dx}px, ${-dy}px) scale(${1 / s})`, opacity: 0, offset: 0 },
-    { opacity: 0, offset: 0.45 },
-    { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 1 },
-  ], { duration: MODAL_CLOSE_MS, easing: MODAL_EASE_CLOSE, fill: 'forwards' });
-  ghostAnim.onfinish = () => {
-    // کپی و کارت اصلی دقیقاً هم‌شکل‌ان؛ هم‌زمان جابه‌جا میشن، پس هیچ پرشی دیده نمیشه
-    if (modalGhost === ghost) { ghost.remove(); modalGhost = null; }
-    if (modalCard === card) { card.style.opacity = ''; modalCard = null; }
-  };
-  modalAnims.push(ghostAnim);
-}
+// ============ باز و بسته شدن فوق‌العاده نرم و مدرن محصول ============
+let modalCloseTimer = null;
 
 function openModal(product, catLabelText, card) {
-  finishModalMotion(); // اگه انیمیشن بسته‌شدنِ قبلی هنوز در جریانه، تمومش کن
+  clearTimeout(modalCloseTimer);
   modalProductId = product.id;
   resetModalZoom();
   modalImage.dataset.fullSrc = product.image || getCategoryImage(product.category) || '';
@@ -390,10 +280,9 @@ function openModal(product, catLabelText, card) {
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
 
-  // مودال عکس اصلی چندمگابایتی رو نمی‌گیره؛ نسخه‌ی متوسط (≤۸۰۰px) رو می‌گیره که معمولاً قبل از کلیک
-  // پیش‌لود شده. اگه هنوز نرسیده بود، تامبنیل کارت (که همین الان تو کش مرورگره) همون لحظه نشون داده
-  // میشه و عکس واضح روش fade میشه (دو لایه‌ی روی هم؛ بدون تغییر اندازه، پس پرشی نداریم).
-  // عکس اصلی فقط موقع زوم (data-full) لود میشه.
+  // مودال از نسخه‌ی بهینه (متوسط ≤۸۰۰px) استفاده می‌کند.
+  // تامبنیل کارت که همین حالا در حافظه مرورگر رندر شده است، بدون هیچ تاخیر زمانی (فریم صفر)
+  // در مودال نشان داده می‌شود و تصویر شفاف‌تر روش نرم محو می‌شود تا کوچکترین پرشی دیده نشود.
   const imgSrc = product.image || getCategoryImage(product.category);
   const token = ++modalImgToken;
   if (imgSrc) {
@@ -401,7 +290,7 @@ function openModal(product, catLabelText, card) {
     const fname = imgSrc.split('/').pop();
     const medUrl = mediumUrlFor(imgSrc);
     const cardImg = card && card.querySelector('.product-image img');
-    const thumbUrl = (cardImg && cardImg.getAttribute('src')) || (isLocal ? `images/thumb/${fname}` : null);
+    const thumbUrl = (cardImg && (cardImg.currentSrc || cardImg.getAttribute('src'))) || (isLocal ? `images/thumb/${fname}` : null);
     const absFull = new URL(imgSrc, location.href).href;
     const alive = () => token === modalImgToken;
 
@@ -424,7 +313,7 @@ function openModal(product, catLabelText, card) {
     const showFull = () => {
       if (!alive()) return;
       modalImage.classList.add('img-ready');
-      requestAnimationFrame(() => full.classList.add('shown'));
+      full.classList.add('shown');
     };
     full.onload = showFull;
     full.onerror = () => {
@@ -434,20 +323,15 @@ function openModal(product, catLabelText, card) {
     };
     modalImage.append(full);
 
-    const alreadyThere = full.complete && full.naturalWidth > 0;
-    if (alreadyThere) {
-      showFull();
-    } else if (thumbUrl) {
-      const th = mk('m-thumb', thumbUrl);
-      const showThumb = () => {
-        if (!alive()) return;
-        modalImage.classList.add('img-ready');
-        th.classList.add('shown');
-      };
-      th.onload = showThumb;
-      th.onerror = () => th.remove();
+    // تامبنیل بلافاصله در فریم صفر اضافه می‌شود تا پس‌زمینه عکس هرگز حتی یک فریم هم خالی نماند
+    if (thumbUrl) {
+      const th = mk('m-thumb shown', thumbUrl);
+      modalImage.classList.add('img-ready');
       modalImage.prepend(th);
-      if (th.complete && th.naturalWidth > 0) showThumb(); // از کش آماده‌ست؛ همون لحظه نشونش بده
+    }
+
+    if (full.complete && full.naturalWidth > 0) {
+      showFull();
     }
   } else {
     modalImage.classList.add('img-ready');
@@ -465,23 +349,28 @@ function openModal(product, catLabelText, card) {
   }
 
   rememberFocus('modal');
+  lockScroll();
+  modal.classList.remove('closing');
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
-  lockScroll();
   history.pushState({ modal: true }, "");
   focusInside(modalClose);
-  playModalOpen(card);
 }
 
 function closeModal() {
-  if (!modal.classList.contains('open')) return;
+  if (!modal.classList.contains('open') || modal.classList.contains('closing')) return;
   resetModalZoom();
   modalImgToken++; // دانلودهای نیمه‌کاره‌ی عکس مودال دیگه چیزی تغییر نمیدن
-  playModalClose();
-  modal.classList.remove('open');
   modal.setAttribute('aria-hidden', 'true');
-  unlockScroll();
   restoreFocus('modal');
+
+  // بسته شدن کاملاً روان و هماهنگ با تایمینگ CSS (۲۲۰ میلی‌ثانیه)
+  clearTimeout(modalCloseTimer);
+  modal.classList.add('closing');
+  modalCloseTimer = setTimeout(() => {
+    modal.classList.remove('open', 'closing');
+    unlockScroll();
+  }, 220);
 }
 
 function handleClose() {
