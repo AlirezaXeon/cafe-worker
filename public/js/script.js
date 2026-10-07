@@ -2,6 +2,13 @@
 // فقط overflow:hidden رو body کافی نیست؛ تو سافاری موبایل صفحه‌ی پشت مودال بازم rubber-band
 // اسکرول می‌کنه و باعث بهم‌ریختگی می‌شه. این تابع body رو واقعاً fixed می‌کنه و بعد از بسته شدن
 // دقیقاً به همون نقطه‌ی اسکرول قبلی برمی‌گردونه.
+// تنظیم state اولیه تاریخچه مرورگر تا در صورت بازگشت، از سایت خارج نشود
+if (!history.state) {
+  try {
+    history.replaceState({ page: 'home' }, '');
+  } catch {}
+}
+
 let scrollLockCount = 0;
 let savedScrollY = 0;
 
@@ -95,6 +102,9 @@ function hideSplash() {
   if (!splash || splash.dataset.hidden === 'true') return;
   splash.dataset.hidden = 'true';
   splash.classList.add('hide');
+  try {
+    history.replaceState({ page: 'home' }, '');
+  } catch {}
   // درست همین لحظه که اسپلش محو میشه، متن‌های هیرو با انیمیشن پلکانی ظاهر میشن
   document.body.classList.add('site-loaded');
   window.dispatchEvent(new Event('siteloaded'));
@@ -105,6 +115,7 @@ function hideSplash() {
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
+const modalBackdrop = document.getElementById('modalBackdrop');
 const modalClose = document.getElementById('modalClose');
 const modalImage = document.getElementById('modalImage');
 const modalPlaceholder = document.getElementById('modalPlaceholder');
@@ -134,28 +145,34 @@ function mediumUrlFor(imgSrc) {
 
 function openModal(product, catLabelText) {
   modalProductId = product.id;
-  resetModalZoom();
-  modalImage.dataset.fullSrc = product.image || getCategoryImage(product.category) || '';
   modalImage.querySelectorAll('img').forEach(el => el.remove());
-  modalImage.classList.remove('img-ready');
   modalPlaceholder.style.display = 'none';
   modalPlaceholder.textContent = product.name.charAt(0);
 
   const imgSrc = product.image || getCategoryImage(product.category);
   const token = ++modalImgToken;
   if (imgSrc) {
+    const thumbUrl = productThumbSrc(imgSrc);
     const medUrl = mediumUrlFor(imgSrc);
     const absFull = new URL(imgSrc, location.href).href;
     const alive = () => token === modalImgToken;
 
+    // تامبنیل فوری: چون توی کارت منو لود شده، آنی و بدون تأخیر دیده می‌شه و مانع پرش/سفید شدن میشه
+    if (thumbUrl) {
+      const thumb = document.createElement('img');
+      thumb.className = 'm-thumb shown';
+      thumb.alt = '';
+      thumb.src = thumbUrl;
+      modalImage.append(thumb);
+    }
+
     const img = document.createElement('img');
-    img.className = 'm-full shown';
+    img.className = 'm-full';
     img.alt = product.name;
     img.decoding = 'async';
-    img.dataset.full = imgSrc;
     img.onload = () => {
       if (!alive()) return;
-      modalImage.classList.add('img-ready');
+      requestAnimationFrame(() => img.classList.add('shown'));
     };
     img.onerror = () => {
       if (!alive()) return;
@@ -164,17 +181,17 @@ function openModal(product, catLabelText) {
         return;
       }
       img.remove();
-      modalImage.classList.add('img-ready');
-      modalPlaceholder.style.display = 'flex';
+      if (!modalImage.querySelector('img')) {
+        modalPlaceholder.style.display = 'flex';
+      }
     };
     img.src = medUrl;
     modalImage.append(img);
 
     if (img.complete && img.naturalWidth > 0) {
-      modalImage.classList.add('img-ready');
+      img.classList.add('shown');
     }
   } else {
-    modalImage.classList.add('img-ready');
     modalPlaceholder.style.display = 'flex';
   }
 
@@ -196,7 +213,6 @@ function openModal(product, catLabelText) {
 
 function closeModal() {
   if (!modal.classList.contains('open')) return;
-  resetModalZoom();
   modalImgToken++; // دانلودهای نیمه‌کاره‌ی عکس مودال دیگه چیزی تغییر نمیدن
   modal.classList.remove('open');
   modal.setAttribute('aria-hidden', 'true');
@@ -213,7 +229,7 @@ function handleClose() {
 
 modalClose.addEventListener('click', handleClose);
 modal.addEventListener('click', (e) => {
-  if (e.target === modal) handleClose();
+  if (e.target === modal || (modalBackdrop && e.target === modalBackdrop)) handleClose();
 });
 modalAddBtn.addEventListener('click', () => {
   if (!modalProductId) return;
@@ -229,129 +245,36 @@ modalAddBtn.addEventListener('click', () => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     // پاپ‌آپ انتخاب میز بالای سبد خرید بازه؛ فقط همون بسته میشه، نه سبد خرید زیرش
-    if (tableModal.classList.contains('open')) { handleTableClose(); return; }
-    if (imageZoomOverlay.classList.contains('open')) closeImageZoom();
-    if (modal.classList.contains('open')) handleClose();
-    if (cartDrawer.classList.contains('open')) closeCart();
-    if (sortModal.classList.contains('open')) closeSortModal();
+    if (tableModal && tableModal.classList.contains('open')) { handleTableClose(); return; }
+    if (modal && modal.classList.contains('open')) { handleClose(); return; }
+    if (cartDrawer && cartDrawer.classList.contains('open')) { closeCart(); return; }
+    if (sortModal && sortModal.classList.contains('open')) { closeSortModal(); return; }
   }
 });
 window.addEventListener('popstate', (e) => {
   // دکمه‌ی برگشت وقتی پاپ‌آپ میز بازه، فقط خود پاپ‌آپ رو می‌بنده و سبد خرید باز می‌مونه
-  if (tableModal.classList.contains('open')) { closeTableModal(); return; }
-  closeImageZoom();
-  closeModal();
-  closeCart();
-  closeSortModal();
-});
-
-// ============ IMAGE ZOOM (روی عکس مودال محصول) ============
-// دسکتاپ: کلیک برای باز شدن تمام‌صفحه + اسکرول ماوس برای زوم + درگ برای جابه‌جایی وقتی زوم شده
-// موبایل: کلیک برای باز شدن + پینچ واقعی با دو انگشت + درگ برای جابه‌جایی — محدود به خود عکس،
-// نه کل صفحه (صفحه‌ی اصلی همچنان user-scalable=no می‌مونه؛ این زوم کاملاً جدا و با ترنسفورم CSS انجام میشه)
-const imageZoomOverlay = document.getElementById('imageZoomOverlay');
-const imageZoomImg = document.getElementById('imageZoomImg');
-const imageZoomClose = document.getElementById('imageZoomClose');
-const imageZoomStage = document.getElementById('imageZoomStage');
-
-let zoomScale = 1, zoomX = 0, zoomY = 0;
-const zoomPointers = new Map();
-let zoomStartDist = 0, zoomStartScale = 1, zoomLastPan = null;
-
-function applyZoomTransform() {
-  imageZoomImg.style.transform = `translate(${zoomX}px, ${zoomY}px) scale(${zoomScale})`;
-  imageZoomImg.style.cursor = zoomScale > 1 ? 'zoom-out' : 'zoom-in';
-}
-
-function resetZoom() {
-  zoomScale = 1; zoomX = 0; zoomY = 0;
-  applyZoomTransform();
-}
-
-function openImageZoom(src, alt) {
-  if (!src) return;
-  imageZoomImg.src = src;
-  imageZoomImg.alt = alt || '';
-  resetZoom();
-  imageZoomOverlay.classList.add('open');
-  lockScroll();
-}
-
-function closeImageZoom() {
-  if (!imageZoomOverlay.classList.contains('open')) return;
-  imageZoomOverlay.classList.remove('open');
-  unlockScroll();
-}
-
-// زوم دیگه کلیک جداگانه نمی‌خواد: همون‌جا روی عکس مودال (پینچ، دابل‌تپ، چرخ ماوس) کار می‌کنه.
-// پایین فایل: initModalZoom()
-
-imageZoomClose.addEventListener('click', closeImageZoom);
-imageZoomOverlay.addEventListener('click', (e) => {
-  if (e.target === imageZoomOverlay || e.target === imageZoomStage) closeImageZoom();
-});
-
-let zoomLastTap = 0;
-imageZoomImg.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const now = Date.now();
-  if (now - zoomLastTap < 300 || zoomScale > 1) {
-    // دابل‌کلیک/دابل‌تپ، یا یه کلیک ساده وقتی از قبل زوم شده: toggle
-    if (zoomScale > 1) resetZoom();
-    else { zoomScale = 2.2; applyZoomTransform(); }
+  if (tableModal && tableModal.classList.contains('open')) {
+    closeTableModal();
+    return;
   }
-  zoomLastTap = now;
-});
-
-imageZoomStage.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  const delta = e.deltaY < 0 ? 0.18 : -0.18;
-  zoomScale = Math.min(4, Math.max(1, zoomScale + delta));
-  if (zoomScale === 1) { zoomX = 0; zoomY = 0; }
-  applyZoomTransform();
-}, { passive: false });
-
-imageZoomStage.addEventListener('pointerdown', (e) => {
-  zoomPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (zoomPointers.size === 2) {
-    const pts = [...zoomPointers.values()];
-    zoomStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    zoomStartScale = zoomScale;
-  } else if (zoomPointers.size === 1 && zoomScale > 1) {
-    zoomLastPan = { x: e.clientX, y: e.clientY };
+  // اگر مدال محصول باز است، فقط آن را ببند تا کاربر روی صفحه بماند
+  if (modal && modal.classList.contains('open')) {
+    closeModal();
+    return;
+  }
+  // اگر سبد خرید باز است
+  if (cartDrawer && cartDrawer.classList.contains('open')) {
+    closeCart();
+    return;
+  }
+  // اگر مدال مرتب‌سازی باز است
+  if (sortModal && sortModal.classList.contains('open')) {
+    closeSortModal();
+    return;
   }
 });
 
-imageZoomStage.addEventListener('pointermove', (e) => {
-  if (!zoomPointers.has(e.pointerId)) return;
-  zoomPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-  if (zoomPointers.size === 2) {
-    const pts = [...zoomPointers.values()];
-    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    if (zoomStartDist > 0) {
-      zoomScale = Math.min(4, Math.max(1, zoomStartScale * (dist / zoomStartDist)));
-      applyZoomTransform();
-    }
-  } else if (zoomPointers.size === 1 && zoomScale > 1 && zoomLastPan) {
-    zoomX += e.clientX - zoomLastPan.x;
-    zoomY += e.clientY - zoomLastPan.y;
-    zoomLastPan = { x: e.clientX, y: e.clientY };
-    applyZoomTransform();
-  }
-});
-
-function endZoomPointer(e) {
-  zoomPointers.delete(e.pointerId);
-  if (zoomPointers.size < 2) zoomStartDist = 0;
-  if (zoomPointers.size === 0) {
-    zoomLastPan = null;
-    if (zoomScale < 1.02) resetZoom();
-  }
-}
-imageZoomStage.addEventListener('pointerup', endZoomPointer);
-imageZoomStage.addEventListener('pointercancel', endZoomPointer);
-imageZoomStage.addEventListener('pointerleave', endZoomPointer);
 
 // ============ MENU RENDER & SORT ============
 const grid = document.getElementById('productGrid');
@@ -394,14 +317,21 @@ function waitForMenuImages(timeoutMs = 2000) {
 let fontsPromise = null;
 function waitForFonts(timeoutMs = 1200) {
   if (fontsPromise) return fontsPromise;
-  if (document.fonts && document.fonts.ready) {
-    fontsPromise = Promise.race([
-      document.fonts.ready,
-      new Promise(resolve => setTimeout(resolve, timeoutMs)),
-    ]);
-  } else {
-    fontsPromise = Promise.resolve();
-  }
+  const loadFaces = () => {
+    if (!document.fonts || !document.fonts.load) return null;
+    const fa = 'سلام کافه روشن';
+    return Promise.all([
+      document.fonts.load('400 16px Vazirmatn', fa),
+      document.fonts.load('600 16px Vazirmatn', fa),
+      document.fonts.load('700 16px Vazirmatn', fa),
+      document.fonts.load('900 16px Estedad', fa),
+      document.fonts.load('italic 500 16px "Cormorant Garamond"', 'Roshan Cafe'),
+    ]).catch(() => {});
+  };
+  fontsPromise = Promise.race([
+    Promise.resolve().then(loadFaces),
+    new Promise(resolve => setTimeout(resolve, timeoutMs)),
+  ]);
   return fontsPromise;
 }
 
@@ -567,6 +497,7 @@ function scrollToCategory(catId) {
 let spyTicking = false;
 function updateActiveFromScroll() {
   spyTicking = false;
+  if (document.body.classList.contains('nav-open')) return;
   if (window.__menuAutoScrolling) return;
   const groups = grid.querySelectorAll('.menu-group[data-cat]');
   if (!groups.length) return;
@@ -1023,6 +954,7 @@ async function revealSplash(hasLogo) {
 // اگه مسیر واقعی لوگو (اونی که از ربات اومده) هم لود نشد، به فالبک متنی برمی‌گردیم
 window.showSplashFallback = function () {
   const splashLogo = document.getElementById('splashLogoImg');
+  if (!splashLogo || !splashLogo.getAttribute('src')) return;
   const splashFallback = document.getElementById('splashFallback');
   if (splashLogo) splashLogo.classList.remove('show');
   if (splashFallback) splashFallback.classList.add('show');
@@ -1206,147 +1138,7 @@ async function loadSiteConfig() {
   }, { passive: true });
 })();
 
-// ============ زوم داخل مودال (پینچ / دابل‌تپ / ctrl+چرخ) ============
-// transform روی خود عکس‌ها (CSS variable) اعمال میشه؛ کادر ثابت می‌مونه و overflow:hidden برش میده.
-// وقتی زوم نیست، touch-action: pan-y یعنی اسکرول عمودی مودال مثل قبل کار می‌کنه؛ وقتی زوم هست،
-// touch-action: none میشه تا کشیدن، عکس رو جابه‌جا کنه نه مودال رو.
-const ZOOM_MAX = 4;
-const zoomState = { s: 1, tx: 0, ty: 0 };
 
-function applyModalZoom() {
-  modalImage.style.setProperty('--zs', zoomState.s);
-  modalImage.style.setProperty('--zx', zoomState.tx + 'px');
-  modalImage.style.setProperty('--zy', zoomState.ty + 'px');
-  modalImage.classList.toggle('zoomed', zoomState.s > 1.01);
-}
-
-function clampModalZoom() {
-  const r = modalImage.getBoundingClientRect();
-  zoomState.s = Math.min(ZOOM_MAX, Math.max(1, zoomState.s));
-  const mx = (zoomState.s - 1) * r.width / 2;
-  const my = (zoomState.s - 1) * r.height / 2;
-  zoomState.tx = Math.min(mx, Math.max(-mx, zoomState.tx));
-  zoomState.ty = Math.min(my, Math.max(-my, zoomState.ty));
-}
-
-function resetModalZoom() {
-  zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0;
-  modalImage.classList.remove('animating');
-  applyModalZoom();
-}
-
-// وقتی کاربر واقعاً زوم کرد، نسخه‌ی با کیفیت (عکس اصلی) رو روی نسخه‌ی متوسط می‌ذاریم؛
-// برای کسی که زوم نمی‌کنه هیچ بایت اضافه‌ای دانلود نمیشه.
-function ensureHiresForZoom() {
-  const src = modalImage.dataset.fullSrc;
-  if (!src || modalImage.querySelector('.m-hires')) return;
-  const token = modalImgToken;
-  const hi = document.createElement('img');
-  hi.className = 'm-hires';
-  hi.decoding = 'async';
-  hi.alt = '';
-  hi.onload = () => { if (token === modalImgToken) requestAnimationFrame(() => hi.classList.add('shown')); };
-  hi.onerror = () => hi.remove();
-  hi.src = src;
-  modalImage.append(hi);
-}
-
-function initModalZoom() {
-  const pointers = new Map();
-  let pinch = null;          // { d0, s0, tx0, ty0, fx0, fy0 }
-  let pan = null;            // آخرین مختصات تک‌انگشتی
-  let tap = null;            // برای تشخیص تپ
-  let lastTap = { t: 0, x: 0, y: 0 };
-
-  const rel = (e) => {
-    const r = modalImage.getBoundingClientRect();
-    return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 };
-  };
-  const two = () => { const [a, b] = [...pointers.values()]; return { a, b }; };
-
-  modalImage.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    try { modalImage.setPointerCapture(e.pointerId); } catch { /* پوینتر ساختگی/منقضی؛ مهم نیست */ }
-    pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
-    modalImage.classList.remove('animating');
-    if (pointers.size === 2) {
-      const { a, b } = two();
-      const mid = rel({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
-      pinch = { d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, s0: zoomState.s, tx0: zoomState.tx, ty0: zoomState.ty, fx0: mid.x, fy0: mid.y };
-      pan = null; tap = null;
-      ensureHiresForZoom();
-    } else if (pointers.size === 1) {
-      pan = { x: e.clientX, y: e.clientY };
-      tap = { t: performance.now(), x: e.clientX, y: e.clientY, moved: false };
-    }
-  });
-
-  modalImage.addEventListener('pointermove', (e) => {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
-    if (pinch && pointers.size >= 2) {
-      const { a, b } = two();
-      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      const mid = rel({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
-      const s = Math.min(ZOOM_MAX, Math.max(1, pinch.s0 * d / pinch.d0));
-      zoomState.s = s;
-      zoomState.tx = mid.x - s * (pinch.fx0 - pinch.tx0) / pinch.s0;
-      zoomState.ty = mid.y - s * (pinch.fy0 - pinch.ty0) / pinch.s0;
-      clampModalZoom(); applyModalZoom();
-    } else if (pan && zoomState.s > 1.01) {
-      zoomState.tx += e.clientX - pan.x;
-      zoomState.ty += e.clientY - pan.y;
-      pan = { x: e.clientX, y: e.clientY };
-      clampModalZoom(); applyModalZoom();
-    }
-    if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap.moved = true;
-  });
-
-  const end = (e) => {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinch = null;
-    if (pointers.size === 1) { const [p] = [...pointers.values()]; pan = { x: p.clientX, y: p.clientY }; }
-    if (pointers.size === 0) {
-      pan = null;
-      if (e.type === 'pointerup' && tap && !tap.moved && performance.now() - tap.t < 200) {
-        const now = performance.now();
-        if (now - lastTap.t < 250 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 20) {
-          // دابل‌تپ: اگه زوم هست برگرد، اگه نه ۲.۵ برابر دور همون نقطه
-          const f = rel(e);
-          modalImage.classList.add('animating');
-          if (zoomState.s > 1.05) { zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0; }
-          else { ensureHiresForZoom(); zoomState.s = 2.5; zoomState.tx = -1.5 * f.x; zoomState.ty = -1.5 * f.y; }
-          clampModalZoom(); applyModalZoom();
-          lastTap = { t: 0, x: 0, y: 0 };
-        } else {
-          lastTap = { t: now, x: e.clientX, y: e.clientY };
-        }
-      }
-      tap = null;
-      if (zoomState.s < 1.02) { zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0; applyModalZoom(); }
-    }
-  };
-  modalImage.addEventListener('pointerup', end);
-  modalImage.addEventListener('pointercancel', end);
-
-  // دسکتاپ: ctrl+چرخ (و پینچ تاچ‌پد) یا چرخ وقتی از قبل زوم شده
-  modalImage.addEventListener('wheel', (e) => {
-    if (!(e.ctrlKey || zoomState.s > 1.01)) return;
-    e.preventDefault();
-    const f = rel(e);
-    const s0 = zoomState.s;
-    const s = Math.min(ZOOM_MAX, Math.max(1, s0 * Math.exp(-e.deltaY * 0.0025)));
-    zoomState.s = s;
-    zoomState.tx = f.x - s * (f.x - zoomState.tx) / s0;
-    zoomState.ty = f.y - s * (f.y - zoomState.ty) / s0;
-    if (s > 1.3) ensureHiresForZoom();
-    clampModalZoom(); applyModalZoom();
-  }, { passive: false });
-
-  modalImage.addEventListener('dragstart', (e) => e.preventDefault());
-}
-initModalZoom();
 
 // ============ بارگذاری مرحله‌ای آبشاری (Staged Loading Waterfall) ============
 // ۱. اول فقط لوگو، عکس هیرو و متن‌های اسپلش لود و نمایش داده می‌شوند.

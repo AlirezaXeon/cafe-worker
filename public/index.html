@@ -69,7 +69,7 @@
       <div class="splash-logo-wrap">
         <span class="splash-ring" id="splashRing" aria-hidden="true"></span>
         <img alt="کافه روشن" class="splash-logo" id="splashLogoImg" fetchpriority="high"
-          onerror="window.showSplashFallback && window.showSplashFallback();">
+          onerror="if (this.getAttribute('src')) window.showSplashFallback && window.showSplashFallback();">
         <div id="splashFallback" class="logo-fallback splash-fallback" style="font-size: 2.5rem;">کافه روشن</div>
       </div>
       <p class="splash-title" id="splashTitle">Roshan Café</p>
@@ -216,6 +216,7 @@
 
   <!-- PRODUCT MODAL -->
   <div class="modal-overlay" id="productModal" aria-hidden="true">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalName">
       <button class="modal-close" id="modalClose" aria-label="بستن">✕</button>
       <div class="modal-image" id="modalImage">
@@ -233,13 +234,6 @@
     </div>
   </div>
 
-  <!-- زوم تمام‌صفحه‌ی عکس محصول: کلیک روی عکس مودال بازش می‌کنه -->
-  <div class="image-zoom-overlay" id="imageZoomOverlay">
-    <button class="image-zoom-close" id="imageZoomClose" aria-label="بستن">✕</button>
-    <div class="image-zoom-stage" id="imageZoomStage">
-      <img id="imageZoomImg" alt="">
-    </div>
-  </div>
 
   <!-- SORT MODAL (پاپ‌آپ وسط صفحه با بک‌گراند بلور) -->
   <div class="sort-overlay" id="sortOverlay"></div>
