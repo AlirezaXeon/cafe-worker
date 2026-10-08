@@ -97,11 +97,20 @@ export async function handleAdminAPI(request, env) {
   if (path === '/login' && method === 'POST') {
     try {
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+
+      // بررسی بایندینگ Rate Limiter در صورت وجود
+      if (env.RATE_LIMITER?.limit) {
+        const rl = await env.RATE_LIMITER.limit({ key: `login:${ip}` });
+        if (!rl.success) {
+          return json(request, { error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگر امتحان کنید.' }, 429);
+        }
+      }
+
       const lockKey = `loginfail:${ip}`;
       const failCountRaw = await env.PRODUCTS_KV.get(lockKey);
       const failCount = failCountRaw ? Number(failCountRaw) : 0;
       if (failCount >= 5) {
-        return json(request, { error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگه امتحان کن.' }, 429);
+        return json(request, { error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگر امتحان کنید.' }, 429);
       }
 
       const { password } = await request.json().catch(() => ({}));
@@ -114,16 +123,40 @@ export async function handleAdminAPI(request, env) {
       // ورود موفق؛ شمارنده‌ی تلاش ناموفق این IP رو پاک می‌کنیم
       await env.PRODUCTS_KV.delete(lockKey);
       const token = await signToken(
-        { role: 'admin', exp: Date.now() + 7 * 24 * 60 * 60 * 1000 },
-        env.JWT_SECRET
+        { role: 'admin' },
+        env.JWT_SECRET,
+        env.TOKEN_VERSION || "1"
       );
-      return json(request, { token });
+      return new Response(JSON.stringify({ ok: true, token }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Set-Cookie': `admin_token=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200`,
+          ...corsHeaders(request),
+        },
+      });
     } catch (e) { return serverError(request, e, 'login'); }
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────
+  if (path === '/logout' && method === 'POST') {
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Set-Cookie': 'admin_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0',
+        ...corsHeaders(request),
+      },
+    });
   }
 
   // ── Auth ──────────────────────────────────────────────────────────────
   const admin = await requireAdmin(request, env);
   if (!admin) return json(request, { error: 'دسترسی غیرمجاز' }, 401);
+
+  if (path === '/me' && method === 'GET') {
+    return json(request, { ok: true, role: admin.role });
+  }
 
   // ── Upload Image ──────────────────────────────────────────────────────
   if (path === '/upload' && method === 'POST') {

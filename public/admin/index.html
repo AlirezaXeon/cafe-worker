@@ -1104,16 +1104,27 @@
       btn.innerHTML = '<span class="spinner"></span>';
       btn.disabled = true; err.textContent = '';
       try {
-        const r = await fetch(`${BASE}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+        const r = await fetch(`${BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ password: pw })
+        });
         const d = await r.json();
         if (!r.ok) { err.textContent = d.error; return; }
-        TOKEN = d.token; localStorage.setItem('admin_token', TOKEN); initApp();
+        TOKEN = d.token || '';
+        localStorage.removeItem('admin_token');
+        initApp();
       } catch { err.textContent = 'خطا در اتصال به سرور'; }
       finally { btn.innerHTML = 'ورود به پنل'; btn.disabled = false; }
     }
 
-    function doLogout() {
-      localStorage.removeItem('admin_token'); TOKEN = '';
+    async function doLogout() {
+      try {
+        await fetch(`${BASE}/logout`, { method: 'POST', credentials: 'same-origin' });
+      } catch {}
+      localStorage.removeItem('admin_token');
+      TOKEN = '';
       document.getElementById('app').style.display = 'none';
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('pw').value = '';
@@ -1123,8 +1134,9 @@
       const isFormData = opts.body instanceof FormData;
       const r = await fetch(`${BASE}${path}`, {
         ...opts,
+        credentials: 'same-origin',
         headers: {
-          'Authorization': `Bearer ${TOKEN}`,
+          ...(TOKEN ? { 'Authorization': `Bearer ${TOKEN}` } : {}),
           ...(!isFormData && opts.body ? { 'Content-Type': 'application/json' } : {}),
           ...(opts.headers || {})
         }
@@ -1707,7 +1719,21 @@
     function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden' }
     function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = '' }
 
-    if (TOKEN) initApp();
+    // اعتبارسنجی وضعیت ورود با کوکی امن HttpOnly یا توکن موجود
+    (async function checkInitialAuth() {
+      try {
+        const r = await fetch(`${BASE}/me`, {
+          credentials: 'same-origin',
+          headers: TOKEN ? { 'Authorization': `Bearer ${TOKEN}` } : {}
+        });
+        if (r.ok) {
+          localStorage.removeItem('admin_token');
+          initApp();
+          return;
+        }
+      } catch {}
+      doLogout();
+    })();
   </script>
 </body>
 
