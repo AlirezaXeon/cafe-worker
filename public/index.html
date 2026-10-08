@@ -271,11 +271,21 @@
       </div>
       <div class="modal-body">
         <span class="modal-cat" id="modalCat"></span>
-        <h3 id="modalName"></h3>
+        <div class="modal-title-row">
+          <h3 id="modalName"></h3>
+          <div class="modal-price-glow-wrap">
+            <span class="modal-price mono" id="modalPrice"></span>
+          </div>
+        </div>
         <p class="modal-note" id="modalNote"></p>
         <div class="modal-footer">
-          <span class="modal-price mono" id="modalPrice"></span>
-          <button class="modal-add-btn" id="modalAddBtn">افزودن +</button>
+          <button class="modal-add-btn" id="modalAddBtn" aria-label="افزودن به سبد خرید">
+            <span class="btn-icon" aria-hidden="true">
+              <svg class="icon-plus" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10 3.5v13M3.5 10h13"/></svg>
+              <svg class="icon-check" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5l4 4 8-8"/></svg>
+            </span>
+            <span class="btn-label" id="modalAddBtnLabel">افزودن به سبد خرید</span>
+          </button>
         </div>
       </div>
     </div>

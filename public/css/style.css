@@ -1515,13 +1515,17 @@ body.header-hidden .menu-controls {
   gap: 2px;
 }
 
-/* حرف "T" بولد و خوانا، هم‌راستا با وزن عدد قیمت */
+/* واحد قیمت: «هزار تومان» با فونت زیبا، ظریف و هماهنگ */
 .price-suffix {
   font-family: var(--font-fa);
-  font-weight: 800;
-  font-size: 0.8em;
-  opacity: 1;
-  margin-inline-start: 1px;
+  font-weight: 400;
+  font-size: 0.68em;
+  opacity: 0.82;
+  margin-inline-start: 3px;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  display: inline-block;
+  vertical-align: baseline;
 }
 
 /* قیمت‌ها انگلیسی و LTR هستن؛ ایزوله می‌کنیم تا وسط متن راست‌به‌چپ به‌هم نریزن */
@@ -1998,77 +2002,262 @@ body.header-hidden .menu-controls {
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-cat {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0;
-  text-transform: uppercase;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-fa);
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--cat-color, var(--accent));
-  background: var(--accent-soft);
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 8px;
+  background: rgba(180, 146, 90, 0.08);
+  border: 1px solid rgba(180, 146, 90, 0.22);
+  padding: 3px 12px;
+  border-radius: 50px;
+  margin-bottom: 4px;
 }
 
-.modal-body h3 {
-  font-size: 1.5rem;
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 14px;
+  flex-wrap: wrap;
+}
+
+.modal-title-row h3 {
+  font-size: 1.45rem;
   font-weight: 800;
-  margin: 12px 0 8px;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.35;
+  flex: 1;
+  min-width: 140px;
 }
 
-.modal-note {
-  color: var(--ink-soft);
-  margin-bottom: 20px;
-  font-size: 1rem;
-  line-height: 1.8;
+/* افکت نور ظریف و لوکس پشت قیمت در مودال */
+.modal-price-glow-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(201, 162, 39, 0.12) 0%, rgba(20, 22, 30, 0.75) 100%);
+  border: 1px solid rgba(201, 162, 39, 0.32);
+  box-shadow: 0 0 20px -2px rgba(201, 162, 39, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* هاله نور ملایم و زنده پشت قیمت */
+.modal-price-glow-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 50%, rgba(201, 162, 39, 0.38) 0%, transparent 72%);
+  filter: blur(8px);
+  opacity: 0.75;
+  pointer-events: none;
+  z-index: -1;
+  animation: modalPriceAura 3s ease-in-out infinite alternate;
+}
+
+@keyframes modalPriceAura {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-price-glow-wrap::before {
+    animation: none;
+  }
 }
 
 .modal-price {
   font-family: var(--font-fa);
   font-weight: 800;
-  font-size: 1.3rem;
-  color: var(--ink);
+  font-size: 1.28rem;
+  color: #F3DC9B;
   display: inline-flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 3px;
+  text-shadow: 0 0 12px rgba(201, 162, 39, 0.35);
+}
+
+.modal-price .price-old {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  margin-inline-end: 6px;
+  opacity: 0.75;
+}
+
+.modal-price .price-new {
+  color: #F3DC9B;
+  font-weight: 800;
+}
+
+.modal-note {
+  color: #A4A7B4;
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 20px;
+  margin-top: auto;
   padding-top: 16px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* دکمه افزودن بزرگتر، مدرن و تعاملی */
 .modal-add-btn {
-  background: var(--accent);
-  color: var(--on-accent);
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #C9A227 0%, #B4925A 100%);
+  color: #121008;
   border: none;
-  padding: 11px 22px;
-  border-radius: 50px;
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 800;
   font-family: var(--font-fa);
   cursor: pointer;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(180, 146, 90, 0.32);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  user-select: none;
+}
+
+/* پرتو نور متحرک (Shimmer Light Sweep) */
+.modal-add-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.75s ease;
+  pointer-events: none;
 }
 
 .modal-add-btn:hover {
-  opacity: 0.85;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(201, 162, 39, 0.48), 0 0 16px rgba(201, 162, 39, 0.28);
 }
 
+.modal-add-btn:hover::after {
+  left: 150%;
+}
+
+.modal-add-btn:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 3px 10px rgba(180, 146, 90, 0.35);
+}
+
+.modal-add-btn .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  position: relative;
+}
+
+.modal-add-btn .icon-plus,
+.modal-add-btn .icon-check {
+  width: 18px;
+  height: 18px;
+  position: absolute;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.22s ease;
+}
+
+.modal-add-btn .icon-plus {
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.modal-add-btn:hover .icon-plus {
+  transform: rotate(90deg) scale(1.15);
+}
+
+.modal-add-btn .icon-check {
+  transform: scale(0);
+  opacity: 0;
+}
+
+/* حالت ثبت موفق در سبد خرید */
 .modal-add-btn.added {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 22px rgba(16, 185, 129, 0.42);
+  transform: scale(1.02);
+}
+
+.modal-add-btn.added .icon-plus {
+  transform: rotate(180deg) scale(0);
+  opacity: 0;
+}
+
+.modal-add-btn.added .icon-check {
+  transform: scale(1.2);
+  opacity: 1;
+}
+
+@media (max-width: 480px) {
+  .modal-box {
+    border-radius: 20px;
+    max-height: calc(100vh - 20px);
+    max-height: calc(100svh - 20px);
+  }
+
+  .modal-body {
+    padding: 16px 18px 20px;
+  }
+
+  .modal-title-row h3 {
+    font-size: 1.25rem;
+  }
+
+  .modal-price-glow-wrap {
+    padding: 5px 11px;
+  }
+
+  .modal-price {
+    font-size: 1.15rem;
+  }
+
+  .modal-add-btn {
+    min-height: 44px;
+    font-size: 0.94rem;
+  }
 }
 
 /* ============ CART DRAWER ============ */

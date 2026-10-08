@@ -79,10 +79,10 @@ function esc(s) {
 }
 
 function formatPrice(price) {
-  // عدد انگلیسی + جداکننده‌ی هزارگان + حرف T به‌جای «ت» (واحد: هزار تومان).
+  // عدد انگلیسی + جداکننده‌ی هزارگان + پسوند ظریف «هزار تومان»
   // اگه قیمت مضرب ۱۰۰۰ نبود (مثلاً ۴۵٬۵۰۰) گرد نمی‌کنیم و ۴۵.۵ نشون میدیم تا جمع کل با جمع ردیف‌ها بخونه
   const val = Math.round((Number(price) || 0) / 10) / 100;
-  return `<span class="price-amount">${val.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span><span class="price-suffix">T</span>`;
+  return `<span class="price-amount">${val.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span> <span class="price-suffix">هزار تومان</span>`;
 }
 // ============ SPLASH SCREEN LOGIC ============
 // از window.load استفاده نمی‌کنیم چون منتظر لود کامل همه‌ی عکس‌های محصولات هم می‌مونه
@@ -342,12 +342,22 @@ function openModal(product, catLabelText, card) {
   modalCat.textContent = catLabelText;
   modalCat.style.setProperty('--cat-color', catColor(product.category));
   modalName.textContent = product.name;
-  modalNote.textContent = product.note;
+  if (product.note && product.note.trim()) {
+    modalNote.textContent = product.note;
+    modalNote.style.display = '';
+  } else {
+    modalNote.textContent = '';
+    modalNote.style.display = 'none';
+  }
   if (product.originalPrice && product.originalPrice > product.price) {
     modalPrice.innerHTML = `<span class="price-old mono">${formatPrice(product.originalPrice)}</span><span class="price-new">${formatPrice(product.price)}</span>`;
   } else {
     modalPrice.innerHTML = formatPrice(product.price);
   }
+
+  modalAddBtn.classList.remove('added');
+  const initialBtnLabel = document.getElementById('modalAddBtnLabel');
+  if (initialBtnLabel) initialBtnLabel.textContent = "افزودن به سبد خرید";
 
   rememberFocus('modal');
   modal.classList.remove('closing');
@@ -395,11 +405,21 @@ modalAddBtn.addEventListener('click', () => {
   if (!modalProductId) return;
   addToCart(modalProductId);
 
-  modalAddBtn.textContent = "افزوده شد ✓";
   modalAddBtn.classList.add('added');
+  const addBtnLabel = document.getElementById('modalAddBtnLabel');
+  if (addBtnLabel) {
+    addBtnLabel.textContent = "به سبد خرید اضافه شد ✓";
+  } else {
+    modalAddBtn.textContent = "افزوده شد ✓";
+  }
+
   setTimeout(() => {
-    modalAddBtn.textContent = "افزودن +";
     modalAddBtn.classList.remove('added');
+    if (addBtnLabel) {
+      addBtnLabel.textContent = "افزودن به سبد خرید";
+    } else {
+      modalAddBtn.textContent = "افزودن به سبد خرید";
+    }
   }, 1500);
 });
 document.addEventListener('keydown', (e) => {
