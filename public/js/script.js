@@ -762,7 +762,7 @@ function productCardHtml(p) {
           <div class="product-name">${esc(p.name)}</div>
           ${p.originalPrice ? '<span class="discount-badge">تخفیف</span>' : ''}
         </div>
-        <div class="product-note">${esc(p.note)}</div>
+        ${p.note && p.note.trim() ? `<div class="product-note">${esc(p.note)}</div>` : ''}
         <div class="product-footer">
           <div class="price-group">
             ${p.originalPrice ? `<span class="price-old mono">${formatPrice(p.originalPrice)}</span>` : ''}
@@ -1546,7 +1546,26 @@ function clampModalZoom() {
   zoomState.ty = Math.min(my, Math.max(-my, zoomState.ty));
 }
 
+let modalAnimTimer = null;
+let modalWheelTimer = null;
+
+function snapBackModalZoom() {
+  clearTimeout(modalAnimTimer);
+  if (zoomState.s > 1.005 || Math.abs(zoomState.tx) > 0.5 || Math.abs(zoomState.ty) > 0.5) {
+    modalImage.classList.add('animating');
+    zoomState.s = 1;
+    zoomState.tx = 0;
+    zoomState.ty = 0;
+    applyModalZoom();
+    modalAnimTimer = setTimeout(() => {
+      modalImage.classList.remove('animating');
+    }, 320);
+  }
+}
+
 function resetModalZoom() {
+  clearTimeout(modalAnimTimer);
+  clearTimeout(modalWheelTimer);
   zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0;
   modalImage.classList.remove('animating');
   applyModalZoom();
@@ -1572,8 +1591,6 @@ function initModalZoom() {
   const pointers = new Map();
   let pinch = null;          // { d0, s0, tx0, ty0, fx0, fy0 }
   let pan = null;            // آخرین مختصات تک‌انگشتی
-  let tap = null;            // برای تشخیص تپ
-  let lastTap = { t: 0, x: 0, y: 0 };
 
   const rel = (e) => {
     const r = modalImage.getBoundingClientRect();
@@ -1585,22 +1602,31 @@ function initModalZoom() {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     try { modalImage.setPointerCapture(e.pointerId); } catch { /* پوینتر ساختگی/منقضی؛ مهم نیست */ }
     pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    clearTimeout(modalAnimTimer);
     modalImage.classList.remove('animating');
+
     if (pointers.size === 2) {
       const { a, b } = two();
       const mid = rel({ clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 });
-      pinch = { d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, s0: zoomState.s, tx0: zoomState.tx, ty0: zoomState.ty, fx0: mid.x, fy0: mid.y };
-      pan = null; tap = null;
+      pinch = {
+        d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
+        s0: zoomState.s,
+        tx0: zoomState.tx,
+        ty0: zoomState.ty,
+        fx0: mid.x,
+        fy0: mid.y
+      };
+      pan = null;
       ensureHiresForZoom();
     } else if (pointers.size === 1) {
       pan = { x: e.clientX, y: e.clientY };
-      tap = { t: performance.now(), x: e.clientX, y: e.clientY, moved: false };
     }
   });
 
   modalImage.addEventListener('pointermove', (e) => {
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
     if (pinch && pointers.size >= 2) {
       const { a, b } = two();
       const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
@@ -1609,43 +1635,45 @@ function initModalZoom() {
       zoomState.s = s;
       zoomState.tx = mid.x - s * (pinch.fx0 - pinch.tx0) / pinch.s0;
       zoomState.ty = mid.y - s * (pinch.fy0 - pinch.ty0) / pinch.s0;
-      clampModalZoom(); applyModalZoom();
-    } else if (pan && zoomState.s > 1.01) {
+      clampModalZoom();
+      applyModalZoom();
+    } else if (pan && zoomState.s > 1.01 && !pinch) {
       zoomState.tx += e.clientX - pan.x;
       zoomState.ty += e.clientY - pan.y;
       pan = { x: e.clientX, y: e.clientY };
-      clampModalZoom(); applyModalZoom();
+      clampModalZoom();
+      applyModalZoom();
     }
-    if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap.moved = true;
   });
 
   const end = (e) => {
     if (!pointers.has(e.pointerId)) return;
+    try { modalImage.releasePointerCapture(e.pointerId); } catch { /* هندلرهای پیش‌فرض */ }
     pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinch = null;
-    if (pointers.size === 1) { const [p] = [...pointers.values()]; pan = { x: p.clientX, y: p.clientY }; }
+
+    if (pointers.size < 2) {
+      pinch = null;
+    }
+    if (pointers.size === 1) {
+      const [p] = [...pointers.values()];
+      pan = { x: p.clientX, y: p.clientY };
+    }
+    // وقتی دست کاربر از روی عکس برداشته شد، بلافاصله زوم اوت نرم انجام می‌شود
     if (pointers.size === 0) {
       pan = null;
-      if (e.type === 'pointerup' && tap && !tap.moved && performance.now() - tap.t < 300) {
-        const now = performance.now();
-        if (now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
-          // دابل‌تپ: اگه زوم هست برگرد، اگه نه ۲.۵ برابر دور همون نقطه
-          const f = rel(e);
-          modalImage.classList.add('animating');
-          if (zoomState.s > 1.05) { zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0; }
-          else { ensureHiresForZoom(); zoomState.s = 2.5; zoomState.tx = -1.5 * f.x; zoomState.ty = -1.5 * f.y; }
-          clampModalZoom(); applyModalZoom();
-          lastTap = { t: 0, x: 0, y: 0 };
-        } else {
-          lastTap = { t: now, x: e.clientX, y: e.clientY };
-        }
-      }
-      tap = null;
-      if (zoomState.s < 1.02) { zoomState.s = 1; zoomState.tx = 0; zoomState.ty = 0; applyModalZoom(); }
+      snapBackModalZoom();
     }
   };
+
   modalImage.addEventListener('pointerup', end);
   modalImage.addEventListener('pointercancel', end);
+
+  // دسکتاپ: وقتی نشانگر ماوس از کادر خارج شد به حالت عادی برگردد
+  modalImage.addEventListener('mouseleave', () => {
+    if (pointers.size === 0) {
+      snapBackModalZoom();
+    }
+  });
 
   // دسکتاپ: ctrl+چرخ (و پینچ تاچ‌پد) یا چرخ وقتی از قبل زوم شده
   modalImage.addEventListener('wheel', (e) => {
@@ -1658,7 +1686,14 @@ function initModalZoom() {
     zoomState.tx = f.x - s * (f.x - zoomState.tx) / s0;
     zoomState.ty = f.y - s * (f.y - zoomState.ty) / s0;
     if (s > 1.3) ensureHiresForZoom();
-    clampModalZoom(); applyModalZoom();
+    clampModalZoom();
+    applyModalZoom();
+
+    // پس از پایان اسکرول با چرخ ماوس، عکس نرم به حالت بدون زوم برمی‌گردد
+    clearTimeout(modalWheelTimer);
+    modalWheelTimer = setTimeout(() => {
+      snapBackModalZoom();
+    }, 850);
   }, { passive: false });
 
   modalImage.addEventListener('dragstart', (e) => e.preventDefault());
