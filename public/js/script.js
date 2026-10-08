@@ -888,6 +888,7 @@ const tableModalClose = document.getElementById('tableModalClose');
 const tableGrid = document.getElementById('tableGrid');
 const checkoutBtn = document.getElementById('checkoutBtn');
 const checkoutMsg = document.getElementById('checkoutMsg');
+const cartHoneypot = document.getElementById('cartHoneypot');
 
 // المان‌های نوار شناور
 const floatingCart = document.getElementById('floatingCart');
@@ -1265,13 +1266,16 @@ async function submitOrder() {
   setCheckoutMsg('');
 
   try {
+    const hpVal = cartHoneypot ? cartHoneypot.value.trim() : '';
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         table,
         items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+        requestId: orderAttemptKey,
         idempotencyKey: orderAttemptKey,
+        ...(hpVal ? { hp_website: hpVal } : {}),
       }),
     });
     const data = await res.json().catch(() => ({}));

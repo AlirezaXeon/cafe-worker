@@ -1,6 +1,7 @@
 import { createOrder } from "../data/orders.js";
 import { sendRaw, getAdminIds } from "../telegram/api.js";
 import { formatToman, escapeHtml } from "../telegram/format.js";
+import { ORDER_RATE_LIMIT_MAX, ORDER_RATE_LIMIT_WINDOW_SEC } from "../config.js";
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -15,7 +16,14 @@ const TABLE_COUNT = 20; // باید با TABLE_COUNT تو public/js/script.js ی
 // جلوگیری از سفارش تکراری: کلاینت برای هر «تلاش ثبت» یه کلید یکتا می‌فرسته. اگه سفارش ثبت بشه ولی جواب به
 // گوشی نرسه و مشتری دوباره بزنه، همون سفارش قبلی برمی‌گرده و دوباره ثبت (و به گارسون اطلاع) نمیشه.
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9-]{8,64}$/;
-const IDEMPOTENCY_TTL = 60 * 10; // ۱۰ دقیقه؛ KV حداقل ۶۰ ثانیه می‌خواد
+
+export async function hashIp(ip) {
+  if (!ip) return "";
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 function formatOrderMessage({ orderId, tableNumber, items, total }) {
   const lines = items
@@ -99,6 +107,11 @@ export async function handleOrdersAPI(request, env, ctx) {
     return json({ error: "درخواست نامعتبر است" }, 400);
   }
 
+  // فیلد هانی‌پات ضد ربات: اگر پر شده باشد، پاسخ ۲۰۰ صوری برمی‌گردد بدون ثبت در دیتابیس یا نوتیفیکیشن
+  if (body?.hp_website || body?.website || body?.honeypot) {
+    return json({ ok: true, orderId: 0 });
+  }
+
   // شماره‌ی میز باید یه عدد بین ۱ تا TABLE_COUNT باشه (همون چیزی که پاپ‌آپ سایت می‌فرسته)
   const tableRaw = String(body?.table ?? "").trim();
   if (!tableRaw) return json({ error: "شماره میز را وارد کنید" }, 400);
@@ -108,15 +121,53 @@ export async function handleOrdersAPI(request, env, ctx) {
   }
   const tableNumber = String(tableNum);
 
-  // کلید نامعتبر/نبودنش خطا نیست (کلاینت قدیمی)، فقط دیگه ضدتکرار نداریم
-  const idemRaw = typeof body?.idempotencyKey === "string" ? body.idempotencyKey : "";
-  const idemKey = IDEMPOTENCY_KEY_RE.test(idemRaw) ? `order:idem:${idemRaw}` : null;
-  if (idemKey) {
+  // جلوگیری از سفارش تکراری: اول در D1 بررسی می‌کنیم (requestId یا idempotencyKey قدیمی)
+  const reqIdRaw = typeof body?.requestId === "string"
+    ? body.requestId
+    : typeof body?.idempotencyKey === "string"
+      ? body.idempotencyKey
+      : "";
+  const requestId = IDEMPOTENCY_KEY_RE.test(reqIdRaw) ? reqIdRaw : null;
+  if (requestId) {
     try {
-      const prev = await env.PRODUCTS_KV.get(idemKey);
-      if (prev) return json({ ok: true, orderId: Number(prev), duplicate: true });
+      const existing = await env.DB
+        .prepare("SELECT id FROM orders WHERE request_id = ?")
+        .bind(requestId)
+        .first();
+      if (existing?.id) {
+        return json({ ok: true, orderId: existing.id, duplicate: true });
+      }
     } catch (err) {
-      console.error("[orders:idem:get]", err); // خرابی KV نباید ثبت سفارش رو بخوابونه
+      console.error("[orders:requestId:check]", err);
+    }
+  }
+
+  // محدودیت نرخ بر اساس هش IP (هرگز IP خام ذخیره نمی‌شود)
+  const clientIp = request.headers.get("cf-connecting-ip") || "";
+  const ipHash = clientIp ? await hashIp(clientIp) : null;
+
+  if (ipHash) {
+    if (env.RATE_LIMITER?.limit) {
+      const { success } = await env.RATE_LIMITER.limit({ key: `order:${ipHash}` });
+      if (!success) {
+        return json({ error: "تعداد سفارش‌ها از حد مجاز بیشتر است. لطفاً چند دقیقه دیگر امتحان کنید." }, 429);
+      }
+    } else {
+      try {
+        const windowStart = new Date(Date.now() - ORDER_RATE_LIMIT_WINDOW_SEC * 1000)
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " ");
+        const countRow = await env.DB
+          .prepare("SELECT COUNT(*) AS c FROM orders WHERE ip_hash = ? AND created_at >= ?")
+          .bind(ipHash, windowStart)
+          .first();
+        if ((countRow?.c ?? 0) >= ORDER_RATE_LIMIT_MAX) {
+          return json({ error: "تعداد سفارش‌ها از حد مجاز بیشتر است. لطفاً چند دقیقه دیگر امتحان کنید." }, 429);
+        }
+      } catch (err) {
+        console.error("[orders:ratelimit:check]", err);
+      }
     }
   }
 
@@ -144,19 +195,26 @@ export async function handleOrdersAPI(request, env, ctx) {
     const product = products.get(id);
     if (!product) return json({ error: `محصولی با این مشخصات پیدا نشد` }, 400);
     if (!product.available) return json({ error: `«${product.name}» در حال حاضر موجود نیست` }, 400);
+    if (product.price <= 0) return json({ error: "قیمت محصول نامعتبر است" }, 400);
     items.push({ id: product.id, name: product.name, price: product.price, quantity });
   }
 
   const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
-  const orderId = await createOrder(env, { tableNumber, items, total });
-
-  if (idemKey) {
-    try {
-      await env.PRODUCTS_KV.put(idemKey, String(orderId), { expirationTtl: IDEMPOTENCY_TTL });
-    } catch (err) {
-      console.error("[orders:idem:put]", err);
+  let orderId;
+  try {
+    orderId = await createOrder(env, { tableNumber, items, total, requestId, ipHash });
+  } catch (err) {
+    if (requestId && /UNIQUE constraint failed.*request_id/i.test(err?.message || "")) {
+      const existing = await env.DB
+        .prepare("SELECT id FROM orders WHERE request_id = ?")
+        .bind(requestId)
+        .first();
+      if (existing?.id) {
+        return json({ ok: true, orderId: existing.id, duplicate: true });
+      }
     }
+    throw err;
   }
 
   const notify = notifyAdmins(env, { orderId, tableNumber, items, total });

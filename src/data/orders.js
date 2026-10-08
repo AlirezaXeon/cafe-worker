@@ -1,10 +1,10 @@
 // همه‌ی عملیات سفارش‌ها روی D1 (env.DB)
 import { editMessageText } from "../telegram/api.js";
 
-export async function createOrder(env, { tableNumber, items, total }) {
+export async function createOrder(env, { tableNumber, items, total, requestId = null, ipHash = null }) {
   const res = await env.DB
-    .prepare("INSERT INTO orders (table_number, items, total) VALUES (?, ?, ?)")
-    .bind(tableNumber, JSON.stringify(items), total)
+    .prepare("INSERT INTO orders (table_number, items, total, request_id, ip_hash) VALUES (?, ?, ?, ?, ?)")
+    .bind(tableNumber, JSON.stringify(items), total, requestId, ipHash)
     .run();
   return res.meta.last_row_id;
 }
