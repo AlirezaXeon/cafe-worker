@@ -1119,7 +1119,11 @@
       finally { btn.innerHTML = 'ورود به پنل'; btn.disabled = false; }
     }
 
+    let isLoggedIn = false;
+
     async function doLogout() {
+      isLoggedIn = false;
+      stopAdminPolling();
       try {
         await fetch(`${BASE}/logout`, { method: 'POST', credentials: 'same-origin' });
       } catch {}
@@ -1127,7 +1131,9 @@
       TOKEN = '';
       document.getElementById('app').style.display = 'none';
       document.getElementById('login-screen').style.display = 'flex';
-      document.getElementById('pw').value = '';
+      document.getElementById('login-err').textContent = '';
+      const pw = document.getElementById('pw');
+      if (pw) pw.value = '';
     }
 
     async function api(path, opts = {}) {
@@ -1146,45 +1152,144 @@
     }
 
     function initApp() {
+      isLoggedIn = true;
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app').style.display = 'block';
       showTab('dashboard', document.querySelector('.nav-btn'));
-      refreshPendingBadge();
-      setInterval(refreshPendingBadge, 8000); // هر ۸ ثانیه، مستقل از اینکه تو کدوم تبی
+      startAdminPolling();
     }
 
-    // ── Orders ────────────────────────────────────────────────────────────────
-    let ordersPollTimer = null;
+    // ── کنترلر پولینگ سبک و هوشمند سفارش‌ها (جلوگیری از هدررفت سهمیه D1) ───────────
+    const ORDERS_POLL_MS = 30000; // هر ۳۰ ثانیه فقط درخواست خلاصه سبک ارسال می‌شود
+    const MAX_BACKOFF_MS = 300000; // سقف ۵ دقیقه برای کاهش تلاش در صورت خطای شبکه/سرور
+    let adminPollTimer = null;
+    let currentPollInterval = ORDERS_POLL_MS;
+    let isPollingActive = false;
+    let isPollInProgress = false;
+    let pendingPollRequested = false;
+    let lastKnownSummary = { pending: null, latestId: null };
+    let currentActiveTab = 'dashboard';
     let currentOrderFilter = '';
 
-    function startOrdersPolling() {
-      ordersPollTimer = setInterval(() => {
-        if (document.hidden) return; // تب مرورگر مخفیه؛ بی‌خودی درخواست نمی‌زنیم
-        if (document.getElementById('order-list-wrap')) loadOrders();
-      }, 3000); // هر ۳ ثانیه، فقط وقتی خود تب سفارش‌ها بازه
+    function startAdminPolling() {
+      if (isPollingActive) return;
+      isPollingActive = true;
+      currentPollInterval = ORDERS_POLL_MS;
+      pollOrdersNow();
     }
 
-    function stopOrdersPolling() {
-      if (ordersPollTimer) { clearInterval(ordersPollTimer); ordersPollTimer = null; }
+    function stopAdminPolling() {
+      isPollingActive = false;
+      if (adminPollTimer) {
+        clearTimeout(adminPollTimer);
+        adminPollTimer = null;
+      }
+      isPollInProgress = false;
+      pendingPollRequested = false;
     }
 
-    async function refreshPendingBadge() {
-      if (document.hidden) return;
+    function scheduleNextPoll(delayMs) {
+      if (adminPollTimer) clearTimeout(adminPollTimer);
+      if (!isPollingActive || !isLoggedIn) return;
+      adminPollTimer = setTimeout(async () => {
+        adminPollTimer = null;
+        await executePollTick();
+      }, delayMs);
+    }
+
+    async function executePollTick(forceImmediate = false) {
+      if (!isPollingActive || !isLoggedIn) return;
+      if (document.hidden && !forceImmediate) {
+        // اگر تب مرورگر پنهان است، درخواست ارسال نمی‌کنیم
+        scheduleNextPoll(currentPollInterval);
+        return;
+      }
+
+      if (isPollInProgress) {
+        pendingPollRequested = true;
+        return;
+      }
+
+      isPollInProgress = true;
       try {
-        const pending = await api('/orders?status=pending');
-        const badge = document.getElementById('pending-badge');
-        if (!badge) return;
-        if (pending.length > 0) { badge.textContent = pending.length; badge.style.display = 'inline-flex'; }
-        else badge.style.display = 'none';
-      } catch (e) { /* بی‌سروصدا نادیده می‌گیریم؛ فقط یه نشونگره */ }
+        const summary = await api('/orders/summary');
+        currentPollInterval = ORDERS_POLL_MS; // بازنشانی فاصله به ۳۰ ثانیه بعد از دریافت موفق
+
+        const pendingCount = Number(summary?.pending ?? 0);
+        const latestId = Number(summary?.latestId ?? 0);
+
+        updatePendingBadge(pendingCount);
+
+        const hasChanged =
+          lastKnownSummary.pending !== pendingCount ||
+          lastKnownSummary.latestId !== latestId;
+
+        lastKnownSummary = { pending: pendingCount, latestId };
+
+        // فقط وقتی تب سفارش‌ها باز است و دیتای خلاصه تغییر کرده باشد، لیست دوباره خوانده می‌شود
+        if (currentActiveTab === 'orders' && hasChanged && document.getElementById('order-list-wrap')) {
+          const targetLimit = Math.min(Math.max(currentOrdersList.length, 50), 100);
+          await loadOrders(false, targetLimit);
+        }
+      } catch (err) {
+        if (err.message === 'unauthorized') {
+          stopAdminPolling();
+          return;
+        }
+        // در صورت بروز خطا: افزایش فاصله زمانی به صورت تصاعدی تا حداکثر ۵ دقیقه
+        currentPollInterval = Math.min(currentPollInterval * 2, MAX_BACKOFF_MS);
+      } finally {
+        isPollInProgress = false;
+        if (pendingPollRequested) {
+          pendingPollRequested = false;
+          executePollTick(true);
+        } else if (isPollingActive && isLoggedIn) {
+          scheduleNextPoll(currentPollInterval);
+        }
+      }
+    }
+
+    function pollOrdersNow() {
+      if (!isLoggedIn) return;
+      if (isPollInProgress) {
+        pendingPollRequested = true;
+        return;
+      }
+      if (adminPollTimer) {
+        clearTimeout(adminPollTimer);
+        adminPollTimer = null;
+      }
+      executePollTick(true);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && isPollingActive && isLoggedIn) {
+        pollOrdersNow();
+      }
+    });
+
+    function updatePendingBadge(count) {
+      const badge = document.getElementById('pending-badge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline-flex';
+      } else {
+        badge.style.display = 'none';
+      }
     }
 
     function renderOrders(m) {
       m.innerHTML = `
     <div class="card">
-      <div class="card-header"><h2>🧾 سفارش‌ها</h2></div>
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h2>🧾 سفارش‌ها</h2>
+        <button class="btn btn-ghost btn-sm" onclick="manualRefreshOrders()" title="تازه سازی کامل لیست سفارش‌ها">
+          🔄 تازه‌سازی
+        </button>
+      </div>
       <div class="card-toolbar">
-        <select class="search-input" style="max-width:180px" onchange="currentOrderFilter=this.value;loadOrders()">
+        <select class="search-input" style="max-width:180px" onchange="currentOrderFilter=this.value;loadOrders(false, 50)">
           <option value="">همه</option>
           <option value="pending">در انتظار تایید</option>
           <option value="confirmed">تایید شده</option>
@@ -1193,17 +1298,25 @@
       </div>
       <div id="order-list-wrap"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
     </div>`;
-      loadOrders();
+      loadOrders(false, 50);
+    }
+
+    async function manualRefreshOrders() {
+      toast('در حال به‌روزرسانی...');
+      const targetLimit = Math.min(Math.max(currentOrdersList.length, 50), 100);
+      await loadOrders(false, targetLimit);
+      pollOrdersNow();
     }
 
     let currentOrdersList = [];
     let hasMoreOrders = false;
 
-    async function loadOrders(append = false) {
+    async function loadOrders(append = false, customLimit = null) {
       const wrap = document.getElementById('order-list-wrap');
       if (!wrap) return;
       try {
-        let qs = '?limit=50';
+        const limit = customLimit ? Math.min(Math.max(customLimit, 50), 100) : 50;
+        let qs = `?limit=${limit}`;
         if (currentOrderFilter) qs += `&status=${currentOrderFilter}`;
         if (append && currentOrdersList.length) {
           const oldestId = currentOrdersList[currentOrdersList.length - 1].id;
@@ -1215,7 +1328,7 @@
         } else {
           currentOrdersList = currentOrdersList.concat(orders);
         }
-        hasMoreOrders = orders.length === 50;
+        hasMoreOrders = orders.length === limit;
 
         if (!currentOrdersList.length) {
           wrap.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>سفارشی یافت نشد</div>';
@@ -1246,7 +1359,7 @@
         }).join('')}</div>
         ${hasMoreOrders ? `
           <div style="text-align:center;margin-top:16px;">
-            <button class="btn btn-outline" onclick="loadOrders(true)">بارگذاری بیشتر...</button>
+            <button class="btn btn-ghost" onclick="loadOrders(true)">بارگذاری بیشتر...</button>
           </div>
         ` : ''}`;
       } catch (e) {
@@ -1259,8 +1372,8 @@
         const res = await api(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
         if (res && res.error) { toast(res.error, true); loadOrders(); return; }
         toast(status === 'confirmed' ? 'سفارش تایید شد' : 'سفارش رد شد');
-        loadOrders();
-        refreshPendingBadge();
+        await loadOrders(false, Math.min(Math.max(currentOrdersList.length, 50), 100));
+        pollOrdersNow();
       } catch (e) {
         if (e.message !== 'unauthorized') toast('خطا در ثبت', true);
       }
@@ -1275,12 +1388,12 @@
 
     // ── Tabs ──────────────────────────────────────────────────────────────────
     function showTab(tab, btn) {
+      currentActiveTab = tab;
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const m = document.getElementById('main-content');
-      stopOrdersPolling();
       if (tab === 'dashboard') renderDashboard(m);
-      if (tab === 'orders') { renderOrders(m); startOrdersPolling(); }
+      if (tab === 'orders') renderOrders(m);
       if (tab === 'products') renderProducts(m);
       if (tab === 'categories') renderCategories(m);
       if (tab === 'site') renderSite(m);

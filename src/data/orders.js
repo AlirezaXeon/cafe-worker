@@ -13,7 +13,24 @@ export async function getOrder(env, id) {
   return env.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(id).first();
 }
 
+// خلاصه سبک وضعیت سفارش‌ها برای پولینگ بهینه پنل ادمین
+export async function getOrdersSummary(env) {
+  const pendingRow = await env.DB
+    .prepare("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending'")
+    .bind()
+    .first();
+  const maxRow = await env.DB
+    .prepare("SELECT COALESCE(MAX(id), 0) AS max_id FROM orders")
+    .bind()
+    .first();
+  return {
+    pending: Number(pendingRow?.c ?? 0),
+    latestId: Number(maxRow?.max_id ?? 0),
+  };
+}
+
 // لیست سفارش‌ها برای پنل وب؛ جدیدترین‌ها اول. پارامتر beforeId برای صفحه‌بندی نشانگر (cursor)
+// ستون‌های حساس و داخلی (ip_hash, request_id, tg_messages, tg_notified) برای کلاینت فرستاده نمی‌شوند.
 export async function listOrders(env, { status, limit = 50, beforeId } = {}) {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const conditions = [];
@@ -30,7 +47,7 @@ export async function listOrders(env, { status, limit = 50, beforeId } = {}) {
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const query = env.DB.prepare(
-    `SELECT * FROM orders ${whereClause} ORDER BY id DESC LIMIT ?`
+    `SELECT id, table_number, items, total, status, created_at FROM orders ${whereClause} ORDER BY id DESC LIMIT ?`
   ).bind(...bindings, safeLimit);
 
   const { results } = await query.all();
@@ -42,7 +59,14 @@ export async function listOrders(env, { status, limit = 50, beforeId } = {}) {
       console.error(`[orders:corrupted_items] order ${o.id}:`, e);
       items = [];
     }
-    return { ...o, items };
+    return {
+      id: o.id,
+      table_number: o.table_number,
+      items,
+      total: o.total,
+      status: o.status,
+      created_at: o.created_at,
+    };
   });
 }
 

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handleAdminAPI } from "../src/handlers/admin.js";
 import { signToken } from "../src/middleware/adminAuth.js";
-import { listOrders } from "../src/data/orders.js";
+import { listOrders, getOrdersSummary } from "../src/data/orders.js";
 
 const JWT_SECRET = "test-secret-min-32-chars-long-security-key";
 
@@ -54,6 +54,12 @@ function makeEnv(overrides = {}) {
             if (/SELECT COUNT\(\*\) AS c FROM products WHERE category = \?/.test(sql)) {
               const count = Array.from(products.values()).filter((p) => p.category === args[0]).length;
               return { c: count };
+            }
+            if (/SELECT COUNT\(\*\) AS c FROM orders WHERE status = 'pending'/.test(sql)) {
+              return { c: overrides.pendingCount ?? 3 };
+            }
+            if (/SELECT COALESCE\(MAX\(id\), 0\) AS max_id FROM orders/.test(sql)) {
+              return { max_id: overrides.latestId ?? 1042 };
             }
             return null;
           },
@@ -225,4 +231,83 @@ test("listOrders handles corrupted JSON items without throwing and supports befo
   assert.equal(paginated.length, 2);
   assert.equal(paginated[0].id, 9);
   assert.equal(paginated[1].id, 8);
+});
+
+test("GET /admin/api/orders/summary rejects unauthenticated request with 401", async () => {
+  const { env } = makeEnv();
+  const req = new Request("https://cafe-roshan.workers.dev/admin/api/orders/summary", {
+    method: "GET",
+  });
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 401);
+});
+
+test("GET /admin/api/orders/summary returns pending count and latestId with no-store cache control", async () => {
+  const { env } = makeEnv({ pendingCount: 5, latestId: 1050 });
+  const headers = await authHeaders();
+  const req = new Request("https://cafe-roshan.workers.dev/admin/api/orders/summary", {
+    method: "GET",
+    headers,
+  });
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("Cache-Control"), "no-store");
+  const data = await res.json();
+  assert.deepEqual(data, { pending: 5, latestId: 1050 });
+});
+
+test("getOrdersSummary returns exact pending count with 60 orders (not capped at 50)", async () => {
+  const env = {
+    DB: {
+      prepare: (sql) => ({
+        bind: (...args) => ({
+          first: async () => {
+            if (/SELECT COUNT\(\*\) AS c FROM orders WHERE status = 'pending'/.test(sql)) {
+              return { c: 60 };
+            }
+            if (/SELECT COALESCE\(MAX\(id\), 0\) AS max_id FROM orders/.test(sql)) {
+              return { max_id: 1099 };
+            }
+            return null;
+          },
+        }),
+      }),
+    },
+  };
+  const summary = await getOrdersSummary(env);
+  assert.equal(summary.pending, 60, "تعداد سفارش‌های در انتظار نباید سقف ۵۰ داشته باشد");
+  assert.equal(summary.latestId, 1099);
+});
+
+test("listOrders omits sensitive columns (ip_hash, request_id, tg_messages)", async () => {
+  const row = {
+    id: 1,
+    table_number: "5",
+    items: JSON.stringify([{ name: "چای", price: 30000, quantity: 1 }]),
+    total: 30000,
+    status: "pending",
+    created_at: "2026-10-08 12:00:00",
+    request_id: "secret-req-id-123",
+    ip_hash: "secret-ip-hash-abc",
+    tg_messages: JSON.stringify({ entries: [] }),
+    tg_notified: 1,
+  };
+
+  const env = {
+    DB: {
+      prepare: () => ({
+        bind: () => ({
+          all: async () => ({ results: [row] }),
+        }),
+      }),
+    },
+  };
+
+  const [order] = await listOrders(env);
+  assert.equal(order.id, 1);
+  assert.equal(order.table_number, "5");
+  assert.equal(order.ip_hash, undefined, "ip_hash نباید به کلاینت وب ارسال شود");
+  assert.equal(order.request_id, undefined, "request_id نباید به کلاینت وب ارسال شود");
+  assert.equal(order.tg_messages, undefined, "tg_messages نباید به کلاینت وب ارسال شود");
+  assert.equal(order.tg_notified, undefined, "tg_notified نباید به کلاینت وب ارسال شود");
 });

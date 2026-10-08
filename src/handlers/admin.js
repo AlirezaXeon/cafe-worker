@@ -18,7 +18,7 @@ import {
   toggleProductAvailability,
 } from '../data/products.js';
 import { MAX_UPLOAD_BYTES } from '../config.js';
-import { listOrders, resolveOrder, getSalesStats } from '../data/orders.js';
+import { listOrders, resolveOrder, getSalesStats, getOrdersSummary } from '../data/orders.js';
 import { validatePrice, validateDiscount } from '../lib/validate.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
@@ -31,10 +31,10 @@ function corsHeaders(request) {
   return sameOrigin ? { 'Access-Control-Allow-Origin': origin, 'Vary': 'Origin' } : {};
 }
 
-const json = (request, data, status = 200) =>
+const json = (request, data, status = 200, extraHeaders = {}) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders(request) },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders(request), ...extraHeaders },
   });
 
 // پیام خطای عمومی برای کلاینت؛ جزئیات واقعی فقط تو لاگ سرور می‌مونه (نه تو جواب HTTP)
@@ -388,6 +388,13 @@ export async function handleAdminAPI(request, env) {
   }
 
   // ── Orders (سفارش‌های ثبت‌شده از سایت) ───────────────────────────────────
+  if (path === '/orders/summary' && method === 'GET') {
+    try {
+      const summary = await getOrdersSummary(env);
+      return json(request, summary, 200, { 'Cache-Control': 'no-store' });
+    } catch (e) { return serverError(request, e, 'orders:summary'); }
+  }
+
   if (path === '/orders' && method === 'GET') {
     try {
       const status = url.searchParams.get('status') || undefined;
