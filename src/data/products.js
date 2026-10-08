@@ -124,12 +124,13 @@ export async function setProductImage(env, productId, image) {
 
 // پنهان/نمایان کردن محصول رو سایت مشتری، بدون حذف کردنش (برای وقتی موقتاً موجود نیست)
 export async function toggleProductAvailability(env, productId) {
-  const p = await env.DB.prepare("SELECT available FROM products WHERE id = ?").bind(productId).first();
-  if (!p) return null;
-  const next = p.available ? 0 : 1;
-  await env.DB.prepare("UPDATE products SET available = ? WHERE id = ?").bind(next, productId).run();
+  const row = await env.DB
+    .prepare("UPDATE products SET available = 1 - available WHERE id = ? RETURNING available")
+    .bind(productId)
+    .first();
+  if (!row) return null;
   await invalidate(env);
-  return next;
+  return row.available;
 }
 
 export async function setProductDiscount(env, productId, percent) {
