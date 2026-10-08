@@ -43,7 +43,7 @@ const deleteOldImage = async (env, oldPath, keepFilename) => {
 export async function saveSiteImage(env, kind, buffer, ext) {
   const filename = `site-${kind}-${Date.now()}.${ext}`;
   await env.PRODUCTS_KV.put(`image:${filename}`, buffer, {
-    metadata: { contentType: EXT_TYPES[ext] || "image/jpeg" },
+    metadata: { contentType: EXT_TYPES[ext] || "image/jpeg", uploadedAt: Date.now() },
   });
   const old = (await getSiteConfig(env))[kind];
   const path = `images/${filename}`;

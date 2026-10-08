@@ -178,7 +178,12 @@ export async function handleAdminAPI(request, env) {
         return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
 
       const filename = `p${Date.now()}.${ext}`;
-      await env.PRODUCTS_KV.put(`image:${filename}`, buffer);
+      await env.PRODUCTS_KV.put(`image:${filename}`, buffer, {
+        metadata: {
+          contentType: file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+          uploadedAt: Date.now(),
+        },
+      });
       return json(request, { url: `/images/${filename}` });
     } catch (e) { return serverError(request, e, 'upload'); }
   }

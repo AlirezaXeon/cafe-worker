@@ -41,7 +41,7 @@ export async function handleImageStep(env, chatId, msg, session) {
     const filename = `site-${kind}-${Date.now()}.${fileData.ext}`;
 
     await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
-      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}`, uploadedAt: Date.now() }
     });
 
     const imagePath = `images/${filename}`;
@@ -76,7 +76,7 @@ export async function handleImageStep(env, chatId, msg, session) {
     const filename = `cat_${catId}_${Date.now()}.${fileData.ext}`;
 
     await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
-      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}`, uploadedAt: Date.now() }
     });
 
     const imagePath = `images/categories/${filename}`;
@@ -104,7 +104,7 @@ export async function handleImageStep(env, chatId, msg, session) {
     // همینطور تایم‌استمپ‌دار، به همون دلیل بالا (کش immutable)
     const filename = `${session.productId}_${Date.now()}.${fileData.ext}`;
     await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
-      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+      metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}`, uploadedAt: Date.now() }
     });
     const oldProduct = await findProduct(env, session.productId);
     await setProductImage(env, session.productId, `images/products/${filename}`);
@@ -124,7 +124,7 @@ export async function handleImageStep(env, chatId, msg, session) {
 
   // ذخیره عکس در KV
   await env.PRODUCTS_KV.put(`image:${filename}`, fileData.buffer, {
-    metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}` }
+    metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}`, uploadedAt: Date.now() }
   });
 
   // ذخیره اطلاعات محصول در D1 (خود عکس همچنان توی KV می‌مونه)

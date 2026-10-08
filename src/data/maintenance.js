@@ -5,6 +5,8 @@
 import { getProducts } from "./products.js";
 import { getSiteConfig } from "./site.js";
 
+const ORPHAN_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000; // ۲۴ ساعت مهلت برای آپلودهای تازه
+
 // اسم فایل همه‌ی عکس‌هایی که این لحظه واقعاً جایی استفاده میشن
 async function usedImageFilenames(env) {
   const [{ categories, products }, siteCfg] = await Promise.all([
@@ -19,15 +21,21 @@ async function usedImageFilenames(env) {
   return used;
 }
 
-// لیست کلیدهای KV (image:...) که به هیچ‌کدوم از موارد بالا وصل نیستن
-export async function findOrphanImageKeys(env) {
+// لیست کلیدهای KV (image:...) که به هیچ‌کدوم از موارد بالا وصل نیستن و بیش از ۲۴ ساعت عمر دارند
+export async function findOrphanImageKeys(env, now = Date.now()) {
   const used = await usedImageFilenames(env);
   const orphans = [];
   let cursor;
   do {
     const page = await env.PRODUCTS_KV.list({ prefix: "image:", cursor });
     for (const k of page.keys) {
-      const filename = k.name.slice("image:".length);
+      const uploadedAt = k.metadata?.uploadedAt;
+      // اگر عکس کمتر از ۲۴ ساعت پیش آپلود شده، هنوز ممکن است در حال ذخیره شدن باشد
+      if (typeof uploadedAt === "number" && now - uploadedAt < ORPHAN_GRACE_PERIOD_MS) {
+        continue;
+      }
+      const rawName = k.name.slice("image:".length);
+      const filename = rawName.replace(/^(thumb|med):/, "");
       if (!used.has(filename)) orphans.push(k.name);
     }
     cursor = page.list_complete ? undefined : page.cursor;
