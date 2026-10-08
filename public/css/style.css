@@ -312,8 +312,9 @@ body.nav-open {
 }
 
 .splash-logo {
+  width: 170px;
   height: 170px;
-  width: auto;
+  aspect-ratio: 1 / 1;
   object-fit: contain;
   position: relative;
   z-index: 1;
@@ -991,6 +992,7 @@ body.header-hidden .menu-controls {
 /* ============ MENU ============ */
 .menu-section {
   padding: 20px 0 80px;
+  min-height: 100vh;
 }
 
 .menu-controls {
@@ -1009,6 +1011,7 @@ body.header-hidden .menu-controls {
   padding: 14px 0 16px;
   margin-inline: -16px;
   padding-inline: 16px;
+  min-height: 74px;
 }
 
 /* فیکس اسکرول افقی تب‌ها */
@@ -1024,6 +1027,7 @@ body.header-hidden .menu-controls {
   width: calc(100% + 32px);
   scrollbar-width: none;
   -ms-overflow-style: none;
+  min-height: 44px;
 }
 
 .tabs::-webkit-scrollbar {
@@ -1248,6 +1252,7 @@ body.header-hidden .menu-controls {
   display: flex;
   flex-direction: column;
   gap: 40px;
+  min-height: 800px;
   contain: layout;
 }
 
@@ -1558,6 +1563,8 @@ body.header-hidden .menu-controls {
 /* ============ ABOUT ============ */
 .about-section {
   padding: 80px 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
 }
 
 .about-inner {
@@ -1620,6 +1627,8 @@ body.header-hidden .menu-controls {
 /* ============ LOCATION ============ */
 .location-section {
   padding: 80px 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
 }
 
 .location-inner {

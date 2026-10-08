@@ -22,14 +22,9 @@
   <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- CSS فونت غیرمسدودکننده است (media=print تا لود شدن)؛ اگه گوگل کند یا فیلتر بود، صفحه و اسپلش
-       منتظرش نمی‌مونن. script.js قبل از بسته شدن اسپلش صبر می‌کنه فونت‌ها برسن (با سقف زمانی). -->
-  <link id="fontCss" rel="stylesheet" media="print"
-    href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Estedad:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&display=swap"
-    onload="this.media='all';this.dataset.ready='1'" onerror="this.dataset.ready='1'">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&family=Estedad:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&display=swap"></noscript>
+  <!-- فونت‌های کاملاً محلی و لوکال (بدون ارسال درخواست به گوگل یا سرورهای خارجی) -->
+  <link rel="preload" href="fonts/Dxxo8j6PP2D_kU2muijlGMWWIGroe7ll.woff2" as="font" type="font/woff2" crossorigin>
+  <link id="fontCss" rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/style.css?v=2">
 
   <script type="application/ld+json">
@@ -73,7 +68,7 @@
     <div class="splash-inner">
       <div class="splash-logo-wrap">
         <span class="splash-ring" id="splashRing" aria-hidden="true"></span>
-        <img alt="کافه روشن" class="splash-logo" id="splashLogoImg" fetchpriority="high"
+        <img alt="کافه روشن" class="splash-logo" id="splashLogoImg" width="170" height="170" fetchpriority="high"
           onerror="window.showSplashFallback && window.showSplashFallback();">
         <div id="splashFallback" class="logo-fallback splash-fallback" style="font-size: 2.5rem;">کافه روشن</div>
       </div>
@@ -86,7 +81,7 @@
   <header class="site-header">
     <div class="wrap header-inner">
       <a href="#top" class="logo">
-        <img alt="کافه روشن" class="logo-img" id="headerLogoImg" fetchpriority="high"
+        <img alt="کافه روشن" class="logo-img" id="headerLogoImg" width="40" height="40" fetchpriority="high"
           onerror="this.style.display='none'; document.getElementById('logoFallback').style.display='flex';">
         <div id="logoFallback" class="logo-fallback">کافه روشن</div>
       </a>
@@ -108,12 +103,12 @@
     <!-- HERO COVER: عکس بالای سایت + لوگو وسطش، که با اسکرول میره بالا سمت راست و ادامه‌ی هدر میشه -->
     <section class="hero-cover">
       <div class="hero-cover-media">
-        <img alt="فضای کافه روشن" id="heroCoverImg" style="display:none" fetchpriority="high"
+        <img alt="فضای کافه روشن" id="heroCoverImg" width="1600" height="900" style="display:none" fetchpriority="high"
           onerror="this.style.display='none'; this.closest('.hero-cover').classList.add('no-cover');">
       </div>
       <div class="hero-cover-logo-wrap">
         <h1 class="hero-cover-title">ROSHAN CAFÉ</h1>
-        <img alt="کافه روشن" class="hero-cover-logo" id="heroCoverLogo" style="display:none"
+        <img alt="کافه روشن" class="hero-cover-logo" id="heroCoverLogo" width="180" height="180" style="display:none"
           onerror="this.style.display='none'">
       </div>
     </section>
@@ -165,11 +160,33 @@
           </div>
         </div>
         <div class="menu-controls">
-          <div class="tabs" id="categoryTabs"></div>
+          <div class="tabs" id="categoryTabs">
+            <div class="tab-btn skeleton-shimmer" style="width: 86px; height: 38px; border-radius: 50px;" aria-hidden="true"></div>
+            <div class="tab-btn skeleton-shimmer" style="width: 96px; height: 38px; border-radius: 50px;" aria-hidden="true"></div>
+            <div class="tab-btn skeleton-shimmer" style="width: 80px; height: 38px; border-radius: 50px;" aria-hidden="true"></div>
+            <div class="tab-btn skeleton-shimmer" style="width: 90px; height: 38px; border-radius: 50px;" aria-hidden="true"></div>
+          </div>
         </div>
         <div class="menu-groups" id="productGrid">
-          <!-- اسکلتون: تا وقتی محصولات واقعی لود بشن، همین فضا رو نگه می‌داره تا با رسیدن
-               دیتا، بخش‌های پایین‌تر (درباره‌ما/آدرس/فوتر) ناگهان و شدید جابه‌جا نشن (CLS) -->
+          <!-- اسکلتون لودینگ: حفظ کامل ارتفاع فضای منو تا رسیدن دیتا و جلوگیری مطلق از پرش صفحه (CLS) -->
+          <div class="menu-group skeleton-group" aria-hidden="true">
+            <div class="menu-group-title skeleton-shimmer skeleton-title"></div>
+            <div class="product-list">
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+            </div>
+          </div>
+          <div class="menu-group skeleton-group" aria-hidden="true">
+            <div class="menu-group-title skeleton-shimmer skeleton-title"></div>
+            <div class="product-list">
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+              <div class="product-card skeleton-shimmer"></div>
+            </div>
+          </div>
           <div class="menu-group skeleton-group" aria-hidden="true">
             <div class="menu-group-title skeleton-shimmer skeleton-title"></div>
             <div class="product-list">

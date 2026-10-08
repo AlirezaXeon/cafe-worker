@@ -490,7 +490,7 @@ let fontsPromise = null;
 function waitForFonts(timeoutMs) {
   if (fontsPromise) return fontsPromise;
   const css = document.getElementById('fontCss');
-  const cssReady = (!css || css.dataset.ready)
+  const cssReady = (!css || css.dataset.ready || css.sheet)
     ? Promise.resolve()
     : new Promise(resolve => {
         css.addEventListener('load', resolve, { once: true });
