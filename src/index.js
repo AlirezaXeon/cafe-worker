@@ -4,6 +4,7 @@ import { getSiteConfig } from "./data/site.js";
 import { getCached, PRODUCTS_CACHE_KEY, SITE_CACHE_KEY } from "./data/cache.js";
 import { handleAdminAPI } from './handlers/admin.js';
 import { handleOrdersAPI } from './handlers/orders.js';
+import { withSecurityHeaders } from "./middleware/security.js";
 
 const IMAGE_CONTENT_TYPES = {
   jpg: "image/jpeg", jpeg: "image/jpeg",
@@ -224,7 +225,11 @@ function injectSiteAssets(response, cfg, origin, products) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const response = await this.handleRoute(request, env, ctx, url);
+    return withSecurityHeaders(response, url.pathname);
+  },
 
+  async handleRoute(request, env, ctx, url) {
     // ── Admin API ─────────────────────────────────────────────────────────
     if (url.pathname.startsWith('/admin/api')) {
       return handleAdminAPI(request, env);
