@@ -35,7 +35,7 @@ function formatOrderMessage({ orderId, tableNumber, items, total }) {
     timeZone: "Asia/Tehran",
   });
   return (
-    `🧾 <b>سفارش جدید</b> — میز ${escapeHtml(tableNumber)}\n\n` +
+    `🧾 <b>سفارش جدید #${orderId}</b> — میز ${escapeHtml(tableNumber)}\n\n` +
     `${lines}\n\n` +
     `<b>جمع کل:</b> ${formatToman(total)}\n` +
     `⏰ ساعت ثبت: ${time}`

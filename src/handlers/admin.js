@@ -259,13 +259,13 @@ export async function handleAdminAPI(request, env) {
 
     if (method === 'DELETE') {
       try {
-        // اگه محصولی با این کتگوری داره، اجازه حذف نمیدیم
-        // (products.category همیشه آیدی دسته رو نگه می‌داره، نه برچسبش)
+        const cat = await findCategory(env, id);
+        if (!cat) return json(request, { error: 'دسته‌بندی پیدا نشد' }, 404);
+
         const used = await countProductsInCategory(env, id);
         if (used > 0)
           return json(request, { error: `این دسته‌بندی ${used} محصول دارد. ابتدا محصولات را جابجا کنید.` }, 400);
 
-        const cat = await findCategory(env, id);
         await deleteCategory(env, id);
         if (cat?.image) {
           const oldFilename = cat.image.split('/').pop();
@@ -280,6 +280,7 @@ export async function handleAdminAPI(request, env) {
         const b = await request.json();
         if (!b.label?.trim()) return json(request, { error: 'نام دسته‌بندی اجباری است' }, 400);
         const old = await findCategory(env, id);
+        if (!old) return json(request, { error: 'دسته‌بندی پیدا نشد' }, 404);
         await updateCategory(env, id, b.label.trim(), b.image || null);
         if (old?.image && old.image !== b.image) {
           const oldFilename = old.image.split('/').pop();
@@ -304,7 +305,11 @@ export async function handleAdminAPI(request, env) {
         const invalid = validateProductBody(b);
         if (invalid) return json(request, { error: invalid }, 400);
 
+        const cat = await findCategory(env, b.category);
+        if (!cat) return json(request, { error: 'دسته‌بندی انتخاب‌شده وجود ندارد' }, 400);
+
         const id = newProductId();
+        const available = b.available === undefined ? 1 : (b.available ? 1 : 0);
         // price که از پنل میاد «قیمت پایه» است؛ محاسبه‌ی تخفیف تو لایه‌ی داده انجام میشه
         await addProduct(env, {
           id,
@@ -314,7 +319,7 @@ export async function handleAdminAPI(request, env) {
           price: Number(b.price),
           discount: Number(b.discount || 0),
           image: b.image || null,
-          available: b.available ? 1 : 0,
+          available,
         });
         return json(request, { success: true, id }, 201);
       } catch (e) { return serverError(request, e, 'products:post'); }
@@ -347,6 +352,10 @@ export async function handleAdminAPI(request, env) {
         const old = await findProduct(env, id);
         if (!old) return json(request, { error: 'محصول پیدا نشد' }, 404);
 
+        const cat = await findCategory(env, b.category);
+        if (!cat) return json(request, { error: 'دسته‌بندی انتخاب‌شده وجود ندارد' }, 400);
+
+        const available = b.available === undefined ? (old.available ? 1 : 0) : (b.available ? 1 : 0);
         await updateProduct(env, id, {
           category: b.category,
           name: b.name.trim(),
@@ -354,7 +363,7 @@ export async function handleAdminAPI(request, env) {
           price: Number(b.price),
           discount: Number(b.discount || 0),
           image: b.image || null,
-          available: b.available ? 1 : 0,
+          available,
         });
         if (old.image && old.image !== b.image) {
           const oldFilename = old.image.split('/').pop();
@@ -367,6 +376,7 @@ export async function handleAdminAPI(request, env) {
     if (method === 'DELETE') {
       try {
         const prod = await findProduct(env, id);
+        if (!prod) return json(request, { error: 'محصول پیدا نشد' }, 404);
         await deleteProduct(env, id);
         if (prod?.image) {
           const oldFilename = prod.image.split('/').pop();
@@ -381,7 +391,9 @@ export async function handleAdminAPI(request, env) {
   if (path === '/orders' && method === 'GET') {
     try {
       const status = url.searchParams.get('status') || undefined;
-      return json(request, await listOrders(env, { status }));
+      const beforeId = url.searchParams.get('before_id') || url.searchParams.get('beforeId') || undefined;
+      const limit = url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : 50;
+      return json(request, await listOrders(env, { status, beforeId, limit }));
     } catch (e) { return serverError(request, e, 'orders:get'); }
   }
 

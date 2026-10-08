@@ -1196,24 +1196,42 @@
       loadOrders();
     }
 
-    async function loadOrders() {
+    let currentOrdersList = [];
+    let hasMoreOrders = false;
+
+    async function loadOrders(append = false) {
       const wrap = document.getElementById('order-list-wrap');
       if (!wrap) return;
       try {
-        const qs = currentOrderFilter ? `?status=${currentOrderFilter}` : '';
+        let qs = '?limit=50';
+        if (currentOrderFilter) qs += `&status=${currentOrderFilter}`;
+        if (append && currentOrdersList.length) {
+          const oldestId = currentOrdersList[currentOrdersList.length - 1].id;
+          qs += `&before_id=${oldestId}`;
+        }
         const orders = await api('/orders' + qs);
-        if (!orders.length) { wrap.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>سفارشی یافت نشد</div>'; return; }
+        if (!append) {
+          currentOrdersList = orders;
+        } else {
+          currentOrdersList = currentOrdersList.concat(orders);
+        }
+        hasMoreOrders = orders.length === 50;
+
+        if (!currentOrdersList.length) {
+          wrap.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>سفارشی یافت نشد</div>';
+          return;
+        }
         const statusLabel = { pending: 'در انتظار', confirmed: 'تایید شده', rejected: 'رد شده' };
-        wrap.innerHTML = `<div class="order-list">${orders.map(o => {
+        wrap.innerHTML = `<div class="order-list">${currentOrdersList.map(o => {
           const time = new Date(o.created_at + 'Z').toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
           return `
           <div class="order-card">
             <div class="order-card-head">
-              <span class="order-table-no">میز ${esc(o.table_number)}</span>
+              <span class="order-table-no">سفارش #${o.id} — میز ${esc(o.table_number)}</span>
               <span class="order-status ${o.status}">${statusLabel[o.status] || o.status}</span>
               <span class="order-time">${time}</span>
             </div>
-            <div class="order-items">${o.items.map(it => `
+            <div class="order-items">${(o.items || []).map(it => `
               <div class="order-item-row"><span>${esc(it.name)} × ${it.quantity}</span><span>${Number(it.price * it.quantity).toLocaleString('fa-IR')} ت</span></div>
             `).join('')}</div>
             <div class="order-card-foot">
@@ -1225,7 +1243,12 @@
                 </div>` : ''}
             </div>
           </div>`;
-        }).join('')}</div>`;
+        }).join('')}</div>
+        ${hasMoreOrders ? `
+          <div style="text-align:center;margin-top:16px;">
+            <button class="btn btn-outline" onclick="loadOrders(true)">بارگذاری بیشتر...</button>
+          </div>
+        ` : ''}`;
       } catch (e) {
         if (e.message !== 'unauthorized') wrap.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری</div>';
       }

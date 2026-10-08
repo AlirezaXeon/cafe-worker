@@ -13,14 +13,37 @@ export async function getOrder(env, id) {
   return env.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(id).first();
 }
 
-// لیست سفارش‌ها برای پنل وب؛ جدیدترین‌ها اول. items رو هم از رشته‌ی JSON خام دربیاریم
-// که مستقیم قابل استفاده باشه (هم تو پنل وب هم هرجای دیگه‌ای که لازم شد).
-export async function listOrders(env, { status, limit = 50 } = {}) {
-  const query = status
-    ? env.DB.prepare("SELECT * FROM orders WHERE status = ? ORDER BY id DESC LIMIT ?").bind(status, limit)
-    : env.DB.prepare("SELECT * FROM orders ORDER BY id DESC LIMIT ?").bind(limit);
+// لیست سفارش‌ها برای پنل وب؛ جدیدترین‌ها اول. پارامتر beforeId برای صفحه‌بندی نشانگر (cursor)
+export async function listOrders(env, { status, limit = 50, beforeId } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const conditions = [];
+  const bindings = [];
+
+  if (status) {
+    conditions.push("status = ?");
+    bindings.push(status);
+  }
+  if (beforeId && Number(beforeId) > 0) {
+    conditions.push("id < ?");
+    bindings.push(Number(beforeId));
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const query = env.DB.prepare(
+    `SELECT * FROM orders ${whereClause} ORDER BY id DESC LIMIT ?`
+  ).bind(...bindings, safeLimit);
+
   const { results } = await query.all();
-  return results.map((o) => ({ ...o, items: JSON.parse(o.items) }));
+  return results.map((o) => {
+    let items = [];
+    try {
+      items = JSON.parse(o.items);
+    } catch (e) {
+      console.error(`[orders:corrupted_items] order ${o.id}:`, e);
+      items = [];
+    }
+    return { ...o, items };
+  });
 }
 
 // آپدیت وضعیت فقط وقتی هنوز pending باشه؛ اگه هیچ ردیفی آپدیت نشد یعنی یه ادمین دیگه
