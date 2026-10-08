@@ -1492,24 +1492,50 @@ body.header-hidden .menu-controls {
 }
 
 .product-card .product-note {
-  font-size: 0.84rem;
-  line-height: 1.5;
+  font-size: 0.82rem;
+  line-height: 1.45;
   color: var(--ink-soft);
-  max-height: 3em;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  max-height: 1.55em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  word-break: break-word;
+  white-space: nowrap;
   position: relative;
-  /* در صورت طولانی بودن توضیحات، خط دوم به شکل نرم کدر و محو می‌شود و با زدن روی کارت در مودال قابل مشاهده است */
-  mask-image: linear-gradient(180deg, #000 0px, #000 20px, rgba(0, 0, 0, 0.45) 32px, transparent 44px);
-  -webkit-mask-image: linear-gradient(180deg, #000 0px, #000 20px, rgba(0, 0, 0, 0.45) 32px, transparent 44px);
   transition: color 0.2s ease;
 }
 
+.product-card .product-note .note-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+/* در صورت طولانی بودن توضیحات، انتهای متن نرم فید شده و ادامه آن در مودال قابل مشاهده است */
+.product-card .product-note.is-truncated .note-text {
+  mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.25) 0%, #000 24px);
+  -webkit-mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.25) 0%, #000 24px);
+}
+
+.product-card .product-note .note-dots {
+  color: var(--accent);
+  opacity: 0.82;
+  font-weight: 700;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  user-select: none;
+  font-size: 0.9em;
+}
+
 .product-card:hover .product-note {
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.product-card:hover .product-note .note-dots {
+  opacity: 1;
 }
 
 .product-card .product-footer {
@@ -3199,8 +3225,8 @@ body.header-hidden .menu-controls {
   }
 
   .product-card .product-note {
-    -webkit-line-clamp: 2;
-    font-size: 0.84rem;
+    font-size: 0.82rem;
+    max-height: 1.55em;
   }
 
   .about-inner {

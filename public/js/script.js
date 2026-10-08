@@ -743,6 +743,28 @@ function productThumbSrc(src) {
   return `images/thumb/${filename}`;
 }
 
+// قالب‌بندی و خلاصه‌سازی توضیحات کارت محصول (محدود به ۵ کلمه/اسپیس تا کارت شلوغ نشود؛ در مودال کامل نمایش داده می‌شود)
+function formatProductNote(note) {
+  if (!note || !note.trim()) return '';
+  const trimmed = note.trim();
+  const words = trimmed.split(/\s+/);
+  const MAX_WORDS = 5;
+  const MAX_CHARS = 34;
+
+  if (words.length > MAX_WORDS || trimmed.length > MAX_CHARS) {
+    let preview = words.slice(0, MAX_WORDS).join(' ');
+    if (preview.length > MAX_CHARS) {
+      const cut = preview.slice(0, MAX_CHARS);
+      const lastSp = cut.lastIndexOf(' ');
+      preview = lastSp > 10 ? cut.slice(0, lastSp) : cut;
+    }
+    // پاک کردن کاما، ویرگول یا حرف «و» غیرضروری در انتهای متن بریده شده
+    preview = preview.replace(/[،,؛;\s]+$/, '').replace(/\s+و$/, '').trim();
+    return `<div class="product-note is-truncated" title="${esc(trimmed)}"><span class="note-text">${esc(preview)}</span><span class="note-dots">...</span></div>`;
+  }
+  return `<div class="product-note"><span class="note-text">${esc(trimmed)}</span></div>`;
+}
+
 function productCardHtml(p) {
   const imgSrc = p.image || getCategoryImage(p.category);
   const thumbSrc = productThumbSrc(imgSrc);
@@ -762,7 +784,7 @@ function productCardHtml(p) {
           <div class="product-name">${esc(p.name)}</div>
           ${p.originalPrice ? '<span class="discount-badge">تخفیف</span>' : ''}
         </div>
-        ${p.note && p.note.trim() ? `<div class="product-note">${esc(p.note)}</div>` : ''}
+        ${formatProductNote(p.note)}
         <div class="product-footer">
           <div class="price-group">
             ${p.originalPrice ? `<span class="price-old mono">${formatPrice(p.originalPrice)}</span>` : ''}
