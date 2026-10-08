@@ -19,6 +19,7 @@ import {
 } from '../data/products.js';
 import { MAX_UPLOAD_BYTES } from '../config.js';
 import { listOrders, resolveOrder, getSalesStats } from '../data/orders.js';
+import { validatePrice, validateDiscount } from '../lib/validate.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -57,11 +58,10 @@ function safeCompare(a, b) {
 function validateProductBody(b) {
   if (!b?.name?.trim()) return 'نام محصول اجباری است';
   if (!b.category) return 'دسته‌بندی اجباری است';
-  const price = Number(b.price);
-  if (!price || !Number.isFinite(price) || price <= 0) return 'قیمت باید یک عدد مثبت باشد';
-  const discount = Number(b.discount || 0);
-  if (!Number.isFinite(discount) || discount < 0 || discount >= 100)
-    return 'درصد تخفیف باید بین ۰ تا ۹۹ باشد';
+  const priceCheck = validatePrice(b.price);
+  if (!priceCheck.valid) return priceCheck.error;
+  const discountCheck = validateDiscount(b.discount);
+  if (!discountCheck.valid) return discountCheck.error;
   return null;
 }
 

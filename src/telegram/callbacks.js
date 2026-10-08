@@ -197,9 +197,13 @@ export async function handleCallback(env, chatId, data, cq) {
   if (data === "bulkconfirm") {
     const session = await getSession(env, chatId);
     if (!session || session.step !== "bulk_confirm") return sendMainMenu(env, chatId);
-    await applyCategoryPercent(env, session.catId, session.percent);
+    try {
+      await applyCategoryPercent(env, session.catId, session.percent, session.items);
+      await sendMessage(env, chatId, "✅ قیمت‌ها به‌روزرسانی شدن.");
+    } catch (err) {
+      await sendMessage(env, chatId, `⚠️ خطا: ${err.message}`);
+    }
     await clearSession(env, chatId);
-    await sendMessage(env, chatId, "✅ قیمت‌ها به‌روزرسانی شدن.");
     return sendMainMenu(env, chatId);
   }
 

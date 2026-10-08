@@ -1,10 +1,13 @@
 // همه‌ی عملیات محصولات و دسته‌ها روی D1 (env.DB)
 
 import { invalidateCache, PRODUCTS_CACHE_KEY } from "./cache.js";
+import { MIN_PRICE, MAX_PRICE } from "../config.js";
 const invalidate = (env) => invalidateCache(env, PRODUCTS_CACHE_KEY);
 
 export function roundPrice(n) {
-  return Math.round(n / 1000) * 1000;
+  if (n <= 0) return 0;
+  const rounded = Math.round(n / 1000) * 1000;
+  return rounded < MIN_PRICE ? MIN_PRICE : rounded;
 }
 
 // خوندن کامل محصولات+دسته‌ها (برای نمایش سایت و لیست‌های ادمین)
@@ -48,27 +51,54 @@ export async function findProduct(env, productId) {
 // پیش‌نمایش اعمال درصد روی یه دسته، بدون نوشتن چیزی (برای تایید گرفتن از ادمین)
 export async function previewCategoryPercent(env, catId, percent) {
   const products = await productsInCategory(env, catId);
-  return products.map((p) => ({
-    id: p.id,
-    name: p.name,
-    oldPrice: p.price,
-    newPrice: roundPrice(p.price * (1 + percent / 100)),
-  }));
+  const items = [];
+  for (const p of products) {
+    const base = p.originalPrice ?? p.price;
+    const newPrice = roundPrice(base * (1 + percent / 100));
+    if (newPrice < MIN_PRICE) {
+      throw new Error(`قیمت محصول «${p.name}» پس از اعمال درصد کمتر از حداقل مجاز (${MIN_PRICE.toLocaleString("fa-IR")} تومان) می‌شود.`);
+    }
+    if (newPrice > MAX_PRICE) {
+      throw new Error(`قیمت محصول «${p.name}» پس از اعمال درصد بیشتر از حداکثر مجاز (${MAX_PRICE.toLocaleString("fa-IR")} تومان) می‌شود.`);
+    }
+    items.push({
+      id: p.id,
+      name: p.name,
+      oldPrice: p.price,
+      newPrice,
+    });
+  }
+  return items;
 }
 
 // اعمال واقعی درصد روی یه دسته؛ همه‌ی آپدیت‌ها با batch یعنی یا همه انجام میشن یا هیچکدوم
 // درصد مثبت = افزایش قیمت واقعی (تخفیف قبلی پاک میشه)
 // درصد منفی = تخفیف دسته‌جمعی (قیمت اصلی به عنوان original_price نگه داشته میشه)
-export async function applyCategoryPercent(env, catId, percent) {
+// اگر previewedItems ارسال شود، بررسی می‌شود که قیمت‌ها از زمان پیش‌نمایش تغییری نکرده باشند
+export async function applyCategoryPercent(env, catId, percent, previewedItems = null) {
   const products = await productsInCategory(env, catId);
   if (products.length === 0) return;
-  const stmts = products.map((p) => {
-    const newPrice = roundPrice(p.price * (1 + percent / 100));
-    const newOriginal = percent < 0 ? p.originalPrice ?? p.price : null;
+  const productMap = new Map(products.map((p) => [p.id, p]));
+
+  if (previewedItems && Array.isArray(previewedItems)) {
+    for (const item of previewedItems) {
+      const current = productMap.get(item.id);
+      if (!current || current.price !== item.oldPrice) {
+        throw new Error("قیمت برخی محصولات از زمان پیش‌نمایش تغییر کرده است. لطفاً مجدداً امتحان کنید.");
+      }
+    }
+  }
+
+  const itemsToApply = previewedItems || products;
+  const stmts = itemsToApply.map((item) => {
+    const p = productMap.get(item.id);
+    const base = p.originalPrice ?? p.price;
+    const newPrice = item.newPrice ?? roundPrice(base * (1 + percent / 100));
+    const newOriginal = percent < 0 ? base : null;
     return env.DB.prepare("UPDATE products SET price = ?, original_price = ? WHERE id = ?").bind(
       newPrice,
       newOriginal,
-      p.id
+      item.id
     );
   });
   await env.DB.batch(stmts);
@@ -76,9 +106,13 @@ export async function applyCategoryPercent(env, catId, percent) {
 }
 
 export async function setProductPrice(env, productId, price) {
+  const finalPrice = roundPrice(price);
+  if (finalPrice < MIN_PRICE || finalPrice > MAX_PRICE) {
+    throw new Error(`قیمت باید بین ${MIN_PRICE.toLocaleString("fa-IR")} تا ${MAX_PRICE.toLocaleString("fa-IR")} تومان باشد.`);
+  }
   await env.DB
     .prepare("UPDATE products SET price = ?, original_price = NULL WHERE id = ?")
-    .bind(roundPrice(price), productId)
+    .bind(finalPrice, productId)
     .run();
   await invalidate(env);
 }

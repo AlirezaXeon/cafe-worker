@@ -11,6 +11,7 @@ import { setSession, clearSession } from "../data/session.js";
 import { sendMessage, forceReply } from "./api.js";
 import { toFa, formatToman, escapeHtml } from "./format.js";
 import { sendMainMenu, sendCategoriesMenu, sendProductDetail, sendProductList } from "./menus.js";
+import { validatePrice, validatePercent, validateDiscount } from "../lib/validate.js";
 
 // ---------- پیام‌های متنی در میانه‌ی یه مرحله ----------
 
@@ -18,11 +19,17 @@ export async function handleTextStep(env, chatId, text, session) {
   const trimmed = (text || "").trim();
 
   if (session.step === "bulk_percent") {
-    const percent = parseFloat(trimmed.replace(/[٪%]/g, ""));
-    if (isNaN(percent) || percent === 0) {
-      return forceReply(env, chatId, "یه عدد معتبر بفرست (مثلاً 20 یا -10):");
+    const check = validatePercent(trimmed);
+    if (!check.valid || check.percent === 0) {
+      return forceReply(env, chatId, check.error || "یه عدد معتبر بفرست (مثلاً 20 یا -10):");
     }
-    const preview = await previewCategoryPercent(env, session.catId, percent);
+    const percent = check.percent;
+    let preview;
+    try {
+      preview = await previewCategoryPercent(env, session.catId, percent);
+    } catch (err) {
+      return forceReply(env, chatId, `⚠️ ${err.message}\nیه عدد دیگر وارد کن:`);
+    }
     if (preview.length === 0) {
       await clearSession(env, chatId);
       return sendMessage(env, chatId, "این دسته محصولی نداره.");
@@ -30,7 +37,12 @@ export async function handleTextStep(env, chatId, text, session) {
     const lines = preview
       .map((p) => `• ${escapeHtml(p.name)}: ${formatToman(p.oldPrice)} ← ${formatToman(p.newPrice)}`)
       .join("\n");
-    await setSession(env, chatId, { step: "bulk_confirm", catId: session.catId, percent });
+    await setSession(env, chatId, {
+      step: "bulk_confirm",
+      catId: session.catId,
+      percent,
+      items: preview.map((p) => ({ id: p.id, oldPrice: p.oldPrice, newPrice: p.newPrice })),
+    });
     return sendMessage(env, chatId, `پیش‌نمایش تغییر قیمت (${toFa(percent)}٪):\n\n${lines}\n\nتایید می‌کنی؟`, [
       [{ text: "✅ تایید و اعمال", callback_data: "bulkconfirm" }],
       [{ text: "❌ لغو", callback_data: "bulkcancel" }],
@@ -38,20 +50,24 @@ export async function handleTextStep(env, chatId, text, session) {
   }
 
   if (session.step === "edit_price") {
-    const price = parseInt(trimmed.replace(/[^\d]/g, ""), 10);
-    if (!price) return forceReply(env, chatId, "یه عدد معتبر برای قیمت بفرست:");
-    await setProductPrice(env, session.productId, price);
+    const check = validatePrice(trimmed);
+    if (!check.valid) return forceReply(env, chatId, `${check.error}\nقیمت جدید رو به تومان بفرست:`);
+    try {
+      await setProductPrice(env, session.productId, check.price);
+    } catch (err) {
+      return forceReply(env, chatId, `⚠️ ${err.message}\nیه قیمت معتبر بفرست:`);
+    }
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ قیمت به‌روزرسانی شد.");
     return sendProductDetail(env, chatId, session.productId);
   }
 
   if (session.step === "discount_percent") {
-    const percent = parseFloat(trimmed.replace(/[٪%]/g, ""));
-    if (isNaN(percent) || percent <= 0 || percent >= 100) {
-      return forceReply(env, chatId, "درصد باید بین ۱ تا ۹۹ باشه:");
+    const check = validateDiscount(trimmed);
+    if (!check.valid || check.discount <= 0) {
+      return forceReply(env, chatId, `${check.error || "درصد باید بین ۱ تا ۹۹ باشه"}:`);
     }
-    await setProductDiscount(env, session.productId, percent);
+    await setProductDiscount(env, session.productId, check.discount);
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ تخفیف اعمال شد.");
     return sendProductDetail(env, chatId, session.productId);
@@ -96,10 +112,10 @@ export async function handleTextStep(env, chatId, text, session) {
   }
 
   if (session.step === "new_product_price") {
-    const price = parseInt(trimmed.replace(/[^\d]/g, ""), 10);
-    if (!price) return forceReply(env, chatId, "یه عدد معتبر بفرست:");
+    const check = validatePrice(trimmed);
+    if (!check.valid) return forceReply(env, chatId, `${check.error}\nقیمت رو به تومان بفرست:`);
     const newId = newProductId();
-    await setSession(env, chatId, { ...session, step: "new_product_image", price, productId: newId });
+    await setSession(env, chatId, { ...session, step: "new_product_image", price: check.price, productId: newId });
     return forceReply(env, chatId, "📷 حالا عکس محصول رو بفرست، یا اگر عکس نداره بنویس «بدون عکس»:");
   }
 
