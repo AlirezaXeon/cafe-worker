@@ -4,6 +4,7 @@ import { clearSession } from "../data/session.js";
 import { sendMessage, forceReply, downloadTelegramFile } from "./api.js";
 import { sendSiteImagesMenu, sendCategoriesMenu, sendProductDetail, sendProductList } from "./menus.js";
 import { MAX_UPLOAD_BYTES } from "../config.js";
+import { deleteImageKeys, imageFilename } from "../data/imagePaths.js";
 
 const formatMB = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
 
@@ -24,8 +25,8 @@ export async function handleImageStep(env, chatId, msg, session) {
   await sendMessage(env, chatId, "⏳ در حال آپلود عکس...");
 
   const fileData = await downloadTelegramFile(env, fileId);
-  if (!fileData) {
-    return forceReply(env, chatId, "❌ خطا در دریافت عکس. لطفاً دوباره بفرست یا بنویس «بدون عکس»:");
+  if (!fileData || fileData.error) {
+    return forceReply(env, chatId, `❌ ${fileData?.error || "خطا در دریافت عکس"}. لطفاً دوباره بفرست یا بنویس «بدون عکس»:`);
   }
   if (fileData.buffer.byteLength > MAX_UPLOAD_BYTES) {
     return forceReply(

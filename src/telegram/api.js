@@ -1,3 +1,6 @@
+import { validateImage, ALLOWED_IMAGE_EXTS } from "../lib/images.js";
+import { MAX_UPLOAD_BYTES } from "../config.js";
+
 // ---------- ارتباط خام با API تلگرام ----------
 
 export async function tg(env, method, payload) {
@@ -35,15 +38,35 @@ async function sendAndTrack(env, chatId, payload) {
 
 export async function downloadTelegramFile(env, fileId) {
   const fileRes = await tg(env, "getFile", { file_id: fileId });
-  if (!fileRes.ok || !fileRes.result?.file_path) return null;
-  const filePath = fileRes.result.file_path;
+  if (!fileRes.ok || !fileRes.result?.file_path) {
+    return { error: "خطا در دریافت مشخصات فایل از تلگرام" };
+  }
+  const { file_path: filePath, file_size: fileSize } = fileRes.result;
+  const ext = (filePath.split('.').pop() || "").toLowerCase();
+
+  if (!ALLOWED_IMAGE_EXTS.has(ext)) {
+    return { error: "فرمت فایل مجاز نیست (فقط jpg, png, webp, gif)" };
+  }
+
+  if (fileSize && fileSize > MAX_UPLOAD_BYTES) {
+    return { error: `حجم عکس (${(fileSize / (1024 * 1024)).toFixed(1)} مگابایت) بیشتر از سقف مجاز (۲ مگابایت) است` };
+  }
+
   const downloadUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`;
   const imgRes = await fetch(downloadUrl);
-  if (!imgRes.ok) return null;
-  return {
-    buffer: await imgRes.arrayBuffer(),
-    ext: filePath.split('.').pop()
-  };
+  if (!imgRes.ok) return { error: "خطا در دانلود فایل از سرور تلگرام" };
+
+  const buffer = await imgRes.arrayBuffer();
+  if (buffer.byteLength > MAX_UPLOAD_BYTES) {
+    return { error: `حجم عکس (${(buffer.byteLength / (1024 * 1024)).toFixed(1)} مگابایت) بیشتر از سقف مجاز (۲ مگابایت) است` };
+  }
+
+  const validation = validateImage(buffer, ext);
+  if (!validation.valid) {
+    return { error: validation.error };
+  }
+
+  return { buffer, ext };
 }
 
 export async function pinMessage(env, chatId, messageId) {
