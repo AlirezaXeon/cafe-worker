@@ -96,16 +96,24 @@ export async function getSalesStats(env) {
 export async function resolveOrder(env, orderId, status, resolvedBy = "ادمین") {
   const updated = status === "confirmed" ? await confirmOrder(env, orderId) : await rejectOrder(env, orderId);
 
-  const raw = await env.PRODUCTS_KV.get(`order:msgs:${orderId}`);
-  const stored = raw ? JSON.parse(raw) : null;
+  let stored = null;
+  const orderRow = await getOrder(env, orderId);
+  if (orderRow?.tg_messages) {
+    try {
+      stored = JSON.parse(orderRow.tg_messages);
+    } catch {}
+  } else if (env.PRODUCTS_KV) {
+    const raw = await env.PRODUCTS_KV.get(`order:msgs:${orderId}`);
+    stored = raw ? JSON.parse(raw) : null;
+  }
+
   if (stored?.entries?.length) {
     let newText;
     if (updated) {
       newText = `${stored.text}\n\n${status === "confirmed" ? "✅ تایید شد" : "❌ رد شد"} توسط ${resolvedBy}`;
     } else {
-      // آپدیت اعمال نشد؛ به‌جای حدس زدن «پس حتماً یکی دیگه بررسیش کرده»، وضعیت واقعی
-      // سفارش رو از دیتابیس می‌خونیم تا پیام همیشه درست باشه، مهم نیست علتش چی بوده
-      const current = await getOrder(env, orderId);
+      // آپدیت اعمال نشد؛ وضعیت واقعی سفارش رو از دیتابیس می‌خونیم
+      const current = orderRow;
       if (current?.status === "confirmed") newText = `${stored.text}\n\n✅ تایید شد`;
       else if (current?.status === "rejected") newText = `${stored.text}\n\n❌ رد شد`;
       else newText = `${stored.text}\n\n⚠️ این سفارش پیدا نشد یا حذف شده.`;

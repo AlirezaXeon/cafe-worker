@@ -1,7 +1,7 @@
 import { handleUpdate } from "./telegram.js";
 import { getProducts } from "./data/products.js";
 import { getSiteConfig } from "./data/site.js";
-import { getCached, PRODUCTS_CACHE_KEY, SITE_CACHE_KEY } from "./data/cache.js";
+import { memo, PRODUCTS_CACHE_KEY, SITE_CACHE_KEY } from "./data/cache.js";
 import { handleAdminAPI } from './handlers/admin.js';
 import { handleOrdersAPI } from './handlers/orders.js';
 import { withSecurityHeaders } from "./middleware/security.js";
@@ -17,38 +17,16 @@ const IMAGE_CONTENT_TYPES = {
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 const SHORT_CACHE = "public, max-age=600";
 
-// ── کش حافظه‌ی همین ایزوله (isolate) ───────────────────────────────────────────
-// هر خوندن از KV تو سقف روزانه‌ی پلن رایگان حساب میشه. با این لایه، درخواست‌های پشت‌سرهمِ
-// چند ثانیه‌ی اخیر (و درخواست‌های هم‌زمان) فقط یه بار KV/D1 رو می‌زنن.
-// نکته: تغییرات ادمین ممکنه تا MEMO_TTL_MS ثانیه تو ایزوله‌های دیگه دیر دیده بشه.
-const MEMO_TTL_MS = 10_000;
-const memoStore = new Map();
-
-function memo(key, fetcher) {
-  const now = Date.now();
-  const hit = memoStore.get(key);
-  if (hit && hit.exp > now) return hit.promise;
-  // خود promise ذخیره میشه، پس چند درخواست هم‌زمان یه fetch مشترک دارن
-  const promise = fetcher().catch((err) => {
-    memoStore.delete(key); // خطا نباید کش بشه
-    throw err;
-  });
-  memoStore.set(key, { exp: now + MEMO_TTL_MS, promise });
-  return promise;
-}
-
 const loadProductsData = (env) =>
-  memo(PRODUCTS_CACHE_KEY, () =>
-    getCached(env, PRODUCTS_CACHE_KEY, async () => {
-      const fresh = await getProducts(env);
-      fresh.products = fresh.products.filter((p) => p.available !== 0);
-      return fresh;
-    })
-  );
+  memo(PRODUCTS_CACHE_KEY, async () => {
+    const fresh = await getProducts(env);
+    fresh.products = fresh.products.filter((p) => p.available !== 0);
+    return fresh;
+  });
 
 // هم برای /data/site.json هم برای تزریق لوگو/کاور تو HTML؛ هر دو یه کش مشترک دارن
 const loadSiteData = (env) =>
-  memo(SITE_CACHE_KEY, () => getCached(env, SITE_CACHE_KEY, () => getSiteConfig(env)));
+  memo(SITE_CACHE_KEY, () => getSiteConfig(env));
 
 // ── کش لبه (Cache API) ────────────────────────────────────────────────────────
 // عکس‌ها از KV خونده میشن و هر خوندن حساب میشه؛ با کش لبه فقط بار اول (هر دیتاسنتر) KV خونده میشه.

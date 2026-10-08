@@ -81,11 +81,15 @@ async function notifyAdmins(env, { orderId, tableNumber, items, total }) {
       .filter((e) => e.messageId);
 
     if (entries.length > 0) {
-      await env.PRODUCTS_KV.put(
-        `order:msgs:${orderId}`,
-        JSON.stringify({ text, entries }),
-        { expirationTtl: 60 * 60 * 24 * 3 } // ۳ روز کافیه؛ بعدش پیام‌ها بی‌ربط شدن
-      );
+      const tgPayload = JSON.stringify({ text, entries });
+      try {
+        await env.DB
+          .prepare("UPDATE orders SET tg_messages = ?, tg_notified = 1 WHERE id = ?")
+          .bind(tgPayload, orderId)
+          .run();
+      } catch (err) {
+        console.error("[orders:save_tg_messages]", err);
+      }
     }
   } catch (err) {
     console.error(`[orders:notify] order ${orderId}:`, err);
