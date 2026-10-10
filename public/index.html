@@ -283,26 +283,42 @@
   <div class="modal-overlay" id="productModal" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modalName">
       <button class="modal-close" id="modalClose" aria-label="بستن">✕</button>
-      <div class="modal-image" id="modalImage">
-        <div class="placeholder" id="modalPlaceholder"></div>
-      </div>
-      <div class="modal-body">
-        <span class="modal-cat" id="modalCat"></span>
-        <div class="modal-title-row">
-          <h3 id="modalName"></h3>
-          <div class="modal-price-glow-wrap">
-            <span class="modal-price mono" id="modalPrice"></span>
-          </div>
+      <span class="modal-nav-counter mono" id="modalNavCounter" aria-live="polite"></span>
+      <!-- دکمه چپ: محصول قبلی -->
+      <button class="modal-nav-btn modal-nav-prev" id="modalPrevBtn" aria-label="محصول قبلی" title="محصول قبلی" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </button>
+      <!-- دکمه راست: محصول بعدی -->
+      <button class="modal-nav-btn modal-nav-next" id="modalNextBtn" aria-label="محصول بعدی" title="محصول بعدی" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m9 18 6-6-6-6"/>
+        </svg>
+      </button>
+
+      <div class="modal-content-slider" id="modalContentSlider">
+        <div class="modal-image" id="modalImage">
+          <div class="placeholder" id="modalPlaceholder"></div>
         </div>
-        <p class="modal-note" id="modalNote"></p>
-        <div class="modal-footer">
-          <button class="modal-add-btn" id="modalAddBtn" aria-label="افزودن به سبد خرید">
-            <span class="btn-icon" aria-hidden="true">
-              <svg class="icon-plus" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10 3.5v13M3.5 10h13"/></svg>
-              <svg class="icon-check" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5l4 4 8-8"/></svg>
-            </span>
-            <span class="btn-label" id="modalAddBtnLabel">افزودن به سبد خرید</span>
-          </button>
+        <div class="modal-body">
+          <span class="modal-cat" id="modalCat"></span>
+          <div class="modal-title-row">
+            <h3 id="modalName"></h3>
+            <div class="modal-price-glow-wrap">
+              <span class="modal-price mono" id="modalPrice"></span>
+            </div>
+          </div>
+          <p class="modal-note" id="modalNote"></p>
+          <div class="modal-footer">
+            <button class="modal-add-btn" id="modalAddBtn" aria-label="افزودن به سبد خرید">
+              <span class="btn-icon" aria-hidden="true">
+                <svg class="icon-plus" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M10 3.5v13M3.5 10h13"/></svg>
+                <svg class="icon-check" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5l4 4 8-8"/></svg>
+              </span>
+              <span class="btn-label" id="modalAddBtnLabel">افزودن به سبد خرید</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

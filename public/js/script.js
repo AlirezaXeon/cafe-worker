@@ -130,6 +130,10 @@ setTimeout(hideSplash, 6500);
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
 const modalClose = document.getElementById('modalClose');
+const modalPrevBtn = document.getElementById('modalPrevBtn');
+const modalNextBtn = document.getElementById('modalNextBtn');
+const modalNavCounter = document.getElementById('modalNavCounter');
+const modalContentSlider = document.getElementById('modalContentSlider');
 const modalImage = document.getElementById('modalImage');
 const modalPlaceholder = document.getElementById('modalPlaceholder');
 const modalCat = document.getElementById('modalCat');
@@ -139,6 +143,16 @@ const modalPrice = document.getElementById('modalPrice');
 const modalAddBtn = document.getElementById('modalAddBtn');
 let modalProductId = null;
 let modalImgToken = 0;
+let isNavigatingModal = false;
+
+function toFaDigits(n) {
+  return String(n).replace(/[0-9]/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+}
+
+function catLabel(id) {
+  const c = productsData && productsData.categories && productsData.categories.find(c => c.id === id);
+  return c ? c.label : id;
+}
 
 const CAT_COLORS = {
   coffee: '#B58863',
@@ -271,29 +285,64 @@ function observeCardsForPreload() {
 // ============ باز و بسته شدن فوق‌العاده نرم و مدرن محصول ============
 let modalCloseTimer = null;
 
-function openModal(product, catLabelText, card) {
-  clearTimeout(modalCloseTimer);
+function getVisibleProductList() {
+  if (grid) {
+    const cards = Array.from(grid.querySelectorAll('.product-card'));
+    if (cards.length > 0 && productsData && productsData.products) {
+      const list = cards.map(c => productsData.products.find(p => p.id === c.dataset.id)).filter(Boolean);
+      if (list.length > 0) return list;
+    }
+  }
+  return (productsData && productsData.products) || [];
+}
+
+function updateModalNavState() {
+  const list = getVisibleProductList();
+  const total = list.length;
+  if (total <= 1) {
+    if (modalPrevBtn) modalPrevBtn.style.display = 'none';
+    if (modalNextBtn) modalNextBtn.style.display = 'none';
+    if (modalNavCounter) modalNavCounter.style.display = 'none';
+    return;
+  }
+
+  if (modalPrevBtn) modalPrevBtn.style.display = '';
+  if (modalNextBtn) modalNextBtn.style.display = '';
+  if (modalNavCounter) modalNavCounter.style.display = '';
+
+  const idx = list.findIndex(p => p.id === modalProductId);
+  if (idx !== -1) {
+    // شماره‌گذاری با اعداد انگلیسی طبق درخواست
+    if (modalNavCounter) {
+      modalNavCounter.textContent = `${idx + 1} / ${total}`;
+    }
+    // پیش‌بارگذاری هوشمند عکس محصول بعدی و قبلی جهت جابه‌جایی سریع و بدون لگ
+    const nextP = list[(idx + 1) % total];
+    const prevP = list[(idx - 1 + total) % total];
+    if (nextP) queueMediumPreload(nextP.image || getCategoryImage(nextP.category));
+    if (prevP) queueMediumPreload(prevP.image || getCategoryImage(prevP.category));
+  }
+}
+
+function populateModalContent(product, card) {
   modalProductId = product.id;
   resetModalZoom();
   modalImage.dataset.fullSrc = product.image || getCategoryImage(product.category) || '';
-  modalImage.querySelectorAll('img').forEach(el => el.remove());
-  modalImage.classList.remove('img-ready');
-  modalPlaceholder.style.display = 'none';
-  modalPlaceholder.textContent = product.name.charAt(0);
 
-  // مودال از نسخه‌ی بهینه (متوسط ≤۸۰۰px) استفاده می‌کند.
-  // تامبنیل کارت که همین حالا در حافظه مرورگر رندر شده است، بدون هیچ تاخیر زمانی (فریم صفر)
-  // در مودال نشان داده می‌شود و تصویر شفاف‌تر روش نرم محو می‌شود تا کوچکترین پرشی دیده نشود.
+  // حفظ عکس‌های قبلی تا زمان اضافه شدن عکس جدید، جهت جلوگیری مطلق از پرش یا خالی شدن کادر
+  const oldImgs = Array.from(modalImage.querySelectorAll('img'));
   const imgSrc = product.image || getCategoryImage(product.category);
   const token = ++modalImgToken;
+  const alive = () => token === modalImgToken;
+
   if (imgSrc) {
     const isLocal = !/^https?:\/\//i.test(imgSrc);
     const fname = imgSrc.split('/').pop();
     const medUrl = mediumUrlFor(imgSrc);
-    const cardImg = card && card.querySelector('.product-image img');
+    const cardEl = card || (grid && grid.querySelector(`.product-card[data-id="${product.id}"]`));
+    const cardImg = cardEl && cardEl.querySelector('.product-image img');
     const thumbUrl = (cardImg && (cardImg.currentSrc || cardImg.getAttribute('src'))) || (isLocal ? `images/thumb/${fname}` : null);
     const absFull = new URL(imgSrc, location.href).href;
-    const alive = () => token === modalImgToken;
 
     const mk = (cls, src) => {
       const el = document.createElement('img');
@@ -307,38 +356,50 @@ function openModal(product, catLabelText, card) {
     const showFailed = () => {
       modalImage.querySelectorAll('img').forEach(el => el.remove());
       modalImage.classList.add('img-ready');
+      modalPlaceholder.textContent = product.name.charAt(0);
       modalPlaceholder.style.display = 'flex';
     };
+
+    modalPlaceholder.style.display = 'none';
+
+    // تامبنیل موجود در کش کارت بلافاصله نمایش می‌یابد تا هیچ لحظه‌ای تصویر خالی نماند
+    let th = null;
+    if (thumbUrl) {
+      th = mk('m-thumb shown', thumbUrl);
+      modalImage.append(th);
+      modalImage.classList.add('img-ready');
+    }
 
     const full = mk('m-full', medUrl);
     const showFull = () => {
       if (!alive()) return;
       modalImage.classList.add('img-ready');
       full.classList.add('shown');
+      if (th && th.isConnected) th.remove();
     };
+
     full.onload = showFull;
     full.onerror = () => {
       if (!alive()) return;
-      if (full.src !== absFull) { full.src = absFull; return; }   // نسخه‌ی متوسط نبود ← عکس اصلی
+      if (full.src !== absFull) { full.src = absFull; return; }
       if (!modalImage.querySelector('.m-thumb.shown')) showFailed();
     };
     modalImage.append(full);
 
-    // تامبنیل بلافاصله در فریم صفر اضافه می‌شود تا پس‌زمینه عکس هرگز حتی یک فریم هم خالی نماند
-    if (thumbUrl) {
-      const th = mk('m-thumb shown', thumbUrl);
-      modalImage.classList.add('img-ready');
-      modalImage.prepend(th);
-    }
+    // عکس قبلی بدون فریم خالی حذف می‌شود
+    oldImgs.forEach(el => el.remove());
 
     if (full.complete && full.naturalWidth > 0) {
       showFull();
     }
   } else {
+    oldImgs.forEach(el => el.remove());
     modalImage.classList.add('img-ready');
+    modalPlaceholder.textContent = product.name.charAt(0);
     modalPlaceholder.style.display = 'flex';
   }
 
+  const catLabelText = catLabel(product.category);
   modalCat.textContent = catLabelText;
   modalCat.style.setProperty('--cat-color', catColor(product.category));
   modalName.textContent = product.name;
@@ -359,6 +420,69 @@ function openModal(product, catLabelText, card) {
   const initialBtnLabel = document.getElementById('modalAddBtnLabel');
   if (initialBtnLabel) initialBtnLabel.textContent = "افزودن به سبد خرید";
 
+  updateModalNavState();
+}
+
+function navigateModalProduct(dir) {
+  if (isNavigatingModal) return;
+  if (!modal.classList.contains('open') || modal.classList.contains('closing')) return;
+
+  const list = getVisibleProductList();
+  if (list.length <= 1) return;
+
+  const curIdx = list.findIndex(p => p.id === modalProductId);
+  if (curIdx === -1) return;
+
+  const nextIdx = dir === 'next'
+    ? (curIdx + 1) % list.length
+    : (curIdx - 1 + list.length) % list.length;
+
+  const targetProduct = list[nextIdx];
+  if (!targetProduct) return;
+
+  isNavigatingModal = true;
+  const slider = modalContentSlider || modal.querySelector('.modal-box');
+  const modalBox = modal.querySelector('.modal-box');
+
+  if (modalBox) modalBox.scrollTop = 0;
+
+  // ۱. تغییر آنی اطلاعات و تصاویر در همان میلی‌ثانیه کلیک (بدون کوچکترین تاخیر)
+  populateModalContent(targetProduct);
+
+  // ۲. انیمیشن نرم، زنده و پیوسته اسلاید (بدون پرش، بدون تاخیر و بدون صفحه خالی)
+  if (slider) {
+    slider.style.transition = '';
+    slider.style.transform = '';
+    slider.classList.remove('slide-from-right', 'slide-from-left');
+    void slider.offsetWidth; // Force Reflow
+
+    const animClass = dir === 'next' ? 'slide-from-right' : 'slide-from-left';
+    slider.classList.add(animClass);
+  }
+
+  setTimeout(() => {
+    if (slider) {
+      slider.classList.remove('slide-from-right', 'slide-from-left');
+    }
+    isNavigatingModal = false;
+  }, 230);
+}
+
+function openModal(product, catLabelText, card) {
+  clearTimeout(modalCloseTimer);
+  isNavigatingModal = false;
+
+  if (modalContentSlider) {
+    modalContentSlider.className = 'modal-content-slider';
+    modalContentSlider.style.transition = '';
+    modalContentSlider.style.transform = '';
+  }
+
+  const modalBox = modal.querySelector('.modal-box');
+  if (modalBox) modalBox.scrollTop = 0;
+
+  populateModalContent(product, card);
+
   rememberFocus('modal');
   modal.classList.remove('closing');
   modal.classList.add('open');
@@ -370,6 +494,12 @@ function openModal(product, catLabelText, card) {
 function closeModal() {
   if (!modal.classList.contains('open') || modal.classList.contains('closing')) return;
   resetModalZoom();
+  isNavigatingModal = false;
+  if (modalContentSlider) {
+    modalContentSlider.className = 'modal-content-slider';
+    modalContentSlider.style.transition = '';
+    modalContentSlider.style.transform = '';
+  }
   modalImgToken++; // دانلودهای نیمه‌کاره‌ی عکس مودال دیگه چیزی تغییر نمیدن
   modal.setAttribute('aria-hidden', 'true');
   restoreFocus('modal');
@@ -401,6 +531,21 @@ modalClose.addEventListener('click', handleClose);
 modal.addEventListener('click', (e) => {
   if (e.target === modal) handleClose();
 });
+
+if (modalPrevBtn) {
+  modalPrevBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigateModalProduct('prev');
+  });
+}
+
+if (modalNextBtn) {
+  modalNextBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigateModalProduct('next');
+  });
+}
+
 modalAddBtn.addEventListener('click', () => {
   if (!modalProductId) return;
   addToCart(modalProductId);
@@ -423,6 +568,22 @@ modalAddBtn.addEventListener('click', () => {
   }, 1500);
 });
 document.addEventListener('keydown', (e) => {
+  // ناوبری با کلیدهای چپ و راست کیبورد هنگام باز بودن مودال محصول
+  if (modal.classList.contains('open') && !modal.classList.contains('closing')) {
+    if (!tableModal.classList.contains('open') && !cartDrawer.classList.contains('open') && !sortModal.classList.contains('open')) {
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigateModalProduct('next');
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateModalProduct('prev');
+        return;
+      }
+    }
+  }
+
   if (e.key === 'Escape') {
     // فقط بالاترین لایه بسته میشه (هر Escape یه لایه)
     if (tableModal.classList.contains('open')) { handleTableClose(); return; }
@@ -1617,6 +1778,11 @@ function initModalZoom() {
   const pointers = new Map();
   let pinch = null;          // { d0, s0, tx0, ty0, fx0, fy0 }
   let pan = null;            // آخرین مختصات تک‌انگشتی
+  let swipeStartX = 0;
+  let swipeStartY = 0;
+  let swipeStartTime = 0;
+  let swipeIsHorizontal = null;
+  let swipeActive = false;
 
   const rel = (e) => {
     const r = modalImage.getBoundingClientRect();
@@ -1643,9 +1809,16 @@ function initModalZoom() {
         fy0: mid.y
       };
       pan = null;
+      swipeActive = false;
+      swipeIsHorizontal = false;
       ensureHiresForZoom();
     } else if (pointers.size === 1) {
       pan = { x: e.clientX, y: e.clientY };
+      swipeStartX = e.clientX;
+      swipeStartY = e.clientY;
+      swipeStartTime = Date.now();
+      swipeIsHorizontal = null;
+      swipeActive = (zoomState.s <= 1.01);
     }
   });
 
@@ -1669,6 +1842,23 @@ function initModalZoom() {
       pan = { x: e.clientX, y: e.clientY };
       clampModalZoom();
       applyModalZoom();
+    } else if (swipeActive && pointers.size === 1 && zoomState.s <= 1.01 && !pinch) {
+      const dx = e.clientX - swipeStartX;
+      const dy = e.clientY - swipeStartY;
+      if (swipeIsHorizontal === null) {
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          if (Math.abs(dx) > Math.abs(dy) * 1.1) {
+            swipeIsHorizontal = true;
+          } else {
+            swipeIsHorizontal = false;
+            swipeActive = false;
+          }
+        }
+      }
+      if (swipeIsHorizontal && modalContentSlider && !isNavigatingModal) {
+        modalContentSlider.style.transition = 'none';
+        modalContentSlider.style.transform = `translateX(${dx * 0.45}px)`;
+      }
     }
   });
 
@@ -1676,6 +1866,38 @@ function initModalZoom() {
     if (!pointers.has(e.pointerId)) return;
     try { modalImage.releasePointerCapture(e.pointerId); } catch { /* هندلرهای پیش‌فرض */ }
     pointers.delete(e.pointerId);
+
+    if (swipeIsHorizontal && swipeActive) {
+      const dx = e.clientX - swipeStartX;
+      const dt = Date.now() - swipeStartTime;
+      const absX = Math.abs(dx);
+      const velocity = absX / Math.max(1, dt);
+      const slider = modalContentSlider;
+
+      if (slider) {
+        slider.style.transition = '';
+        slider.style.transform = '';
+      }
+
+      if (absX > 45 || (absX > 25 && velocity > 0.3)) {
+        if (dx < 0) {
+          navigateModalProduct('next');
+        } else {
+          navigateModalProduct('prev');
+        }
+      } else if (slider) {
+        slider.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+        slider.style.transform = 'translateX(0)';
+        setTimeout(() => {
+          if (slider) {
+            slider.style.transition = '';
+            slider.style.transform = '';
+          }
+        }, 220);
+      }
+      swipeActive = false;
+      swipeIsHorizontal = null;
+    }
 
     if (pointers.size < 2) {
       pinch = null;
@@ -1724,7 +1946,115 @@ function initModalZoom() {
 
   modalImage.addEventListener('dragstart', (e) => e.preventDefault());
 }
+
+// ============ سوایپ لمسی در بدنه و کادر مودال (مخصوص موبایل) ============
+function initModalSwipe() {
+  const modalBox = modal ? modal.querySelector('.modal-box') : null;
+  if (!modalBox) return;
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  let touchDeltaX = 0;
+  let touchDeltaY = 0;
+  let isHorizontalSwipe = null;
+  let isSwiping = false;
+
+  modalBox.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) {
+      isSwiping = false;
+      return;
+    }
+    // اگر لمس روی عکس است، کنترل آن توسط پوینترهای عکس انجام می‌شود
+    if (e.target.closest('.modal-image')) return;
+    if (e.target.closest('.modal-add-btn, .modal-nav-btn, .modal-close')) return;
+
+    const t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchStartTime = Date.now();
+    touchDeltaX = 0;
+    touchDeltaY = 0;
+    isHorizontalSwipe = null;
+    isSwiping = true;
+  }, { passive: true });
+
+  modalBox.addEventListener('touchmove', (e) => {
+    if (!isSwiping || e.touches.length !== 1) return;
+
+    const t = e.touches[0];
+    touchDeltaX = t.clientX - touchStartX;
+    touchDeltaY = t.clientY - touchStartY;
+
+    if (isHorizontalSwipe === null) {
+      const absX = Math.abs(touchDeltaX);
+      const absY = Math.abs(touchDeltaY);
+      if (absX > 8 || absY > 8) {
+        if (absX > absY * 1.1) {
+          isHorizontalSwipe = true;
+        } else {
+          isHorizontalSwipe = false;
+          isSwiping = false;
+          return;
+        }
+      }
+    }
+
+    if (isHorizontalSwipe) {
+      if (e.cancelable) e.preventDefault();
+      const slider = modalContentSlider;
+      if (slider && !isNavigatingModal) {
+        slider.style.transition = 'none';
+        slider.style.transform = `translateX(${touchDeltaX * 0.45}px)`;
+      }
+    }
+  }, { passive: false });
+
+  const endSwipe = () => {
+    if (!isSwiping) return;
+    isSwiping = false;
+
+    if (!isHorizontalSwipe) {
+      isHorizontalSwipe = null;
+      return;
+    }
+
+    const slider = modalContentSlider;
+    const elapsed = Date.now() - touchStartTime;
+    const absX = Math.abs(touchDeltaX);
+    const velocity = absX / Math.max(1, elapsed);
+
+    if (absX > 45 || (absX > 25 && velocity > 0.3)) {
+      if (slider) {
+        slider.style.transition = '';
+        slider.style.transform = '';
+      }
+      if (touchDeltaX < 0) {
+        navigateModalProduct('next');
+      } else {
+        navigateModalProduct('prev');
+      }
+    } else {
+      if (slider) {
+        slider.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+        slider.style.transform = 'translateX(0)';
+        setTimeout(() => {
+          if (slider) {
+            slider.style.transition = '';
+            slider.style.transform = '';
+          }
+        }, 220);
+      }
+    }
+    isHorizontalSwipe = null;
+  };
+
+  modalBox.addEventListener('touchend', endSwipe, { passive: true });
+  modalBox.addEventListener('touchcancel', endSwipe, { passive: true });
+}
+
 initModalZoom();
+initModalSwipe();
 
 // سال فوتر (شمسی)؛ اگه مرورگر Intl فارسی نداشت، همون مقدار ثابت داخل HTML می‌مونه
 (function setFooterYear() {
