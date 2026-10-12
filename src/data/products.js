@@ -176,8 +176,10 @@ export async function addProduct(env, { id, category, name, note, price, image, 
   await invalidate(env);
 }
 
-export async function updateProduct(env, id, { category, name, note, price, image, discount = 0, available = 1 }) {
-  const { price: finalPrice, originalPrice } = resolvePrice(price, discount);
+export async function updateProduct(env, id, { category, name, note, price, image, discount = 0, available = 1, originalPrice: explicitOriginal = undefined }) {
+  const { price: finalPrice, originalPrice } = explicitOriginal !== undefined
+    ? { price: roundPrice(price), originalPrice: explicitOriginal ? roundPrice(explicitOriginal) : null }
+    : resolvePrice(price, discount);
   await env.DB
     .prepare(
       `UPDATE products

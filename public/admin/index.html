@@ -1090,6 +1090,10 @@
     const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
     let TOKEN = localStorage.getItem('admin_token') || '';
     let editingProductId = null;
+    let editingProductOriginalPrice = null;
+    let editingProductPrice = null;
+    let editingProductInitialInputPrice = null;
+    let editingProductInitialDiscount = null;
     let editingCatId = null;
     let allProducts = [];
     let allCategories = [];
@@ -1703,6 +1707,8 @@
 
       if (id) {
         const p = allProducts.find(x => x.id == id);
+        editingProductOriginalPrice = p.original_price != null ? Number(p.original_price) : null;
+        editingProductPrice = Number(p.price);
         document.getElementById('p-name').value = p.name;
         document.getElementById('p-note').value = p.note || '';
         document.getElementById('p-img').value = p.image || '';
@@ -1713,10 +1719,14 @@
           const disc = Math.round((1 - p.price / p.original_price) * 100);
           document.getElementById('p-price').value = p.original_price; // قیمت اصلی
           document.getElementById('p-discount').value = disc;
+          editingProductInitialInputPrice = Number(p.original_price);
+          editingProductInitialDiscount = disc;
           updateDiscPreview();
         } else {
           document.getElementById('p-price').value = p.price;
           document.getElementById('p-discount').value = '';
+          editingProductInitialInputPrice = Number(p.price);
+          editingProductInitialDiscount = 0;
         }
 
         if (p.image) {
@@ -1765,16 +1775,24 @@
       btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true;
 
       const discVal = Number(document.getElementById('p-discount').value || 0);
-      // قیمتی که user وارد کرده = قیمت پایه (قبل از تخفیف) و همون رو خام می‌فرستیم.
-      // محاسبه‌ی قیمت نهایی و original_price فقط تو بک‌اند انجام میشه تا با رباتِ تلگرام یکی باشه.
+      const isPriceUntouched = editingProductId &&
+        editingProductOriginalPrice &&
+        Number(price) === editingProductInitialInputPrice &&
+        discVal === editingProductInitialDiscount;
+
+      // اگر قیمت و تخفیف دست‌نخورده باقی مانده باشند، قیمت اصلی و ذخیره‌شده را می‌فرستیم
+      // تا گرد کردن مجدد باعث جابه‌جایی جزئی قیمت نشود
       const body = {
         name, category: cat,
-        price: Number(price),
+        price: isPriceUntouched ? editingProductPrice : Number(price),
         discount: discVal,
         note: document.getElementById('p-note').value.trim(),
         image: document.getElementById('p-img').value.trim(),
         available: document.getElementById('p-avail').classList.contains('on') ? 1 : 0,
       };
+      if (isPriceUntouched) {
+        body.original_price = editingProductOriginalPrice;
+      }
 
       try {
         if (editingProductId) {

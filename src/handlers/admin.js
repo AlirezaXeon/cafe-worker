@@ -376,12 +376,14 @@ export async function handleAdminAPI(request, env) {
         if (!cat) return json(request, { error: 'دسته‌بندی انتخاب‌شده وجود ندارد' }, 400);
 
         const available = b.available === undefined ? (old.available ? 1 : 0) : (b.available ? 1 : 0);
+        const origPrice = b.original_price !== undefined ? b.original_price : b.originalPrice;
         await updateProduct(env, id, {
           category: b.category,
           name: b.name.trim(),
           note: b.note || '',
           price: Number(b.price),
           discount: Number(b.discount || 0),
+          originalPrice: origPrice !== undefined ? (origPrice === null ? null : Number(origPrice)) : undefined,
           image: b.image || null,
           available,
         });
