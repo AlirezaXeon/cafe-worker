@@ -20,6 +20,7 @@ import {
 import { MAX_UPLOAD_BYTES } from '../config.js';
 import { listOrders, resolveOrder, getSalesStats, getOrdersSummary } from '../data/orders.js';
 import { validatePrice, validateDiscount } from '../lib/validate.js';
+import { validateImage } from '../lib/images.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -174,10 +175,7 @@ export async function handleAdminAPI(request, env) {
       const file = formData.get('file');
       if (!file) return json(request, { error: 'فایلی ارسال نشده' }, 400);
 
-      const ext = file.name.split('.').pop().toLowerCase();
-      if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext))
-        return json(request, { error: 'فرمت فایل مجاز نیست' }, 400);
-
+      const clientExt = (file.name || '').split('.').pop().toLowerCase();
       if (file.size > MAX_UPLOAD_BYTES)
         return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
 
@@ -186,10 +184,16 @@ export async function handleAdminAPI(request, env) {
       if (buffer.byteLength > MAX_UPLOAD_BYTES)
         return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
 
+      const val = validateImage(buffer, clientExt);
+      if (!val.valid) {
+        return json(request, { error: val.error }, 400);
+      }
+
+      const ext = val.format === 'jpeg' ? 'jpg' : val.format;
       const filename = `p${Date.now()}.${ext}`;
       await env.PRODUCTS_KV.put(`image:${filename}`, buffer, {
         metadata: {
-          contentType: file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+          contentType: `image/${val.format}`,
           uploadedAt: Date.now(),
         },
       });
@@ -218,12 +222,19 @@ export async function handleAdminAPI(request, env) {
       try {
         const file = (await request.formData()).get('file');
         if (!file) return json(request, { error: 'فایلی ارسال نشده' }, 400);
-        const ext = file.name.split('.').pop().toLowerCase();
-        if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext))
-          return json(request, { error: 'فرمت فایل مجاز نیست' }, 400);
+        const clientExt = (file.name || '').split('.').pop().toLowerCase();
+        if (file.size > MAX_UPLOAD_BYTES)
+          return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
         const buffer = await file.arrayBuffer();
         if (buffer.byteLength > MAX_UPLOAD_BYTES)
           return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
+
+        const val = validateImage(buffer, clientExt);
+        if (!val.valid) {
+          return json(request, { error: val.error }, 400);
+        }
+
+        const ext = val.format === 'jpeg' ? 'jpg' : val.format;
         const url = await saveSiteImage(env, kind, buffer, ext);
         return json(request, { success: true, url: '/' + url });
       } catch (e) { return serverError(request, e, 'site:post'); }

@@ -358,3 +358,92 @@ test("POST /admin/api/login clears failure counter on successful login", async (
   assert.equal(counterAfter, null);
 });
 
+test("POST /admin/api/upload rejects PNG bytes named .webp with 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+  // Remove content-type so fetch sets multipart boundary automatically
+  delete headers["Content-Type"];
+
+  const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+  const fd = new FormData();
+  fd.append("file", new File([pngBytes], "fake.webp", { type: "image/webp" }));
+
+  const req = new Request("https://x.test/admin/api/upload", {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.equal(data.error, "فرمت فایل با پسوند ارسالی همخوانی ندارد");
+});
+
+test("POST /admin/api/upload rejects text file named .jpg with 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+  delete headers["Content-Type"];
+
+  const textBytes = new TextEncoder().encode("not an image at all, just text");
+  const fd = new FormData();
+  fd.append("file", new File([textBytes], "malicious.jpg", { type: "image/jpeg" }));
+
+  const req = new Request("https://x.test/admin/api/upload", {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.equal(data.error, "محتوای تصویر نامعتبر یا خراب است");
+});
+
+test("POST /admin/api/upload accepts valid JPEG, PNG, WEBP and derives correct extension", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+  delete headers["Content-Type"];
+
+  const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
+  const fdJpeg = new FormData();
+  fdJpeg.append("file", new File([jpegBytes], "photo.jpg", { type: "image/jpeg" }));
+
+  const resJpeg = await handleAdminAPI(new Request("https://x.test/admin/api/upload", {
+    method: "POST",
+    headers,
+    body: fdJpeg,
+  }), env);
+  assert.equal(resJpeg.status, 200);
+  const dataJpeg = await resJpeg.json();
+  assert.match(dataJpeg.url, /^\/images\/p\d+\.jpg$/);
+
+  const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+  const fdPng = new FormData();
+  fdPng.append("file", new File([pngBytes], "photo.png", { type: "image/png" }));
+
+  const resPng = await handleAdminAPI(new Request("https://x.test/admin/api/upload", {
+    method: "POST",
+    headers,
+    body: fdPng,
+  }), env);
+  assert.equal(resPng.status, 200);
+  const dataPng = await resPng.json();
+  assert.match(dataPng.url, /^\/images\/p\d+\.png$/);
+
+  const webpBytes = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]);
+  const fdWebp = new FormData();
+  fdWebp.append("file", new File([webpBytes], "photo.webp", { type: "image/webp" }));
+
+  const resWebp = await handleAdminAPI(new Request("https://x.test/admin/api/upload", {
+    method: "POST",
+    headers,
+    body: fdWebp,
+  }), env);
+  assert.equal(resWebp.status, 200);
+  const dataWebp = await resWebp.json();
+  assert.match(dataWebp.url, /^\/images\/p\d+\.webp$/);
+});
+
+
