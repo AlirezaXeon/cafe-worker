@@ -1725,13 +1725,16 @@
       const fd = new FormData();
       fd.append('file', file);
       try {
-        const r = await fetch(`${BASE}/upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${TOKEN}` }, body: fd });
-        const d = await r.json();
-        if (!r.ok) { toast(d.error || 'خطا در آپلود', true); statusEl.textContent = '❌ ناموفق'; return; }
+        const d = await api('/upload', { method: 'POST', body: fd });
         document.getElementById(context === 'prod' ? 'p-img' : 'c-img').value = d.url;
         statusEl.textContent = '✅ آپلود شد';
         toast('تصویر آپلود شد ✓');
-      } catch { toast('خطا در آپلود', true); statusEl.textContent = '❌ خطا'; }
+      } catch (err) {
+        if (err.message !== 'unauthorized') {
+          toast(err.message || 'خطا در آپلود', true);
+        }
+        statusEl.textContent = '❌ ناموفق';
+      }
     }
 
     // ── Product Modal ─────────────────────────────────────────────────────────
