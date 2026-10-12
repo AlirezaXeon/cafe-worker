@@ -1389,6 +1389,11 @@ body.header-hidden .menu-controls {
   contain: layout;
 }
 
+.menu-groups.loaded,
+body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
+  min-height: auto;
+}
+
 /* اسکلتون لودینگ: همون فضای واقعی رو نگه می‌داره تا با رسیدن دیتای واقعی،
    جابه‌جایی شدید (CLS) رخ نده -- چه دیتا زود برسه چه دیر (بعد از سقف زمانی اسپلش) */
 .skeleton-title {

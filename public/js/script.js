@@ -680,10 +680,8 @@ function waitForMenuImages(timeoutMs) {
   }));
 }
 
-// فونت‌ها از گوگل میان (CSS غیرمسدودکننده). قبلاً فقط document.fonts.ready رو صبر می‌کردیم که
-// اگه هنوز هیچ فونتی درخواست نشده باشه همون لحظه resolve میشه؛ نتیجه: فونت وسط انیمیشن اسپلش
-// می‌رسید، عرض عنوان عوض می‌شد و کل صفحه دوباره چیده می‌شد (پرش). حالا وجه‌های واقعی رو صراحتاً
-// درخواست می‌کنیم و انیمیشن اسپلش فقط بعد از رسیدنشون (با سقف زمانی) شروع میشه.
+// فونت‌ها محلی لود می‌شوند (CSS غیرمسدودکننده). وجه‌های واقعی را صراحتاً
+// درخواست می‌کنیم و انیمیشن اسپلش فقط بعد از رسیدنشان (با سقف زمانی) شروع می‌شود.
 let fontsPromise = null;
 function waitForFonts(timeoutMs) {
   if (fontsPromise) return fontsPromise;
@@ -1033,6 +1031,9 @@ function renderProducts() {
       </div>
     </div>
   `).join('');
+
+  grid.style.minHeight = 'auto';
+  grid.classList.add('loaded');
 
   updateActiveFromScroll();
 
