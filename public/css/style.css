@@ -3159,6 +3159,11 @@ body.header-hidden .menu-controls {
   font-weight: 600;
 }
 
+.cart-checkout-msg.warning {
+  color: #FAAD14;
+  font-weight: 600;
+}
+
 .cart-checkout-msg.success {
   color: #52c41a;
   font-weight: 700;

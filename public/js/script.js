@@ -1098,12 +1098,17 @@ function saveCart() {
 }
 
 function restoreCart() {
+  const droppedNames = [];
   try {
     const saved = JSON.parse(sessionStorage.getItem(CART_STORAGE_KEY) || 'null');
     for (const s of (Array.isArray(saved?.items) ? saved.items : [])) {
       const p = productsData.products.find(x => x.id === s?.id);
       const q = Math.min(MAX_QTY, Math.floor(Number(s?.quantity)));
       if (!p || !(q > 0)) continue; // محصولی که دیگه تو منو نیست حذف میشه
+      if (p.available === 0) {
+        droppedNames.push(p.name);
+        continue;
+      }
       cart.push({ ...p, image: p.image || getCategoryImage(p.category), quantity: q });
     }
     const t = String(saved?.table ?? '');
@@ -1111,6 +1116,11 @@ function restoreCart() {
   } catch { /* داده‌ی خراب؛ با سبد خالی شروع می‌کنیم */ }
   renderTableSelect();
   renderCart();
+  if (droppedNames.length > 0) {
+    saveCart();
+    const names = droppedNames.map(n => `«${n}»`).join(' و ');
+    setCheckoutMsg(`${names} در حال حاضر موجود نیست و از سبد خرید حذف شد.`, 'warning');
+  }
 }
 
 function openCart() {
@@ -1481,7 +1491,20 @@ async function submitOrder() {
       </div>
     `;
   } catch (err) {
-    setCheckoutMsg(err.message || 'خطایی رخ داد، لطفاً دوباره امتحان کنید.', 'error');
+    const msg = err.message || 'خطایی رخ داد، لطفاً دوباره امتحان کنید.';
+    const match = msg.match(/«([^»]+)»\s*در حال حاضر موجود نیست/);
+    if (match) {
+      const unavailName = match[1];
+      const idx = cart.findIndex(it => it.name === unavailName);
+      if (idx !== -1) {
+        cart.splice(idx, 1);
+        saveCart();
+        renderCart();
+      }
+      setCheckoutMsg(`«${unavailName}» ناموجود است و از سبد خرید حذف شد.`, 'error');
+    } else {
+      setCheckoutMsg(msg, 'error');
+    }
   } finally {
     checkoutBtn.disabled = false;
     checkoutBtn.innerHTML = originalLabel;
