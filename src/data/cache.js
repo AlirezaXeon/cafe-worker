@@ -29,9 +29,4 @@ export function clearMemo(key) {
 
 export async function invalidateCache(env, key) {
   clearMemo(key);
-  if (env?.PRODUCTS_KV && key) {
-    try {
-      await env.PRODUCTS_KV.delete(key);
-    } catch {}
-  }
 }
