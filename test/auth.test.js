@@ -57,6 +57,17 @@ test("verifyToken rejects token with wrong version (revocation)", async () => {
   assert.equal(res, null);
 });
 
+test("verifyToken rejects token without ver claim", async () => {
+  // توکنی که بدون فیلد ver ساخته شده (با پاس دادن undefined کلید در JSON حذف می‌شود)
+  const tokenWithoutVer = await signToken({ ver: undefined }, SECRET);
+  const parts = tokenWithoutVer.split(".");
+  const decodedPayload = JSON.parse(base64urlDecodeToString(parts[1]));
+  assert.equal("ver" in decodedPayload, false, "فیلد ver باید از پی‌لود حذف شده باشد");
+
+  const res = await verifyToken(tokenWithoutVer, SECRET, "1");
+  assert.equal(res, null, "توکن فاقد claim نسخه باید رد شود");
+});
+
 test("verifyToken rejects token with non-admin role", async () => {
   const token = await signToken({ role: "customer" }, SECRET, "1");
   const res = await verifyToken(token, SECRET, "1");

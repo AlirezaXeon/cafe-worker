@@ -89,8 +89,8 @@ export async function verifyToken(token, secret, expectedVersion = "1") {
     // بررسی نقش ادمین
     if (payload.role !== 'admin') return null;
 
-    // بررسی نسخه‌ی توکن برای ابطال همگانی سشن‌ها
-    if (payload.ver && String(payload.ver) !== String(expectedVersion)) return null;
+    // بررسی نسخه‌ی توکن برای ابطال همگانی سشن‌ها (الزام وجود claim نسخه و تطابق با نسخه سرور)
+    if (!payload.ver || String(payload.ver) !== String(expectedVersion)) return null;
 
     return payload;
   } catch {
