@@ -942,10 +942,21 @@
         padding: 1rem
       }
 
-      header,
-      nav {
+      header {
         padding-left: 1rem;
         padding-right: 1rem
+      }
+
+      nav {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .nav-btn {
+        flex-shrink: 0;
       }
 
       .row-2 {
