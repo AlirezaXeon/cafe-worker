@@ -108,6 +108,11 @@ export async function handleOrdersAPI(request, env, ctx) {
     return json({ error: "مسیر پیدا نشد" }, 404);
   }
 
+  const clHeader = request.headers.get("content-length");
+  if (clHeader && Number(clHeader) > 16 * 1024) {
+    return json({ error: "حجم درخواست بیش از حد مجاز است" }, 413);
+  }
+
   let body;
   try {
     body = await request.json();

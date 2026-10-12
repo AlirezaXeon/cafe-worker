@@ -2,7 +2,7 @@ import { handleUpdate } from "./telegram.js";
 import { getProducts } from "./data/products.js";
 import { getSiteConfig } from "./data/site.js";
 import { memo, PRODUCTS_CACHE_KEY, SITE_CACHE_KEY } from "./data/cache.js";
-import { handleAdminAPI } from './handlers/admin.js';
+import { handleAdminAPI, safeCompare } from './handlers/admin.js';
 import { handleOrdersAPI } from './handlers/orders.js';
 import { withSecurityHeaders } from "./middleware/security.js";
 
@@ -264,7 +264,7 @@ export default {
     // ── وبهوک تلگرام ──────────────────────────────────────────────────────
     if (url.pathname === "/tg-webhook" && request.method === "POST") {
       const secretHeader = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
-      if (!env.WEBHOOK_SECRET || secretHeader !== env.WEBHOOK_SECRET) {
+      if (!env.WEBHOOK_SECRET || !safeCompare(secretHeader, env.WEBHOOK_SECRET)) {
         return new Response("Forbidden", { status: 403 });
       }
       let update;

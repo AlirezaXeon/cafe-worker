@@ -172,3 +172,15 @@ test("سقف سفارش‌های در انتظار به ازای هر میز: س
   assert.equal(inserts(), 4, "سفارش میز دیگر باید ثبت شود");
 });
 
+test("POST /api/orders rejects oversized requests (>16KB) with 413", async () => {
+  const { env } = makeEnv();
+  const res = await handleOrdersAPI(
+    req(order(), { "content-length": "20000" }),
+    env
+  );
+  assert.equal(res.status, 413);
+  const data = await res.json();
+  assert.ok(data.error.includes("حجم درخواست"));
+});
+
+
