@@ -203,7 +203,32 @@ function injectSiteAssets(response, cfg, origin, products) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const response = await this.handleRoute(request, env, ctx, url);
+    let response;
+    try {
+      response = await this.handleRoute(request, env, ctx, url);
+    } catch (err) {
+      console.error(`[unhandled-error] ${request.method} ${url.pathname}:`, err);
+      if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/api')) {
+        response = new Response(
+          JSON.stringify({ error: 'خطای داخلی سرور رخ داد. لطفاً دوباره امتحان کنید.' }),
+          {
+            status: 500,
+            headers: {
+              'content-type': 'application/json; charset=utf-8',
+              'cache-control': 'no-store',
+            },
+          }
+        );
+      } else {
+        response = new Response('Internal Server Error', {
+          status: 500,
+          headers: {
+            'content-type': 'text/plain; charset=utf-8',
+            'cache-control': 'no-store',
+          },
+        });
+      }
+    }
     return withSecurityHeaders(response, url.pathname);
   },
 
