@@ -78,7 +78,7 @@ npm run dev
 - `0004_add_available_column.sql`: فیلد موجود/ناموجود بودن محصول
 - `0005_add_orders_table.sql`: جدول ثبت سفارش‌ها
 - `0006_orders_hardening.sql`: فیلدهای ضدتکرار، هش آی‌پی و پیام‌های تلگرام
-- `0007_site_settings.sql`: جدول تنظیمات عمومی کافه (ساعت کاری، تلفن، تعداد میز و ...)
+- `0007_site_settings.sql`: جدول تنظیمات سایت برای ذخیره لوگو، تصویر کاور و تعداد میزها (`logo`, `cover`, `tableCount`)
 - `0008_orders_summary_index.sql`: ایندکس ترکیبی برای خلاصه‌سازی سفارش‌های در انتظار
 - `0009_orders_table_pending_index.sql`: ایندکس بهینه‌سازی بررسی سقف سفارش در انتظار هر میز
 
@@ -91,10 +91,10 @@ npm run db:migrate:remote
 
 ## ۶. تنظیم وب‌هوک ربات تلگرام (Telegram Webhook Setup)
 
-پس از دیپلوی ورکر، آدرس وب‌هوک تلگرام را به همراه سکرت توکن ست کنید:
+پس از دیپلوی ورکر، آدرس وب‌هوک تلگرام (`/tg-webhook`) را به همراه سکرت توکن ست کنید:
 
 ```bash
-curl -F "url=https://your-domain.workers.dev/api/telegram/webhook" \
+curl -F "url=https://your-domain.workers.dev/tg-webhook" \
      -F "secret_token=YOUR_WEBHOOK_SECRET" \
      https://api.telegram.org/bot<YOUR_TELEGRAM_BOT_TOKEN>/setWebhook
 ```
@@ -120,3 +120,9 @@ curl -F "url=https://your-domain.workers.dev/api/telegram/webhook" \
 ```bash
 npm run deploy
 ```
+
+---
+
+## ۹. محدودیت‌های شناخته‌شده (Known Limitations)
+
+- **عدم کارکرد Cache API روی `*.workers.dev`**: در سرویس Cloudflare Workers، رابط `caches.default` (کش لبه) روی دامنه‌های رایگان `*.workers.dev` غیرفعال است و پاسخ‌ها کش نمی‌شوند. به همین دلیل هر بار درخواست تصویر به یک خواندن از KV (KV Read) تبدیل می‌شود که سهمیه پلن رایگان را مصرف می‌کند. برای حل این مشکل، اتصال **دامنه اختصاصی (Custom Domain)** یا استفاده از **Cloudflare R2** برای ذخیره‌سازی تصاویر پیشنهاد می‌شود.
