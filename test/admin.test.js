@@ -311,3 +311,50 @@ test("listOrders omits sensitive columns (ip_hash, request_id, tg_messages)", as
   assert.equal(order.tg_messages, undefined, "tg_messages نباید به کلاینت وب ارسال شود");
   assert.equal(order.tg_notified, undefined, "tg_notified نباید به کلاینت وب ارسال شود");
 });
+
+test("POST /admin/api/login returns 429 when failure threshold is reached", async () => {
+  const { env } = makeEnv();
+  const testIp = "192.168.1.50";
+  // Simulate 15 failed login attempts
+  await env.PRODUCTS_KV.put(`loginfail:${testIp}`, "15");
+
+  const req = new Request("https://x.test/admin/api/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "CF-Connecting-IP": testIp,
+    },
+    body: JSON.stringify({ password: "wrong-password" }),
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 429);
+  const data = await res.json();
+  assert.equal(data.error, "تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگر امتحان کنید.");
+});
+
+test("POST /admin/api/login clears failure counter on successful login", async () => {
+  const { env } = makeEnv();
+  const testIp = "192.168.1.51";
+  await env.PRODUCTS_KV.put(`loginfail:${testIp}`, "3");
+
+  const req = new Request("https://x.test/admin/api/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "CF-Connecting-IP": testIp,
+    },
+    body: JSON.stringify({ password: "test-admin-password" }),
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.ok, true);
+  assert.ok(data.token);
+
+  // Counter should be cleared from KV
+  const counterAfter = await env.PRODUCTS_KV.get(`loginfail:${testIp}`);
+  assert.equal(counterAfter, null);
+});
+

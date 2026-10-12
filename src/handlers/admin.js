@@ -109,8 +109,15 @@ export async function handleAdminAPI(request, env) {
       const lockKey = `loginfail:${ip}`;
       const failCountRaw = await env.PRODUCTS_KV.get(lockKey);
       const failCount = failCountRaw ? Number(failCountRaw) : 0;
-      if (failCount >= 5) {
+      // آستانه ۱۵ تلاش برای جلوگیری از قفل شدن سریع ادمین روی وای‌فای مشترک کافه
+      if (failCount >= 15) {
         return json(request, { error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگر امتحان کنید.' }, 429);
+      }
+
+      // تأخیر تصاعدی از تلاش پنجم به بعد برای کند کردن حملات بدون قفل کردن کامل آی‌پی
+      if (failCount >= 5) {
+        const delayMs = Math.min(2000, (failCount - 4) * 200);
+        await new Promise((r) => setTimeout(r, delayMs));
       }
 
       const { password } = await request.json().catch(() => ({}));
@@ -120,8 +127,10 @@ export async function handleAdminAPI(request, env) {
         return json(request, { error: 'رمز عبور اشتباه است' }, 401);
       }
 
-      // ورود موفق؛ شمارنده‌ی تلاش ناموفق این IP رو پاک می‌کنیم
-      await env.PRODUCTS_KV.delete(lockKey);
+      // ورود موفق؛ شمارنده‌ی تلاش ناموفق فقط در صورت وجود پاک می‌شود تا رایت KV بیهوده انجام نشود
+      if (failCount > 0) {
+        await env.PRODUCTS_KV.delete(lockKey);
+      }
       const token = await signToken(
         { role: 'admin' },
         env.JWT_SECRET,
