@@ -1643,34 +1643,59 @@ async function loadSiteConfig() {
 }
 
 // ============ وضعیت زنده کافه و دکمه اسکرول به منو در هیرو ============
+const HOURS = {
+  weekday: { open: 8, close: 23, openLabel: '۰۸:۰۰', closeLabel: '۲۳:۰۰' },
+  weekend: { open: 9, close: 24, openLabel: '۰۹:۰۰', closeLabel: '۲۴:۰۰' },
+};
+
+function getTehranTimeParts(date = new Date()) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Tehran',
+      weekday: 'short',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false,
+    }).formatToParts(date);
+
+    let weekday = '';
+    let hour = 0;
+    let minute = 0;
+    for (const p of parts) {
+      if (p.type === 'weekday') weekday = p.value;
+      else if (p.type === 'hour') hour = Number(p.value) % 24;
+      else if (p.type === 'minute') minute = Number(p.value);
+    }
+    const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const day = dayMap[weekday] ?? date.getDay();
+    return { day, hour, minute };
+  } catch {
+    return { day: date.getDay(), hour: date.getHours(), minute: date.getMinutes() };
+  }
+}
+
 function updateHeroLiveStatus() {
   const badge = document.getElementById('heroLiveBadge');
   const text = document.getElementById('heroLiveStatusText');
   if (!badge || !text) return;
 
-  const now = new Date();
-  const day = now.getDay(); // 0: یکشنبه, 4: پنجشنبه, 5: جمعه, 6: شنبه
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const curTime = hours + minutes / 60;
+  const { day, hour, minute } = getTehranTimeParts();
+  const curTime = hour + minute / 60;
 
-  // ساعات کاری:
+  // ساعات کاری بر مبنای وقت تهران:
   // پنج‌شنبه و جمعه: 09:00 الی 24:00 (00:00)
   // شنبه تا چهارشنبه: 08:00 الی 23:00
   const isWeekend = (day === 4 || day === 5);
-  const openHour = isWeekend ? 9 : 8;
-  const closeHour = isWeekend ? 24 : 23;
+  const sched = isWeekend ? HOURS.weekend : HOURS.weekday;
 
-  const isOpen = (curTime >= openHour && curTime < closeHour);
+  const isOpen = (curTime >= sched.open && curTime < sched.close);
 
   if (isOpen) {
     badge.classList.remove('is-closed');
-    const closeStr = isWeekend ? '۲۴:۰۰' : '۲۳:۰۰';
-    text.textContent = `هم‌اکنون باز است • سرویس‌دهی تا ${closeStr}`;
+    text.textContent = `هم‌اکنون باز است • سرویس‌دهی تا ${sched.closeLabel}`;
   } else {
     badge.classList.add('is-closed');
-    const openStr = isWeekend ? '۰۹:۰۰' : '۰۸:۰۰';
-    text.textContent = `هم‌اکنون بسته است • شروع از ${openStr}`;
+    text.textContent = `هم‌اکنون بسته است • شروع از ${sched.openLabel}`;
   }
 }
 
@@ -1691,6 +1716,7 @@ function initHeroScrollButton() {
 (function initHeroScrollIntro() {
   const heroCover = document.querySelector('.hero-cover');
   updateHeroLiveStatus();
+  setInterval(updateHeroLiveStatus, 60000);
   initHeroScrollButton();
   if (!heroCover) return;
 
