@@ -14,3 +14,12 @@ test("formatToman adds thousand separators and the toman suffix, in Persian digi
 test("escapeHtml escapes the basic dangerous characters", () => {
   assert.equal(escapeHtml('<script>alert("x")</script>'), "&lt;script&gt;alert(\"x\")&lt;/script&gt;");
 });
+
+test("error message containing a product name like 'A<b>&C' is escaped in the outgoing text", () => {
+  const err = new Error("قیمت محصول A<b>&C تغییر کرده است");
+  const outgoing = `⚠️ خطا: ${escapeHtml(err.message)}`;
+  assert.equal(outgoing, "⚠️ خطا: قیمت محصول A&lt;b&gt;&amp;C تغییر کرده است");
+  assert.equal(outgoing.includes("<b>"), false);
+  assert.equal(outgoing.includes("&lt;b&gt;"), true);
+});
+

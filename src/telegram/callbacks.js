@@ -13,7 +13,7 @@ import { getSession, setSession, clearSession } from "../data/session.js";
 import { findOrphanImageKeys, deleteOrphanImages } from "../data/maintenance.js";
 import { resolveOrder } from "../data/orders.js";
 import { sendMessage, forceReply } from "./api.js";
-import { toFa } from "./format.js";
+import { toFa, escapeHtml } from "./format.js";
 import {
   sendMainMenu,
   sendSiteImagesMenu,
@@ -201,7 +201,7 @@ export async function handleCallback(env, chatId, data, cq) {
       await applyCategoryPercent(env, session.catId, session.percent, session.items);
       await sendMessage(env, chatId, "✅ قیمت‌ها به‌روزرسانی شدن.");
     } catch (err) {
-      await sendMessage(env, chatId, `⚠️ خطا: ${err.message}`);
+      await sendMessage(env, chatId, `⚠️ خطا: ${escapeHtml(err.message)}`);
     }
     await clearSession(env, chatId);
     return sendMainMenu(env, chatId);

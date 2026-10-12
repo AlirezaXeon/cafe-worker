@@ -28,7 +28,7 @@ export async function handleTextStep(env, chatId, text, session) {
     try {
       preview = await previewCategoryPercent(env, session.catId, percent);
     } catch (err) {
-      return forceReply(env, chatId, `⚠️ ${err.message}\nیه عدد دیگر وارد کن:`);
+      return forceReply(env, chatId, `⚠️ ${escapeHtml(err.message)}\nیه عدد دیگر وارد کن:`);
     }
     if (preview.length === 0) {
       await clearSession(env, chatId);
@@ -51,11 +51,11 @@ export async function handleTextStep(env, chatId, text, session) {
 
   if (session.step === "edit_price") {
     const check = validatePrice(trimmed);
-    if (!check.valid) return forceReply(env, chatId, `${check.error}\nقیمت جدید رو به تومان بفرست:`);
+    if (!check.valid) return forceReply(env, chatId, `${escapeHtml(check.error)}\nقیمت جدید رو به تومان بفرست:`);
     try {
       await setProductPrice(env, session.productId, check.price);
     } catch (err) {
-      return forceReply(env, chatId, `⚠️ ${err.message}\nیه قیمت معتبر بفرست:`);
+      return forceReply(env, chatId, `⚠️ ${escapeHtml(err.message)}\nیه قیمت معتبر بفرست:`);
     }
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ قیمت به‌روزرسانی شد.");
@@ -65,7 +65,7 @@ export async function handleTextStep(env, chatId, text, session) {
   if (session.step === "discount_percent") {
     const check = validateDiscount(trimmed);
     if (!check.valid || check.discount <= 0) {
-      return forceReply(env, chatId, `${check.error || "درصد باید بین ۱ تا ۹۹ باشه"}:`);
+      return forceReply(env, chatId, `${escapeHtml(check.error || "درصد باید بین ۱ تا ۹۹ باشه")}:`);
     }
     await setProductDiscount(env, session.productId, check.discount);
     await clearSession(env, chatId);
@@ -113,7 +113,7 @@ export async function handleTextStep(env, chatId, text, session) {
 
   if (session.step === "new_product_price") {
     const check = validatePrice(trimmed);
-    if (!check.valid) return forceReply(env, chatId, `${check.error}\nقیمت رو به تومان بفرست:`);
+    if (!check.valid) return forceReply(env, chatId, `${escapeHtml(check.error)}\nقیمت رو به تومان بفرست:`);
     const newId = newProductId();
     await setSession(env, chatId, { ...session, step: "new_product_image", price: check.price, productId: newId });
     return forceReply(env, chatId, "📷 حالا عکس محصول رو بفرست، یا اگر عکس نداره بنویس «بدون عکس»:");
