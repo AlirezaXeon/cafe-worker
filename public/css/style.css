@@ -1829,6 +1829,17 @@ body.header-hidden .menu-controls {
   font-size: 1.3rem;
 }
 
+.selectable,
+.location-text,
+.location-hours,
+.hours-list {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 .location-text {
   color: var(--ink-soft);
   line-height: 1.8;
