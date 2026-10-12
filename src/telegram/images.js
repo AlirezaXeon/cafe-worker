@@ -4,7 +4,6 @@ import { clearSession } from "../data/session.js";
 import { sendMessage, forceReply, downloadTelegramFile } from "./api.js";
 import { sendSiteImagesMenu, sendCategoriesMenu, sendProductDetail, sendProductList } from "./menus.js";
 import { MAX_UPLOAD_BYTES } from "../config.js";
-import { deleteImageKeys, imageFilename } from "../data/imagePaths.js";
 
 const formatMB = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
 

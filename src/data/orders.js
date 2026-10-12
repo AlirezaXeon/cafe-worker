@@ -126,9 +126,6 @@ export async function resolveOrder(env, orderId, status, resolvedBy = "ادمی�
     try {
       stored = JSON.parse(orderRow.tg_messages);
     } catch {}
-  } else if (env.PRODUCTS_KV) {
-    const raw = await env.PRODUCTS_KV.get(`order:msgs:${orderId}`);
-    stored = raw ? JSON.parse(raw) : null;
   }
 
   if (stored?.entries?.length) {
