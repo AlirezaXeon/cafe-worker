@@ -1144,7 +1144,7 @@ function restoreCart() {
       cart.push({ ...p, image: p.image || getCategoryImage(p.category), quantity: q });
     }
     const t = String(saved?.table ?? '');
-    if (/^\d{1,3}$/.test(t) && Number(t) >= 1 && Number(t) <= tableCount) selectedTable = t;
+    if (/^\d{1,3}$/.test(t) && Number(t) >= 1) selectedTable = t;
   } catch { /* داده‌ی خراب؛ با سبد خالی شروع می‌کنیم */ }
   renderTableSelect();
   renderCart();
@@ -1399,7 +1399,7 @@ function renderCart() {
 }
 
 // ============ انتخاب شماره میز (پاپ‌آپ؛ بدون تایپ دستی) ============
-let tableCount = 20; // تعداد میزهای کافه (پیش‌فرض؛ از تنظیمات سایت خوانده می‌شود)
+let tableCount = Number(getBoot()?.site?.tableCount) || 20; // تعداد میزهای کافه (پیش‌فرض؛ از تنظیمات سایت خوانده می‌شود)
 let selectedTable = '';
 
 function renderTableSelect() {
@@ -1624,6 +1624,10 @@ async function loadSiteConfig() {
     }
   } catch (err) {
     console.error('تنظیمات سایت لود نشد:', err);
+    if (selectedTable && Number(selectedTable) > tableCount) {
+      selectedTable = '';
+      renderTableSelect();
+    }
     document.querySelector('.hero-cover')?.classList.add('no-cover', 'cover-ready');
     await revealSplash(false);
     return;
@@ -1631,12 +1635,12 @@ async function loadSiteConfig() {
 
   if (cfg.tableCount) {
     tableCount = Number(cfg.tableCount) || 20;
-    if (selectedTable && Number(selectedTable) > tableCount) {
-      selectedTable = '';
-      renderTableSelect();
-    }
-    renderTableGrid();
   }
+  if (selectedTable && Number(selectedTable) > tableCount) {
+    selectedTable = '';
+    renderTableSelect();
+  }
+  renderTableGrid();
 
   const headerLogo = document.getElementById('headerLogoImg');
   const coverLogo = document.getElementById('heroCoverLogo');
