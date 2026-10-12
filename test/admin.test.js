@@ -17,6 +17,7 @@ async function authHeaders() {
 function makeEnv(overrides = {}) {
   const categories = overrides.categories || new Map([["cat1", { id: "cat1", label: "نوشیدنی", image: null }]]);
   const products = overrides.products || new Map();
+  const siteSettings = overrides.siteSettings || new Map();
   const kv = new Map();
 
   const env = {
@@ -41,6 +42,9 @@ function makeEnv(overrides = {}) {
             }
             if (/SELECT.*FROM products/.test(sql)) {
               return { results: Array.from(products.values()) };
+            }
+            if (/SELECT.*FROM site_settings/.test(sql)) {
+              return { results: Array.from(siteSettings.entries()).map(([key, value]) => ({ key, value })) };
             }
             return { results: [] };
           },
@@ -82,13 +86,18 @@ function makeEnv(overrides = {}) {
               categories.delete(args[0]);
               return { meta: { changes: 1 } };
             }
+            if (/INSERT OR REPLACE INTO site_settings/.test(sql)) {
+              const [key, value] = args;
+              siteSettings.set(key, value);
+              return { meta: { changes: 1 } };
+            }
             return { meta: { changes: 1 } };
           },
         }),
       }),
     },
   };
-  return { env, products, categories };
+  return { env, products, categories, siteSettings };
 }
 
 test("POST /products defaults available to 1 when omitted", async () => {
@@ -444,6 +453,94 @@ test("POST /admin/api/upload accepts valid JPEG, PNG, WEBP and derives correct e
   assert.equal(resWebp.status, 200);
   const dataWebp = await resWebp.json();
   assert.match(dataWebp.url, /^\/images\/p\d+\.webp$/);
+});
+
+test("POST /admin/api/site/logo rejects text file named .jpg with 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+  delete headers["Content-Type"];
+
+  const textBytes = new TextEncoder().encode("plain text pretending to be a logo");
+  const fd = new FormData();
+  fd.append("file", new File([textBytes], "logo.jpg", { type: "image/jpeg" }));
+
+  const req = new Request("https://x.test/admin/api/site/logo", {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.equal(data.error, "محتوای تصویر نامعتبر یا خراب است");
+});
+
+test("POST /admin/api/site/logo rejects PNG bytes named .webp with 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+  delete headers["Content-Type"];
+
+  const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+  const fd = new FormData();
+  fd.append("file", new File([pngBytes], "logo.webp", { type: "image/webp" }));
+
+  const req = new Request("https://x.test/admin/api/site/logo", {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.equal(data.error, "فرمت فایل با پسوند ارسالی همخوانی ندارد");
+});
+
+test("POST /admin/api/site/logo accepts valid JPEG, saves image and updates site settings", async () => {
+  const { env, siteSettings } = makeEnv();
+  const headers = await authHeaders();
+  delete headers["Content-Type"];
+
+  const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
+  const fd = new FormData();
+  fd.append("file", new File([jpegBytes], "logo.jpg", { type: "image/jpeg" }));
+
+  const req = new Request("https://x.test/admin/api/site/logo", {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.success, true);
+  assert.match(data.url, /^\/images\/site-logo-\d+\.jpg$/);
+  assert.match(siteSettings.get("logo"), /^images\/site-logo-\d+\.jpg$/);
+});
+
+test("POST /admin/api/site/cover accepts valid JPEG and updates cover in site settings", async () => {
+  const { env, siteSettings } = makeEnv();
+  const headers = await authHeaders();
+  delete headers["Content-Type"];
+
+  const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01]);
+  const fd = new FormData();
+  fd.append("file", new File([jpegBytes], "cover.jpg", { type: "image/jpeg" }));
+
+  const req = new Request("https://x.test/admin/api/site/cover", {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.success, true);
+  assert.match(data.url, /^\/images\/site-cover-\d+\.jpg$/);
+  assert.match(siteSettings.get("cover"), /^images\/site-cover-\d+\.jpg$/);
 });
 
 
