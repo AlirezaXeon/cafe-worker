@@ -7,6 +7,10 @@ export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024; // ۲ مگابایت
 export const ORDER_RATE_LIMIT_MAX = 5;
 export const ORDER_RATE_LIMIT_WINDOW_SEC = 10 * 60; // ۶۰۰ ثانیه (۱۰ دقیقه)
 
+// سقف سفارش‌های در انتظار تایید به ازای هر میز برای جلوگیری از ارسال سفارش جعلی (حداکثر ۳ سفارش در ۱۰ دقیقه)
+export const TABLE_PENDING_ORDER_LIMIT_MAX = 3;
+export const TABLE_PENDING_ORDER_WINDOW_SEC = 10 * 60; // ۶۰۰ ثانیه (۱۰ دقیقه)
+
 // محدوده‌های مجاز قیمت و درصد (تومان)
 export const MIN_PRICE = 1000;
 export const MAX_PRICE = 50_000_000;

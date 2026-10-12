@@ -1,7 +1,11 @@
 import { createOrder } from "../data/orders.js";
 import { sendRaw, getAdminIds } from "../telegram/api.js";
-import { formatToman, escapeHtml } from "../telegram/format.js";
-import { ORDER_RATE_LIMIT_MAX, ORDER_RATE_LIMIT_WINDOW_SEC } from "../config.js";
+import {
+  ORDER_RATE_LIMIT_MAX,
+  ORDER_RATE_LIMIT_WINDOW_SEC,
+  TABLE_PENDING_ORDER_LIMIT_MAX,
+  TABLE_PENDING_ORDER_WINDOW_SEC,
+} from "../config.js";
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -173,6 +177,23 @@ export async function handleOrdersAPI(request, env, ctx) {
         console.error("[orders:ratelimit:check]", err);
       }
     }
+  }
+
+  // سقف سفارش‌های در انتظار تایید به ازای هر میز: جلوگیری از ارسال سفارش‌های جعلی برای یک میز
+  try {
+    const tableWindowStart = new Date(Date.now() - TABLE_PENDING_ORDER_WINDOW_SEC * 1000)
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " ");
+    const tablePendingRow = await env.DB
+      .prepare("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending' AND table_number = ? AND created_at >= ?")
+      .bind(tableNumber, tableWindowStart)
+      .first();
+    if ((tablePendingRow?.c ?? 0) >= TABLE_PENDING_ORDER_LIMIT_MAX) {
+      return json({ error: "تعداد سفارش‌های در انتظار بررسی برای این میز بیش از حد مجاز است. لطفاً منتظر بمانید." }, 429);
+    }
+  } catch (err) {
+    console.error("[orders:table_pending:check]", err);
   }
 
   const rawItems = Array.isArray(body?.items) ? body.items : [];

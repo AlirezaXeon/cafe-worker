@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handleOrdersAPI, hashIp } from "../src/handlers/orders.js";
+import { ORDER_RATE_LIMIT_MAX, TABLE_PENDING_ORDER_LIMIT_MAX } from "../src/config.js";
 
 function makeEnv(opts = {}) {
   const kv = new Map();
@@ -33,6 +34,11 @@ function makeEnv(opts = {}) {
               const count = orders.filter((o) => o.ip_hash === ipHash && o.created_at >= since).length;
               return { c: count };
             }
+            if (/SELECT COUNT\(\*\).*FROM orders WHERE status = 'pending' AND table_number/.test(sql)) {
+              const [tableNumber, since] = args;
+              const count = orders.filter((o) => (o.status ?? "pending") === "pending" && o.table_number === tableNumber && o.created_at >= since).length;
+              return { c: count };
+            }
             return null;
           },
           run: async () => {
@@ -46,6 +52,7 @@ function makeEnv(opts = {}) {
                 total,
                 request_id,
                 ip_hash,
+                status: "pending",
                 created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
               });
               return { meta: { last_row_id: id } };
@@ -125,7 +132,7 @@ test("هش IP ذخیره می‌شود و هرگز IP خام در پایگاه �
 });
 
 test("محدودیت نرخ: بیش از سقف مجاز سفارش در ۱۰ دقیقه منجر به خطای ۴۲۹ می‌شود", async () => {
-  const { env } = makeEnv({ rateLimitCount: 5 }); // سقف ۵ سفارش پر شده
+  const { env } = makeEnv({ rateLimitCount: ORDER_RATE_LIMIT_MAX }); // سقف مجاز پر شده
   const res = await handleOrdersAPI(req(order(), { "cf-connecting-ip": "1.2.3.4" }), env);
   assert.equal(res.status, 429);
   const data = await res.json();
@@ -141,3 +148,27 @@ test("هانی‌پات ضد ربات: اگر فیلد مخفی پر باشد، 
   assert.equal(data.orderId, 0);
   assert.equal(inserts(), 0, "هیچ رکوردی نباید ثبت شده باشد");
 });
+
+test("سقف سفارش‌های در انتظار به ازای هر میز: سفارش چهارم روی همان میز رد و روی میز دیگر قبول می‌شود", async () => {
+  const { env, inserts } = makeEnv();
+
+  // ۳ سفارش اول برای میز ۱ با موفقیت ثبت می‌شوند
+  for (let i = 1; i <= TABLE_PENDING_ORDER_LIMIT_MAX; i++) {
+    const res = await handleOrdersAPI(req(order({ table: "1", requestId: `req-table1-000${i}` })), env);
+    assert.equal(res.status, 200);
+  }
+  assert.equal(inserts(), 3);
+
+  // سفارش چهارم برای همان میز ۱ رد می‌شود (۴۲۹)
+  const res4 = await handleOrdersAPI(req(order({ table: "1", requestId: "req-table1-0004" })), env);
+  assert.equal(res4.status, 429);
+  const data4 = await res4.json();
+  assert.ok(data4.error.includes("بیش از حد مجاز"));
+  assert.equal(inserts(), 3, "سفارش چهارم نباید در دیتابیس ثبت شود");
+
+  // سفارش برای یک میز دیگر (میز ۲) باید با موفقیت ثبت شود
+  const resOther = await handleOrdersAPI(req(order({ table: "2", requestId: "req-table2-0001" })), env);
+  assert.equal(resOther.status, 200);
+  assert.equal(inserts(), 4, "سفارش میز دیگر باید ثبت شود");
+});
+
