@@ -83,10 +83,6 @@ async function setOrderStatus(env, id, status) {
 export const confirmOrder = (env, id) => setOrderStatus(env, id, "confirmed");
 export const rejectOrder = (env, id) => setOrderStatus(env, id, "rejected");
 
-// منطق مشترک «تایید/رد سفارش» — چه از دکمه‌ی زیر پیام تلگرام بیاد چه از پنل ادمین تو وب.
-// هم وضعیت رو تو دیتابیس آپدیت می‌کنه، هم پیام‌های تلگرامی که موقع ثبت سفارش برای همه‌ی
-// ادمین‌ها فرستاده شده بود رو ویرایش می‌کنه؛ این‌جوری تلگرام و پنل وب هیچ‌وقت با هم
-// ناهماهنگ نمی‌شن (مثلاً از وب تایید کنی، ولی تو تلگرام هنوز دکمه‌ی تایید/رد نشون بده).
 // چون Cloudflare Worker با ساعت UTC اجرا میشه ولی «امروز/این هفته/این ماه» باید بر اساس
 // ساعت ایران حساب بشه، مرزهای روز/هفته/ماه رو تو زمان محلی ایران (+۳:۳۰) حساب می‌کنیم،
 // بعد برای مقایسه با created_at (که UTC ذخیره شده) دوباره به UTC برش می‌گردونیم.
@@ -117,6 +113,10 @@ export async function getSalesStats(env) {
   return { today, week, month };
 }
 
+// منطق مشترک «تایید/رد سفارش» — چه از دکمه‌ی زیر پیام تلگرام بیاد چه از پنل ادمین تو وب.
+// هم وضعیت رو تو دیتابیس آپدیت می‌کنه، هم پیام‌های تلگرامی که موقع ثبت سفارش برای همه‌ی
+// ادمین‌ها فرستاده شده بود رو ویرایش می‌کنه؛ این‌جوری تلگرام و پنل وب هیچ‌وقت با هم
+// ناهماهنگ نمی‌شن (مثلاً از وب تایید کنی، ولی تو تلگرام هنوز دکمه‌ی تایید/رد نشون بده).
 export async function resolveOrder(env, orderId, status, resolvedBy = "ادمین") {
   const updated = status === "confirmed" ? await confirmOrder(env, orderId) : await rejectOrder(env, orderId);
 
