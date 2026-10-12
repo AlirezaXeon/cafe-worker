@@ -1,17 +1,23 @@
 // نگهداری موقت وضعیت مکالمه‌ی هر ادمین (برای مراحل چندقسمتی مثل «اسم محصول رو بفرست»)
-const TTL_SECONDS = 600; // ۱۰ دقیقه؛ بعدش خودش پاک میشه
+// روی D1 (جدول bot_state) نگه داشته میشه تا سهمیه‌ی write پلن رایگان KV رو مصرف نکنه
+import { getBotState, setBotState, deleteBotState } from "./botState.js";
+
+const TTL_SECONDS = 600; // ۱۰ دقیقه؛ بعدش منقضی میشه
 
 export async function getSession(env, chatId) {
-  const raw = await env.PRODUCTS_KV.get(`session:${chatId}`);
-  return raw ? JSON.parse(raw) : null;
+  const raw = await getBotState(env, `session:${chatId}`);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 export async function setSession(env, chatId, data) {
-  await env.PRODUCTS_KV.put(`session:${chatId}`, JSON.stringify(data), {
-    expirationTtl: TTL_SECONDS,
-  });
+  await setBotState(env, `session:${chatId}`, JSON.stringify(data), TTL_SECONDS);
 }
 
 export async function clearSession(env, chatId) {
-  await env.PRODUCTS_KV.delete(`session:${chatId}`);
+  await deleteBotState(env, `session:${chatId}`);
 }

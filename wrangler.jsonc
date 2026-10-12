@@ -11,7 +11,9 @@
     "run_worker_first": [
       "/",
       "/data/products.json",
-      "/data/site.json"
+      "/data/site.json",
+      "/robots.txt",
+      "/sitemap.xml"
     ]
   },
   "kv_namespaces": [

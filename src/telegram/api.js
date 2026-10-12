@@ -1,5 +1,6 @@
 import { validateImage, ALLOWED_IMAGE_EXTS } from "../lib/images.js";
 import { MAX_UPLOAD_BYTES } from "../config.js";
+import { getBotState, setBotState } from "../data/botState.js";
 
 // ---------- ارتباط خام با API تلگرام ----------
 
@@ -22,15 +23,17 @@ export async function deleteMessageSafe(env, chatId, messageId) {
   }
 }
 
+// آیدی آخرین پیام ربات تو D1 نگه داشته میشه (نه KV) تا هر پیام ربات یه write از سهمیه‌ی KV نخوره
 async function sendAndTrack(env, chatId, payload) {
+  const key = `botmsg:${chatId}`;
   const [prevId, res] = await Promise.all([
-    env.PRODUCTS_KV.get(`botmsg:${chatId}`),
+    getBotState(env, key),
     tg(env, "sendMessage", payload),
   ]);
   await Promise.all([
     prevId ? deleteMessageSafe(env, chatId, Number(prevId)) : Promise.resolve(),
     res.ok && res.result?.message_id
-      ? env.PRODUCTS_KV.put(`botmsg:${chatId}`, String(res.result.message_id))
+      ? setBotState(env, key, res.result.message_id)
       : Promise.resolve(),
   ]);
   return res;

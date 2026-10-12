@@ -101,3 +101,28 @@ test("global error handler returns plain 500 for non-API routes on unhandled exc
   const text = await response.text();
   assert.equal(text, "Internal Server Error");
 });
+
+test("robots.txt و sitemap.xml آدرس رو از دامنه‌ی درخواست می‌سازن", async () => {
+  const env = {}; // بدون SITE_URL
+
+  const robots = await worker.fetch(new Request("https://cafe.example.ir/robots.txt"), env, { waitUntil() {} });
+  assert.equal(robots.status, 200);
+  const robotsText = await robots.text();
+  assert.match(robotsText, /Disallow: \/admin\//);
+  assert.match(robotsText, /Sitemap: https:\/\/cafe\.example\.ir\/sitemap\.xml/);
+
+  const sitemap = await worker.fetch(new Request("https://cafe.example.ir/sitemap.xml"), env, { waitUntil() {} });
+  assert.equal(sitemap.status, 200);
+  assert.match(sitemap.headers.get("content-type"), /application\/xml/);
+  assert.match(await sitemap.text(), /<loc>https:\/\/cafe\.example\.ir\/<\/loc>/);
+});
+
+test("SITE_URL (اگه ست باشه) بر دامنه‌ی درخواست اولویت داره و اسلش آخرش حذف میشه", async () => {
+  const env = { SITE_URL: "https://cafe.example.ir/" };
+
+  const robots = await worker.fetch(new Request("https://cafe-roshan.workers.dev/robots.txt"), env, { waitUntil() {} });
+  assert.match(await robots.text(), /Sitemap: https:\/\/cafe\.example\.ir\/sitemap\.xml/);
+
+  const sitemap = await worker.fetch(new Request("https://cafe-roshan.workers.dev/sitemap.xml"), env, { waitUntil() {} });
+  assert.match(await sitemap.text(), /<loc>https:\/\/cafe\.example\.ir\/<\/loc>/);
+});

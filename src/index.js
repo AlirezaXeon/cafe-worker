@@ -17,6 +17,16 @@ const IMAGE_CONTENT_TYPES = {
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 const SHORT_CACHE = "public, max-age=600";
 
+// آدرس پایه‌ی سایت برای sitemap/robots/canonical/og:url.
+// اگه SITE_URL تو تنظیمات Worker ست شده باشه همون استفاده میشه (برای وقتی که سایت روی چند دامنه باز میشه)،
+// وگرنه دامنه‌ای که درخواست ازش اومده؛ پس با دامنه‌ی اختصاصی دیگه چیزی برای عوض کردن نیست.
+function siteBase(env, url) {
+  const configured = String(env?.SITE_URL || "").trim().replace(/\/+$/, "");
+  return /^https?:\/\//i.test(configured) ? configured : url.origin;
+}
+
+const TEXT_CACHE = "public, max-age=3600";
+
 // کش محصولات در حافظه‌ی رم ورکر (per-isolate memo) بدون بار روی سهمیه KV
 const loadProductsData = (env) =>
   memo(PRODUCTS_CACHE_KEY, async () => {
@@ -127,8 +137,17 @@ function safeInlineJson(value) {
 // عکس هیرو (و لوگوها) قبلاً هیچ src ای تو HTML نداشتن؛ script.js اول باید fetch('data/site.json')
 // رو کامل می‌کرد و بعد src رو ست می‌کرد. این تابع همون src واقعی رو مستقیم تو HTML
 // (سمت سرور) می‌ذاره تا دانلود عکس همون لحظه‌ی اول شروع بشه.
-function injectSiteAssets(response, cfg, origin, products) {
+// base: آدرس پایه‌ی سایت (بدون اسلش آخر) برای canonical / og:url / og:image
+function injectSiteAssets(response, cfg, base, products) {
   const rewriter = new HTMLRewriter();
+
+  // canonical و og:url با دامنه‌ی واقعی (نه مقدار هاردکد داخل index.html)
+  rewriter.on('link[rel="canonical"]', {
+    element(el) { el.setAttribute('href', `${base}/`); },
+  });
+  rewriter.on('meta[property="og:url"]', {
+    element(el) { el.setAttribute('content', `${base}/`); },
+  });
 
   // دیتای سایت و محصولات رو مستقیم تو HTML می‌ذاریم تا مرورگر مجبور نباشه بعد از لود script.js
   // دو تا fetch جدا (site.json و products.json) بزنه؛ script.js اگه این رو ببینه fetch نمی‌کنه.
@@ -193,7 +212,7 @@ function injectSiteAssets(response, cfg, origin, products) {
   const share = cfg && (cfg.cover || cfg.logo);
   rewriter.on('meta[property="og:image"]', {
     element(el) {
-      if (share) el.setAttribute('content', new URL(share, origin).toString());
+      if (share) el.setAttribute('content', new URL(share, `${base}/`).toString());
       else el.remove();
     },
   });
@@ -243,6 +262,29 @@ export default {
     // ctx پاس داده میشه تا اطلاع‌رسانی تلگرام بعد از جواب دادن به مشتری انجام بشه
     if (url.pathname === "/api/orders") {
       return handleOrdersAPI(request, env, ctx);
+    }
+
+    // ── robots.txt و sitemap.xml (آدرس از دامنه‌ی واقعی ساخته میشه، نه هاردکد) ──
+    if (url.pathname === "/robots.txt" && (request.method === "GET" || request.method === "HEAD")) {
+      const base = siteBase(env, url);
+      return new Response(`User-agent: *\nDisallow: /admin/\nSitemap: ${base}/sitemap.xml\n`, {
+        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": TEXT_CACHE },
+      });
+    }
+    if (url.pathname === "/sitemap.xml" && (request.method === "GET" || request.method === "HEAD")) {
+      const base = siteBase(env, url);
+      const xml =
+        `<?xml version="1.0" encoding="UTF-8"?>\n` +
+        `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+        `  <url>\n` +
+        `    <loc>${base}/</loc>\n` +
+        `    <changefreq>weekly</changefreq>\n` +
+        `    <priority>1.0</priority>\n` +
+        `  </url>\n` +
+        `</urlset>\n`;
+      return new Response(xml, {
+        headers: { "content-type": "application/xml; charset=utf-8", "cache-control": TEXT_CACHE },
+      });
     }
 
     // ── محصولات (از D1، با کش حافظه اختصاصی هر isolate) ─────────────────
@@ -327,7 +369,7 @@ export default {
       if (isHome && contentType.includes('text/html')) {
         const [cfg, products] = await bootPromise;
         // اگه دیتا نیومد، صفحه همون‌طور که هست می‌ره و script.js خودش fetch می‌کنه
-        response = injectSiteAssets(response, cfg, url.origin, products);
+        response = injectSiteAssets(response, cfg, siteBase(env, url), products);
       }
       response.headers.set('Cache-Control', 'no-cache');
       return response;
