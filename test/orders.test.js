@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { handleOrdersAPI, hashIp } from "../src/handlers/orders.js";
 import { ORDER_RATE_LIMIT_MAX, TABLE_PENDING_ORDER_LIMIT_MAX } from "../src/config.js";
 import { clearMemo, SITE_CACHE_KEY } from "../src/data/cache.js";
+import { tehranBoundaries, getSalesStats } from "../src/data/orders.js";
 
 function makeEnv(opts = {}) {
   const kv = new Map();
@@ -214,5 +215,103 @@ test("شماره میز باید در بازه ۱ تا tableCount تنظیمات
   assert.equal(res26.status, 400);
   clearMemo(SITE_CACHE_KEY);
 });
+
+test("tehranBoundaries: محاسبه دقیق مرزهای روز، هفته (شنبه) و ماه به وقت تهران", () => {
+  // چهارشنبه ۱۴ اکتبر ۲۰۲۶ ساعت ۱۵:۰۰ به وقت تهران = ساعت ۱۱:۳۰ UTC
+  const midWeek = Date.parse("2026-10-14T11:30:00Z");
+  const b = tehranBoundaries(midWeek);
+
+  // آغاز روز: ۱۴ اکتبر ساعت ۰۰:۰۰ به وقت تهران = ۱۳ اکتبر ۲۰:۳۰ UTC
+  assert.equal(b.startOfDay, "2026-10-13 20:30:00");
+
+  // آغاز هفته: شنبه ۱۰ اکتبر ساعت ۰۰:۰۰ به وقت تهران = ۹ اکتبر ۲۰:۳۰ UTC
+  assert.equal(b.startOfWeek, "2026-10-09 20:30:00");
+
+  // آغاز ماه: ۱ اکتبر ساعت ۰۰:۰۰ به وقت تهران = ۳۰ سپتامبر ۲۰:۳۰ UTC
+  assert.equal(b.startOfMonth, "2026-09-30 20:30:00");
+});
+
+test("tehranBoundaries: تغییر روز دقیقا در نیمه‌شب تهران (23:59:59 تا 00:00:00)", () => {
+  // سه‌شنبه ۱۳ اکتبر ۲۳:۵۹:۵۹ به وقت تهران = ۲۰:۲۹:۵۹ UTC
+  const beforeMidnight = Date.parse("2026-10-13T20:29:59Z");
+  const b1 = tehranBoundaries(beforeMidnight);
+  assert.equal(b1.startOfDay, "2026-10-12 20:30:00"); // آغاز روز سه‌شنبه ۱۳ اکتبر تهران
+
+  // یک ثانیه بعد: چهارشنبه ۱۴ اکتبر ۰۰:۰۰:۰۰ به وقت تهران = ۲۰:۳۰:۰۰ UTC
+  const atMidnight = Date.parse("2026-10-13T20:30:00Z");
+  const b2 = tehranBoundaries(atMidnight);
+  assert.equal(b2.startOfDay, "2026-10-13 20:30:00"); // آغاز روز چهارشنبه ۱۴ اکتبر تهران
+});
+
+test("tehranBoundaries: شروع هفته از شنبه مطابق تقویم ایران (جمعه 23:59:59 تا شنبه 00:00:00)", () => {
+  // جمعه ۱۶ اکتبر ۲۳:۵۹:۵۹ به وقت تهران = ۲۰:۲۹:۵۹ UTC (آخرین لحظه هفته)
+  const fridayEnd = Date.parse("2026-10-16T20:29:59Z");
+  const bFri = tehranBoundaries(fridayEnd);
+  assert.equal(bFri.startOfWeek, "2026-10-09 20:30:00"); // شنبه گذشته (۱۰ اکتبر)
+
+  // شنبه ۱۷ اکتبر ۰۰:۰۰:۰۰ به وقت تهران = ۲۰:۳۰:۰۰ UTC (آغاز هفته جدید)
+  const saturdayStart = Date.parse("2026-10-16T20:30:00Z");
+  const bSat = tehranBoundaries(saturdayStart);
+  assert.equal(bSat.startOfWeek, "2026-10-16 20:30:00"); // همان لحظه آغاز شنبه
+  assert.equal(bSat.startOfDay, "2026-10-16 20:30:00");  // با startOfDay برابر است
+});
+
+test("tehranBoundaries: مرز آغاز ماه میلادی به وقت تهران", () => {
+  // ۳۱ اکتبر ۲۰۲۶ ساعت ۲۳:۵۹:۵۹ تهران = ۲۰:۲۹:۵۹ UTC
+  const octEnd = Date.parse("2026-10-31T20:29:59Z");
+  const bOct = tehranBoundaries(octEnd);
+  assert.equal(bOct.startOfMonth, "2026-09-30 20:30:00"); // آغاز ماه اکتبر تهران
+
+  // ۱ نوامبر ۲۰۲۶ ساعت ۰۰:۰۰:۰۰ تهران = ۲۰:۳۰:۰۰ UTC
+  const novStart = Date.parse("2026-10-31T20:30:00Z");
+  const bNov = tehranBoundaries(novStart);
+  assert.equal(bNov.startOfMonth, "2026-10-31 20:30:00"); // آغاز ماه نوامبر تهران
+});
+
+test("getSalesStats: جمع فروش فقط سفارش‌های تاییدشده را در مرزهای روز/هفته/ماه محاسبه می‌کند", async () => {
+  // تاریخ مبنا: چهارشنبه ۱۴ اکتبر ۲۰۲۶ ساعت ۱۲:۰۰ تهران
+  const now = Date.parse("2026-10-14T08:30:00Z");
+  // مرزها:
+  // startOfDay = "2026-10-13 20:30:00"
+  // startOfWeek = "2026-10-09 20:30:00"
+  // startOfMonth = "2026-09-30 20:30:00"
+
+  const mockOrders = [
+    // امروز (تایید شده): 100,000
+    { total: 100000, status: "confirmed", created_at: "2026-10-14 05:00:00" },
+    // امروز اما رد شده (نباید حساب شود): 500,000
+    { total: 500000, status: "rejected", created_at: "2026-10-14 06:00:00" },
+    // امروز اما در انتظار (نباید حساب شود): 700,000
+    { total: 700000, status: "pending", created_at: "2026-10-14 07:00:00" },
+    // اوایل این هفته دوشنبه ۱۲ اکتبر (تایید شده): 200,000
+    { total: 200000, status: "confirmed", created_at: "2026-10-12 10:00:00" },
+    // اوایل این ماه یکشنبه ۴ اکتبر (تایید شده): 300,000
+    { total: 300000, status: "confirmed", created_at: "2026-10-04 10:00:00" },
+    // ماه قبل سپتامبر (تایید شده): 400,000
+    { total: 400000, status: "confirmed", created_at: "2026-09-25 10:00:00" },
+  ];
+
+  const env = {
+    DB: {
+      prepare: (sql) => ({
+        bind: (...args) => ({
+          first: async (col) => {
+            const [since] = args;
+            const sum = mockOrders
+              .filter((o) => o.status === "confirmed" && o.created_at >= since)
+              .reduce((acc, o) => acc + o.total, 0);
+            return sum;
+          },
+        }),
+      }),
+    },
+  };
+
+  const stats = await getSalesStats(env, now);
+  assert.equal(stats.today, 100000, "فروش امروز فقط شامل سفارش تایید شده امروز باشد");
+  assert.equal(stats.week, 300000, "فروش هفته شامل سفارش امروز و اوایل هفته باشد (100k + 200k)");
+  assert.equal(stats.month, 600000, "فروش ماه شامل همه سفارش‌های این ماه باشد (100k + 200k + 300k)");
+});
+
 
 

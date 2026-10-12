@@ -89,8 +89,8 @@ export const rejectOrder = (env, id) => setOrderStatus(env, id, "rejected");
 // شروع هفته هم شنبه‌ست (مطابق تقویم ایران).
 const TEHRAN_OFFSET_MS = 3.5 * 60 * 60 * 1000;
 
-function tehranBoundaries() {
-  const tehranNow = new Date(Date.now() + TEHRAN_OFFSET_MS);
+export function tehranBoundaries(now = Date.now()) {
+  const tehranNow = new Date(now + TEHRAN_OFFSET_MS);
   const startOfDay = new Date(Date.UTC(tehranNow.getUTCFullYear(), tehranNow.getUTCMonth(), tehranNow.getUTCDate()));
   const dayOfWeek = startOfDay.getUTCDay(); // 0=یکشنبه ... 6=شنبه
   const daysSinceSaturday = (dayOfWeek + 1) % 7;
@@ -102,8 +102,8 @@ function tehranBoundaries() {
 }
 
 // جمع فروش سفارش‌های «تایید شده» (نه رد‌شده، نه در انتظار)، برای امروز/این هفته/این ماه
-export async function getSalesStats(env) {
-  const { startOfDay, startOfWeek, startOfMonth } = tehranBoundaries();
+export async function getSalesStats(env, now = Date.now()) {
+  const { startOfDay, startOfWeek, startOfMonth } = tehranBoundaries(now);
   const sumSince = (since) =>
     env.DB
       .prepare("SELECT COALESCE(SUM(total), 0) as sum FROM orders WHERE status = 'confirmed' AND created_at >= ?")
