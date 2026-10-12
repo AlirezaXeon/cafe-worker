@@ -208,6 +208,26 @@ function topDialog() {
   return null;
 }
 
+// علامت‌گذاری پس‌زمینه به عنوان inert / aria-hidden هنگام باز بودن دیالوگ‌ها
+function syncDialogInert() {
+  const isDialogOpen = !!topDialog();
+  const main = document.querySelector('main');
+  const header = document.querySelector('header');
+  const footer = document.querySelector('footer');
+  const floatCart = document.getElementById('floatingCart');
+  const bgElements = [main, header, footer, floatCart].filter(Boolean);
+
+  for (const el of bgElements) {
+    if (isDialogOpen) {
+      if ('inert' in el) el.inert = true;
+      el.setAttribute('aria-hidden', 'true');
+    } else {
+      if ('inert' in el) el.inert = false;
+      el.removeAttribute('aria-hidden');
+    }
+  }
+}
+
 // ============ پیش‌بارگذاری عکس مودال ============
 // قبلاً عکس بزرگ محصول فقط بعد از کلیک شروع به دانلود می‌کرد؛ برای همین موبایل بعد از لمس چند ثانیه
 // اسکلتون می‌دید. حالا: (۱) کارت‌هایی که کاربر واقعاً دیده تو پس‌زمینه با اولویت پایین و حداکثر ۲ تا
@@ -501,6 +521,7 @@ function openModal(product, catLabelText, card) {
   modal.classList.remove('closing');
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
+  syncDialogInert();
   history.pushState({ modal: true }, "");
   focusInside(modalClose);
 }
@@ -521,8 +542,10 @@ function closeModal() {
   // بسته شدن کاملاً روان و هماهنگ با تایمینگ CSS (۲۲۰ میلی‌ثانیه)
   clearTimeout(modalCloseTimer);
   modal.classList.add('closing');
+  syncDialogInert();
   modalCloseTimer = setTimeout(() => {
     modal.classList.remove('open', 'closing');
+    syncDialogInert();
   }, 220);
 }
 
@@ -717,7 +740,7 @@ function getCategoryImage(catId) {
 }
 
 function renderTabs() {
-  const allBtn = `<button class="cat-card active" data-cat="all">
+  const allBtn = `<button class="cat-card active" data-cat="all" role="tab" aria-selected="true" aria-current="true">
     <span class="cat-card-img cat-card-img--all">✦</span>
     <span class="cat-card-label">همه</span>
   </button>`;
@@ -727,7 +750,7 @@ function renderTabs() {
     const imgHtml = img
       ? `<img src="${productThumbSrc(img)}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
       : esc(c.label.charAt(0));
-    return `<button class="cat-card" data-cat="${esc(c.id)}">
+    return `<button class="cat-card" data-cat="${esc(c.id)}" role="tab" aria-selected="false">
       <span class="cat-card-img">${imgHtml}</span>
       <span class="cat-card-label">${esc(c.label)}</span>
     </button>`;
@@ -821,7 +844,13 @@ function setActiveTab(catId) {
   tabsEl.querySelectorAll('.cat-card').forEach(b => {
     const on = b.dataset.cat === catId;
     b.classList.toggle('active', on);
-    if (on) activeBtn = b;
+    b.setAttribute('aria-selected', String(on));
+    if (on) {
+      b.setAttribute('aria-current', 'true');
+      activeBtn = b;
+    } else {
+      b.removeAttribute('aria-current');
+    }
   });
   if (activeBtn) centerTabInStrip(activeBtn);
 }
@@ -872,6 +901,7 @@ function openSortModal() {
   sortModal.classList.add('open');
   sortOverlay.classList.add('open');
   sortToggle.classList.add('active');
+  syncDialogInert();
   lockScroll();
   history.pushState({ sort: true }, "");
   focusInside(sortModal.querySelector('.sort-option.active') || sortModalClose);
@@ -882,6 +912,7 @@ function closeSortModal() {
   sortModal.classList.remove('open');
   sortOverlay.classList.remove('open');
   sortToggle.classList.remove('active');
+  syncDialogInert();
   unlockScroll();
   restoreFocus('sort');
 }
@@ -1129,6 +1160,7 @@ function openCart() {
   cartDrawer.classList.add('open');
   cartDrawer.setAttribute('aria-hidden', 'false');
   cartOverlay.classList.add('open');
+  syncDialogInert();
   history.pushState({ cart: true }, "");
   focusInside(cartClose);
 }
@@ -1139,6 +1171,7 @@ function closeCart() {
   cartDrawer.setAttribute('aria-hidden', 'true');
   cartDrawer.style.transform = '';
   cartOverlay.classList.remove('open');
+  syncDialogInert();
   restoreFocus('cart');
 }
 
@@ -1392,6 +1425,7 @@ function openTableModal() {
   renderTableGrid();
   tableModal.classList.add('open');
   tableOverlay.classList.add('open');
+  syncDialogInert();
   history.pushState({ table: true }, "");
   (tableGrid.querySelector('.selected') || tableModalClose).focus({ preventScroll: true });
 }
@@ -1400,6 +1434,7 @@ function closeTableModal() {
   if (!tableModal.classList.contains('open')) return;
   tableModal.classList.remove('open');
   tableOverlay.classList.remove('open');
+  syncDialogInert();
   tableSelectBtn.focus({ preventScroll: true });
 }
 
