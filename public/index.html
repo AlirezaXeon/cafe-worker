@@ -107,10 +107,21 @@
           onerror="this.style.display='none'; this.closest('.hero-cover').classList.add('no-cover');">
       </div>
       <div class="hero-cover-logo-wrap">
+        <div class="hero-live-badge" id="heroLiveBadge">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span id="heroLiveStatusText">هم‌اکنون باز است • سرویس‌دهی تا ۲۳:۰۰</span>
+        </div>
         <h1 class="hero-cover-title">ROSHAN CAFÉ</h1>
+        <p class="hero-cover-tagline">عطر دانه‌های تازه، در فضایی به وسعت آرامش</p>
         <img alt="کافه روشن" class="hero-cover-logo" id="heroCoverLogo" width="180" height="180" style="display:none"
           onerror="this.style.display='none'">
       </div>
+      <a href="#menu" class="hero-scroll-btn" id="heroScrollBtn" aria-label="مشاهده منوی کافه">
+        <span class="hero-scroll-label">مشاهده منو</span>
+        <svg class="hero-scroll-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M7 10l5 5 5-5"/>
+        </svg>
+      </a>
     </section>
 
     <!-- MENU -->

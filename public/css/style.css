@@ -670,6 +670,7 @@ body.header-hidden .menu-controls {
 .hero-cover-media {
   position: absolute;
   inset: 0;
+  overflow: hidden;
 }
 
 .hero-cover-media img {
@@ -678,27 +679,43 @@ body.header-hidden .menu-controls {
   object-fit: cover;
   display: block;
   opacity: 0;
-  transition: opacity 0.5s ease;
+  transition: opacity 0.8s ease;
+  will-change: transform;
+  transform: scale(1);
 }
 
-/* تا وقتی عکس هیرو واقعاً دانلود نشده، همون گرادیانت تزئینی پس‌زمینه‌ی .hero-cover
-   یه اسکلتون ملایم و متحرکه (نه فقط یه رنگ ثابت)؛ با لود شدن، فقط عکس فید-این میشه */
+/* افکت سینمایی Ken Burns: زوم و حرکت بسیار آرام و زنده روی عکس هیرو */
+.hero-cover.cover-ready .hero-cover-media img {
+  opacity: 1;
+  animation: heroKenBurns 24s ease-in-out infinite alternate;
+}
+
+@keyframes heroKenBurns {
+  0% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.07) translate3d(-1%, -0.8%, 0);
+  }
+  100% {
+    transform: scale(1.04) translate3d(0.8%, -1.2%, 0);
+  }
+}
+
+.hero-offscreen .hero-cover-media img {
+  animation-play-state: paused;
+}
+
+/* تا وقتی عکس هیرو واقعاً دانلود نشده، اسکلتون پس‌زمینه ملایم */
 .hero-cover:not(.cover-ready) {
   background-size: 200% 200%;
   animation: heroSkeletonPulse 2.2s ease-in-out infinite;
 }
 
-.hero-cover.cover-ready .hero-cover-media img {
-  opacity: 1;
-}
-
 @keyframes heroSkeletonPulse {
-
-  0%,
-  100% {
+  0%, 100% {
     background-position: 30% 20%;
   }
-
   50% {
     background-position: 70% 60%;
   }
@@ -708,18 +725,28 @@ body.header-hidden .menu-controls {
   .hero-cover:not(.cover-ready) {
     animation: none;
   }
+  .hero-cover.cover-ready .hero-cover-media img {
+    animation: none !important;
+    transform: none !important;
+  }
 }
 
-/* سایه‌ی نرم روی عکس با فید یکدست به پس‌زمینه تا مرز عکس و منو بریده دیده نشه */
+/* گرادینت چندلایه سینمایی: خوانایی هدر در بالا و محو شدن یکدست و بدون مرز به پس‌زمینه سایت در پایین */
 .hero-cover::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.1) 40%, rgba(11, 13, 18, 0.65) 80%, var(--bg) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(11, 13, 18, 0.45) 0%,
+    rgba(11, 13, 18, 0.15) 35%,
+    rgba(11, 13, 18, 0.65) 75%,
+    var(--bg) 100%
+  );
   pointer-events: none;
+  z-index: 1;
 }
 
-/* وقتی هنوز عکسی از ربات آپلود نشده، فقط گرادینت پس‌زمینه دیده میشه */
 .hero-cover.no-cover::after {
   background: none;
 }
@@ -732,8 +759,114 @@ body.header-hidden .menu-controls {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(10px, 2.4vw, 20px);
+  gap: 12px;
   pointer-events: none;
+  padding: 0 16px;
+}
+
+/* بج وضعیت زنده شیشه‌ای (Live Status Badge) */
+.hero-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 50px;
+  background: rgba(18, 14, 12, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-family: var(--font-fa);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  margin-bottom: 2px;
+  opacity: calc(1 - var(--intro-progress, 0));
+  transform: translateY(calc(var(--intro-progress, 0) * -16px));
+  transition: opacity 0.1s linear, transform 0.1s linear;
+  user-select: none;
+}
+
+.hero-live-badge .live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 10px #34d399;
+  animation: liveBadgePulse 2s infinite ease-in-out;
+}
+
+.hero-live-badge.is-closed .live-dot {
+  background: #fbbf24;
+  box-shadow: 0 0 10px #fbbf24;
+}
+
+@keyframes liveBadgePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.7;
+  }
+}
+
+/* شعار کافه زیر عنوان هیرو */
+.hero-cover-tagline {
+  font-family: var(--font-fa);
+  font-size: clamp(0.88rem, 2.3vw, 1.15rem);
+  font-weight: 500;
+  color: rgba(245, 235, 224, 0.92);
+  text-align: center;
+  margin: 0;
+  letter-spacing: 0.4px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
+  opacity: calc(1 - var(--intro-progress, 0));
+  transform: translateY(calc(var(--intro-progress, 0) * -20px));
+  transition: opacity 0.1s linear, transform 0.1s linear;
+}
+
+/* دکمه اسکرول نرم به منو (Scroll Down Indicator) */
+.hero-scroll-btn {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-family: var(--font-fa);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: calc(1 - (var(--intro-progress, 0) * 2.2));
+  pointer-events: auto;
+  transition: color 0.2s ease, opacity 0.15s ease;
+  user-select: none;
+}
+
+.hero-scroll-btn:hover {
+  color: var(--accent);
+}
+
+.hero-scroll-arrow {
+  width: 22px;
+  height: 22px;
+  animation: heroScrollBounce 2s ease-in-out infinite;
+}
+
+@keyframes heroScrollBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
 }
 
 /* اسم انگلیسی کافه، بالای لوگو، با یه ورود لوکس (باز شدن حروف + محو) و بعدش یه درخشش طلایی ملایم */

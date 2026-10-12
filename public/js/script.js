@@ -1619,9 +1619,56 @@ async function loadSiteConfig() {
   await Promise.all([revealDone, coverReady]);
 }
 
+// ============ وضعیت زنده کافه و دکمه اسکرول به منو در هیرو ============
+function updateHeroLiveStatus() {
+  const badge = document.getElementById('heroLiveBadge');
+  const text = document.getElementById('heroLiveStatusText');
+  if (!badge || !text) return;
+
+  const now = new Date();
+  const day = now.getDay(); // 0: یکشنبه, 4: پنجشنبه, 5: جمعه, 6: شنبه
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const curTime = hours + minutes / 60;
+
+  // ساعات کاری:
+  // پنج‌شنبه و جمعه: 09:00 الی 24:00 (00:00)
+  // شنبه تا چهارشنبه: 08:00 الی 23:00
+  const isWeekend = (day === 4 || day === 5);
+  const openHour = isWeekend ? 9 : 8;
+  const closeHour = isWeekend ? 24 : 23;
+
+  const isOpen = (curTime >= openHour && curTime < closeHour);
+
+  if (isOpen) {
+    badge.classList.remove('is-closed');
+    const closeStr = isWeekend ? '۲۴:۰۰' : '۲۳:۰۰';
+    text.textContent = `هم‌اکنون باز است • سرویس‌دهی تا ${closeStr}`;
+  } else {
+    badge.classList.add('is-closed');
+    const openStr = isWeekend ? '۰۹:۰۰' : '۰۸:۰۰';
+    text.textContent = `هم‌اکنون بسته است • شروع از ${openStr}`;
+  }
+}
+
+function initHeroScrollButton() {
+  const btn = document.getElementById('heroScrollBtn');
+  if (!btn) return;
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const menuSection = document.getElementById('menu');
+    if (menuSection) {
+      const targetY = menuSection.getBoundingClientRect().top + window.scrollY - menuBarOffset();
+      smoothScrollToY(targetY);
+    }
+  });
+}
+
 // ============ انیمیشن اسکرول: لوگوی وسط عکس با اسکرول به سمت لوگوی هدر «پرواز» می‌کنه ============
 (function initHeroScrollIntro() {
   const heroCover = document.querySelector('.hero-cover');
+  updateHeroLiveStatus();
+  initHeroScrollButton();
   if (!heroCover) return;
 
   let ticking = false;
