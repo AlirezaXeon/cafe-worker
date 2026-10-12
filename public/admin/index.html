@@ -1324,6 +1324,36 @@
     let currentOrdersList = [];
     let hasMoreOrders = false;
 
+    function formatOrderDateTime(createdAt) {
+      if (!createdAt) return '—';
+      const d = new Date(createdAt.endsWith('Z') ? createdAt : (createdAt.replace(' ', 'T') + 'Z'));
+      if (isNaN(d.getTime())) return createdAt;
+
+      const now = new Date();
+      const tehranDateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' });
+      const isToday = tehranDateFmt.format(now) === tehranDateFmt.format(d);
+
+      const timeStr = d.toLocaleTimeString('fa-IR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Tehran',
+      });
+
+      if (isToday) return timeStr;
+
+      const isThisYear = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric' }).format(now) ===
+        new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric' }).format(d);
+
+      const dateStr = d.toLocaleDateString('fa-IR', {
+        day: 'numeric',
+        month: 'short',
+        ...(isThisYear ? {} : { year: 'numeric' }),
+        timeZone: 'Asia/Tehran',
+      });
+
+      return `${dateStr}، ${timeStr}`;
+    }
+
     async function loadOrders(append = false, customLimit = null) {
       const wrap = document.getElementById('order-list-wrap');
       if (!wrap) return;
@@ -1349,7 +1379,7 @@
         }
         const statusLabel = { pending: 'در انتظار', confirmed: 'تایید شده', rejected: 'رد شده' };
         wrap.innerHTML = `<div class="order-list">${currentOrdersList.map(o => {
-          const time = new Date(o.created_at + 'Z').toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+          const time = formatOrderDateTime(o.created_at);
           return `
           <div class="order-card">
             <div class="order-card-head">
