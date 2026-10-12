@@ -17,6 +17,7 @@ const IMAGE_CONTENT_TYPES = {
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 const SHORT_CACHE = "public, max-age=600";
 
+// کش محصولات در حافظه‌ی رم ورکر (per-isolate memo) بدون بار روی سهمیه KV
 const loadProductsData = (env) =>
   memo(PRODUCTS_CACHE_KEY, async () => {
     const fresh = await getProducts(env);
@@ -244,7 +245,7 @@ export default {
       return handleOrdersAPI(request, env, ctx);
     }
 
-    // ── محصولات (از D1، با کش حافظه + کش کوتاه‌مدت KV پشت صحنه) ─────────────────
+    // ── محصولات (از D1، با کش حافظه اختصاصی هر isolate) ─────────────────
     if (url.pathname === "/data/products.json") {
       const data = await loadProductsData(env);
       // هدر مرورگر عمداً no-store می‌مونه؛ کشی که بالا زدیم فقط سمت سرور هست
