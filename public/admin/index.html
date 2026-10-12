@@ -1148,7 +1148,16 @@
         }
       });
       if (r.status === 401) { doLogout(); throw new Error('unauthorized'); }
-      return r.json();
+      let data;
+      try {
+        data = await r.json();
+      } catch {
+        data = null;
+      }
+      if (!r.ok) {
+        throw new Error((data && data.error) ? data.error : 'خطا در برقراری ارتباط');
+      }
+      return data;
     }
 
     function initApp() {
@@ -1370,12 +1379,11 @@
     async function resolveOrderWeb(id, status) {
       try {
         const res = await api(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-        if (res && res.error) { toast(res.error, true); loadOrders(); return; }
         toast(status === 'confirmed' ? 'سفارش تایید شد' : 'سفارش رد شد');
         await loadOrders(false, Math.min(Math.max(currentOrdersList.length, 50), 100));
         pollOrdersNow();
       } catch (e) {
-        if (e.message !== 'unauthorized') toast('خطا در ثبت', true);
+        if (e.message !== 'unauthorized') toast(e.message || 'خطا در ثبت', true);
       }
     }
 
@@ -1526,7 +1534,7 @@
         const res = await api(`/products/${id}/availability`, { method: 'PATCH' });
         p.available = res.available; renderProductTable();
         toast(p.available ? 'محصول موجود شد ✓' : 'محصول ناموجود شد');
-      } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
+      } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در تغییر وضعیت', true); }
     }
 
     // ── Categories ────────────────────────────────────────────────────────────
@@ -1602,7 +1610,7 @@
         closeModal('cat-modal');
         await loadCategories();
       } catch (e) {
-        if (e.message !== 'unauthorized') err.textContent = 'خطا در ذخیره';
+        if (e.message !== 'unauthorized') err.textContent = e.message || 'خطا در ذخیره';
       } finally { btn.innerHTML = 'ذخیره'; btn.disabled = false; }
     }
 
@@ -1611,11 +1619,10 @@
       const c = allCategories.find(x => x.id === id);
       if (!confirm(`حذف دسته‌بندی «${c ? c.label : ''}»؟`)) return;
       try {
-        const r = await api(`/categories/${id}`, { method: 'DELETE' });
-        if (r.error) { toast(r.error, true); return; }
+        await api(`/categories/${id}`, { method: 'DELETE' });
         toast('دسته‌بندی حذف شد');
         await loadCategories();
-      } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
+      } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در حذف', true); }
     }
 
     // ── Image Upload ──────────────────────────────────────────────────────────
@@ -1781,7 +1788,7 @@
         allProducts = await api('/products');
         renderProductTable();
       } catch (e) {
-        if (e.message !== 'unauthorized') err.textContent = 'خطا در ذخیره';
+        if (e.message !== 'unauthorized') err.textContent = e.message || 'خطا در ذخیره';
       } finally { btn.innerHTML = 'ذخیره محصول'; btn.disabled = false; }
     }
 
@@ -1794,7 +1801,7 @@
         toast('محصول حذف شد');
         allProducts = await api('/products');
         renderProductTable();
-      } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
+      } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در حذف', true); }
     }
 
     // ── Site images (لوگو + عکس بالای سایت) ───────────────────────────────────
@@ -1839,10 +1846,9 @@
       const fd = new FormData(); fd.append('file', file);
       try {
         const res = await api(`/site/${kind}`, { method: 'POST', body: fd });
-        if (res.error) { toast(res.error, true); return; }
         toast('تصویر به‌روزرسانی شد ✓');
         loadSiteImages();
-      } catch (e) { if (e.message !== 'unauthorized') toast('خطا در آپلود', true); }
+      } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در آپلود', true); }
     }
 
     async function removeSiteImg(kind) {
@@ -1851,7 +1857,7 @@
         await api(`/site/${kind}`, { method: 'DELETE' });
         toast('حذف شد');
         loadSiteImages();
-      } catch (e) { if (e.message !== 'unauthorized') toast('خطا', true); }
+      } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در حذف', true); }
     }
 
     // ── Utils ─────────────────────────────────────────────────────────────────
