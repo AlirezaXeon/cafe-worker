@@ -99,33 +99,47 @@ function getBoot() {
   return bootCache;
 }
 
-function hideSplash() {
+function hideSplash(immediate = false) {
   const splash = document.getElementById('splash');
-  if (!splash || splash.dataset.hidden === 'true') return;
-  splash.dataset.hidden = 'true';
-  splash.classList.add('hide');
-  // کلاس site-loaded برای استایل‌دهی بعد از رفتن اسپلش (و رویداد siteloaded برای پیش‌لود عکس‌ها)
+  try { sessionStorage.setItem('splash_shown', 'true'); } catch {}
   document.body.classList.add('site-loaded');
   window.dispatchEvent(new Event('siteloaded'));
-  setTimeout(() => splash.remove(), 250);
+  if (!splash || splash.dataset.hidden === 'true') return;
+  splash.dataset.hidden = 'true';
+  if (immediate) {
+    splash.remove();
+  } else {
+    splash.classList.add('hide');
+    setTimeout(() => splash.remove(), 250);
+  }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  // مکث عمدی حداقل ۲.۲ ثانیه برای ماندگاری اسپلش و فرصت لود کامل تصاویر در بک‌گراند (مخصوصاً هیرو)
-  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, 2200));
+let splashShownThisSession = false;
+try {
+  splashShownThisSession = !!sessionStorage.getItem('splash_shown');
+} catch {}
 
-  const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
-    .then(() => waitForMenuImages(4000));
+if (splashShownThisSession) {
+  // اگر در این نشست قبلاً اسپلش نمایش داده شده، فوراً اسپلش را حذف کرده و سایت را لود می‌کنیم
+  hideSplash(true);
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    // مکث عمدی حداقل ۲.۲ ثانیه برای ماندگاری اسپلش و فرصت لود کامل تصاویر در بک‌گراند (مخصوصاً هیرو)
+    const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, 2200));
 
-  const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
+    const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
+      .then(() => waitForMenuImages(4000));
 
-  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان ۲.۲ ثانیه سپری شده باشد
-  const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
-  Promise.race([readyPromise, hardCap]).then(hideSplash);
-});
+    const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
 
-// شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
-setTimeout(hideSplash, 6500);
+    // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان ۲.۲ ثانیه سپری شده باشد
+    const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
+    Promise.race([readyPromise, hardCap]).then(() => hideSplash(false));
+  });
+
+  // شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
+  setTimeout(() => hideSplash(false), 6500);
+}
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -1624,7 +1638,7 @@ async function loadSiteConfig() {
   // اسپلش («لودینگ») فقط وقتی واقعاً کارش تمومه که هم انیمیشن ورودی لوگو تموم شده باشه
   // هم عکس هیرو واقعاً دانلود شده باشه (یا خطا خورده باشه) — نه یه چیز نمایشی که همیشه با
   // یه زمان ثابت محو بشه صرف‌نظر از اینکه عکس واقعاً رسیده یا نه. سقف‌های زمانی waitForImage
-  // (۲ و ۲.۵ ثانیه) + سقف نهایی ۴ ثانیه‌ی کل اسپلش (پایین‌تر) تضمین می‌کنه تو نت کند هم گیر نکنیم.
+  // (۲ و ۲.۵ ثانیه) + سقف نهایی ۶.۵ ثانیه‌ی کل اسپلش (پایین‌تر) تضمین می‌کنه تو نت کند هم گیر نکنیم.
   await Promise.all([revealDone, coverReady]);
 }
 
