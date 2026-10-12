@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handleOrdersAPI, hashIp } from "../src/handlers/orders.js";
 import { ORDER_RATE_LIMIT_MAX, TABLE_PENDING_ORDER_LIMIT_MAX } from "../src/config.js";
+import { clearMemo, SITE_CACHE_KEY } from "../src/data/cache.js";
 
 function makeEnv(opts = {}) {
   const kv = new Map();
@@ -14,11 +15,14 @@ function makeEnv(opts = {}) {
       put: async (k, v) => void kv.set(k, v),
     },
     DB: {
-      prepare: (sql) => ({
-        bind: (...args) => ({
+      prepare: (sql) => {
+        const createStmt = (args = []) => ({
           all: async () => {
             if (/SELECT.*FROM products/.test(sql)) {
               return { results: [{ id: "p1", name: "اسپرسو", price: 100000, available: 1 }] };
+            }
+            if (/SELECT key, value FROM site_settings/.test(sql)) {
+              return { results: opts.siteSettings ?? [] };
             }
             return { results: [] };
           },
@@ -59,8 +63,11 @@ function makeEnv(opts = {}) {
             }
             return { meta: { changes: 1 } };
           },
-        }),
-      }),
+        });
+        const stmt = createStmt([]);
+        stmt.bind = (...args) => createStmt(args);
+        return stmt;
+      },
     },
   };
   return { env, orders: () => orders, inserts: () => orders.length };
@@ -181,6 +188,31 @@ test("POST /api/orders rejects oversized requests (>16KB) with 413", async () =>
   assert.equal(res.status, 413);
   const data = await res.json();
   assert.ok(data.error.includes("حجم درخواست"));
+});
+
+test("شماره میز باید در بازه ۱ تا tableCount تنظیمات سایت باشد", async () => {
+  clearMemo(SITE_CACHE_KEY);
+  // حالت پیش‌فرض: tableCount = 20
+  const { env: env20 } = makeEnv();
+  const res20 = await handleOrdersAPI(req(order({ table: "20" })), env20);
+  assert.equal(res20.status, 200);
+
+  const res21 = await handleOrdersAPI(req(order({ table: "21" })), env20);
+  assert.equal(res21.status, 400);
+  const data21 = await res21.json();
+  assert.ok(data21.error.includes("شماره میز نامعتبر"));
+
+  // حالت سفارشی: tableCount = 25 در site_settings
+  clearMemo(SITE_CACHE_KEY);
+  const { env: env25 } = makeEnv({
+    siteSettings: [{ key: "tableCount", value: "25" }],
+  });
+  const res25 = await handleOrdersAPI(req(order({ table: "25" })), env25);
+  assert.equal(res25.status, 200);
+
+  const res26 = await handleOrdersAPI(req(order({ table: "26" })), env25);
+  assert.equal(res26.status, 400);
+  clearMemo(SITE_CACHE_KEY);
 });
 
 

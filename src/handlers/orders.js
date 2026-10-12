@@ -1,5 +1,8 @@
 import { createOrder } from "../data/orders.js";
+import { getSiteConfig } from "../data/site.js";
+import { memo, SITE_CACHE_KEY } from "../data/cache.js";
 import { sendRaw, getAdminIds } from "../telegram/api.js";
+import { formatToman, escapeHtml } from "../telegram/format.js";
 import {
   ORDER_RATE_LIMIT_MAX,
   ORDER_RATE_LIMIT_WINDOW_SEC,
@@ -15,7 +18,6 @@ const json = (data, status = 200) =>
 
 const MAX_QTY = 50;
 const MAX_LINES = 30; // سقف تعداد ردیف سبد؛ هم جلوی سوءاستفاده رو می‌گیره هم IN(...) رو کوچیک نگه می‌داره
-const TABLE_COUNT = 20; // باید با TABLE_COUNT تو public/js/script.js یکی باشه
 
 // جلوگیری از سفارش تکراری: کلاینت برای هر «تلاش ثبت» یه کلید یکتا می‌فرسته. اگه سفارش ثبت بشه ولی جواب به
 // گوشی نرسه و مشتری دوباره بزنه، همون سفارش قبلی برمی‌گرده و دوباره ثبت (و به گارسون اطلاع) نمیشه.
@@ -125,11 +127,12 @@ export async function handleOrdersAPI(request, env, ctx) {
     return json({ ok: true, orderId: 0 });
   }
 
-  // شماره‌ی میز باید یه عدد بین ۱ تا TABLE_COUNT باشه (همون چیزی که پاپ‌آپ سایت می‌فرسته)
+  // شماره‌ی میز باید یه عدد بین ۱ تا tableCount تنظیمات سایت باشه (همون چیزی که پاپ‌آپ سایت می‌فرسته)
   const tableRaw = String(body?.table ?? "").trim();
   if (!tableRaw) return json({ error: "شماره میز را وارد کنید" }, 400);
   const tableNum = /^\d{1,3}$/.test(tableRaw) ? Number(tableRaw) : NaN;
-  if (!Number.isInteger(tableNum) || tableNum < 1 || tableNum > TABLE_COUNT) {
+  const { tableCount = 20 } = await memo(SITE_CACHE_KEY, () => getSiteConfig(env)).catch(() => ({ tableCount: 20 }));
+  if (!Number.isInteger(tableNum) || tableNum < 1 || tableNum > tableCount) {
     return json({ error: "شماره میز نامعتبر است" }, 400);
   }
   const tableNumber = String(tableNum);
