@@ -99,14 +99,6 @@ export async function handleAdminAPI(request, env) {
     try {
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-      // بررسی بایندینگ Rate Limiter در صورت وجود
-      if (env.RATE_LIMITER?.limit) {
-        const rl = await env.RATE_LIMITER.limit({ key: `login:${ip}` });
-        if (!rl.success) {
-          return json(request, { error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگر امتحان کنید.' }, 429);
-        }
-      }
-
       const lockKey = `loginfail:${ip}`;
       const failCountRaw = await env.PRODUCTS_KV.get(lockKey);
       const failCount = failCountRaw ? Number(failCountRaw) : 0;

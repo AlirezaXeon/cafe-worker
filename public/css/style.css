@@ -3169,11 +3169,6 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   font-weight: 600;
 }
 
-.cart-checkout-msg.success {
-  color: #52c41a;
-  font-weight: 700;
-}
-
 /* پیام «کافه بسته‌ست» بالای دکمه‌ی ثبت سفارش */
 .cart-closed-note {
   margin: 0 0 10px;
@@ -3525,12 +3520,6 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   padding: 1px 6px;
   border-radius: 20px;
   margin-inline-start: 4px;
-}
-
-.modal-price .price-old {
-  display: block;
-  font-size: 0.6em;
-  margin-bottom: 4px;
 }
 
 .modal-price .price-new {

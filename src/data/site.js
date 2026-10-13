@@ -3,6 +3,7 @@
 
 import { invalidateCache, SITE_CACHE_KEY } from "./cache.js";
 import { OPENING_HOURS } from "../config.js";
+import { imageFilename } from "./imagePaths.js";
 
 const DEFAULTS = {
   logo: null, // تا وقتی از ربات/پنل آپلود نشده، سایت فقط فالبک متنی نشون میده
@@ -23,7 +24,7 @@ async function readSiteConfig(env) {
       if (results && results.length > 0) {
         const config = { ...DEFAULTS };
         for (const row of results) {
-          if (row.key === "tableCount" || row.key === "table_count") {
+          if (row.key === "tableCount") {
             config.tableCount = Number(row.value) || 20;
           } else {
             config[row.key] = row.value === "" ? null : row.value;
@@ -69,19 +70,12 @@ export async function setSiteSetting(env, key, value) {
   await invalidateCache(env, SITE_CACHE_KEY);
 }
 
-export async function updateSiteConfig(env, patch) {
-  for (const [k, v] of Object.entries(patch)) {
-    await setSiteSetting(env, k, v);
-  }
-  return getSiteConfig(env);
-}
-
 export const setSiteLogo = (env, path) => setSiteSetting(env, "logo", path);
 export const setSiteCover = (env, path) => setSiteSetting(env, "cover", path);
 
 const deleteOldImage = async (env, oldPath, keepFilename) => {
   if (!oldPath || !env.PRODUCTS_KV) return;
-  const f = oldPath.split("/").pop();
+  const f = imageFilename(oldPath);
   if (f && f !== keepFilename) await env.PRODUCTS_KV.delete(`image:${f}`);
 };
 

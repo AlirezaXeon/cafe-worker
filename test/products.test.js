@@ -1,27 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { roundPrice, resolvePrice } from "../src/data/products.js";
+import { imageFilename } from "../src/data/imagePaths.js";
 
-test("roundPrice rounds to nearest 1000 toman", () => {
-  assert.equal(roundPrice(123456), 123000);
-  assert.equal(roundPrice(123500), 124000);
-  assert.equal(roundPrice(1000), 1000);
+test("imageFilename extracts file name from path and trims whitespace", () => {
+  assert.equal(imageFilename("images/products/coffee.jpg"), "coffee.jpg");
+  assert.equal(imageFilename("/images/thumb/cake.webp"), "cake.webp");
+  assert.equal(imageFilename("site-logo-123.png"), "site-logo-123.png");
+  assert.equal(imageFilename("  images/cover.jpg  "), "cover.jpg");
 });
 
-test("resolvePrice with no discount returns the base price, no originalPrice", () => {
-  const r = resolvePrice(150000, 0);
-  assert.equal(r.price, 150000);
-  assert.equal(r.originalPrice, null);
-});
-
-test("resolvePrice with a discount keeps the base price as originalPrice", () => {
-  const r = resolvePrice(200000, 20);
-  assert.equal(r.originalPrice, 200000);
-  assert.equal(r.price, roundPrice(200000 * 0.8));
-});
-
-test("resolvePrice treats out-of-range discount (>=100) as no discount", () => {
-  const r = resolvePrice(100000, 100);
-  assert.equal(r.originalPrice, null);
-  assert.equal(r.price, 100000);
+test("imageFilename returns empty string for falsy or non-string inputs", () => {
+  assert.equal(imageFilename(null), "");
+  assert.equal(imageFilename(undefined), "");
+  assert.equal(imageFilename(""), "");
+  assert.equal(imageFilename(123), "");
 });

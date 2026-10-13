@@ -12,6 +12,7 @@ import {
 import { getSession, setSession, clearSession } from "../data/session.js";
 import { findOrphanImageKeys, deleteOrphanImages } from "../data/maintenance.js";
 import { resolveOrder } from "../data/orders.js";
+import { imageFilename } from "../data/imagePaths.js";
 import { sendMessage, forceReply } from "./api.js";
 import { toFa, escapeHtml } from "./format.js";
 import {
@@ -49,7 +50,6 @@ export async function handleCallback(env, chatId, data, cq) {
   if (data === "menu:home") return sendMainMenu(env, chatId);
   if (data === "menu:products") return sendCategoryPicker(env, chatId, "browse");
   if (data === "menu:categories") return sendCategoriesMenu(env, chatId);
-  if (data === "menu:bulk") return sendCategoryPicker(env, chatId, "bulk");
   if (data === "menu:siteimages") return sendSiteImagesMenu(env, chatId);
 
   if (data === "siteimg:logo") {
@@ -125,7 +125,7 @@ export async function handleCallback(env, chatId, data, cq) {
     const p = await findProduct(env, a);
     await setProductImage(env, a, null);
     if (p && p.image) {
-      const oldFilename = p.image.split("/").pop();
+      const oldFilename = imageFilename(p.image);
       if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
     }
     await sendMessage(env, chatId, "🗑 عکس محصول حذف شد.");
@@ -154,7 +154,7 @@ export async function handleCallback(env, chatId, data, cq) {
     const catId = p ? p.category : null;
     await deleteProduct(env, a);
     if (p && p.image) {
-      const oldFilename = p.image.split("/").pop();
+      const oldFilename = imageFilename(p.image);
       if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
     }
     await sendMessage(env, chatId, "🗑 محصول حذف شد.");
@@ -187,7 +187,7 @@ export async function handleCallback(env, chatId, data, cq) {
     const cat = await findCategory(env, a);
     await deleteCategory(env, a);
     if (cat && cat.image) {
-      const oldFilename = cat.image.split("/").pop();
+      const oldFilename = imageFilename(cat.image);
       if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
     }
     await sendMessage(env, chatId, "🗑 دسته حذف شد.");

@@ -132,7 +132,7 @@ export async function handleOrdersAPI(request, env, ctx) {
   }
 
   // فیلد هانی‌پات ضد ربات: اگر پر شده باشد، پاسخ ۲۰۰ صوری برمی‌گردد بدون ثبت در دیتابیس یا نوتیفیکیشن
-  if (body?.hp_website || body?.website || body?.honeypot) {
+  if (body?.hp_website) {
     return json({ ok: true, orderId: 0 });
   }
 
@@ -184,27 +184,20 @@ export async function handleOrdersAPI(request, env, ctx) {
   const ipHash = clientIp ? await hashIp(clientIp) : null;
 
   if (ipHash) {
-    if (env.RATE_LIMITER?.limit) {
-      const { success } = await env.RATE_LIMITER.limit({ key: `order:${ipHash}` });
-      if (!success) {
+    try {
+      const windowStart = new Date(Date.now() - ORDER_RATE_LIMIT_WINDOW_SEC * 1000)
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " ");
+      const countRow = await env.DB
+        .prepare("SELECT COUNT(*) AS c FROM orders WHERE ip_hash = ? AND created_at >= ?")
+        .bind(ipHash, windowStart)
+        .first();
+      if ((countRow?.c ?? 0) >= ORDER_RATE_LIMIT_MAX) {
         return json({ error: "تعداد سفارش‌ها از حد مجاز بیشتر است. لطفاً چند دقیقه دیگر امتحان کنید." }, 429);
       }
-    } else {
-      try {
-        const windowStart = new Date(Date.now() - ORDER_RATE_LIMIT_WINDOW_SEC * 1000)
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " ");
-        const countRow = await env.DB
-          .prepare("SELECT COUNT(*) AS c FROM orders WHERE ip_hash = ? AND created_at >= ?")
-          .bind(ipHash, windowStart)
-          .first();
-        if ((countRow?.c ?? 0) >= ORDER_RATE_LIMIT_MAX) {
-          return json({ error: "تعداد سفارش‌ها از حد مجاز بیشتر است. لطفاً چند دقیقه دیگر امتحان کنید." }, 429);
-        }
-      } catch (err) {
-        console.error("[orders:ratelimit:check]", err);
-      }
+    } catch (err) {
+      console.error("[orders:ratelimit:check]", err);
     }
   }
 

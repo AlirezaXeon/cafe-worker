@@ -5,6 +5,7 @@ import { memo, PRODUCTS_CACHE_KEY, SITE_CACHE_KEY } from "./data/cache.js";
 import { handleAdminAPI, safeCompare } from './handlers/admin.js';
 import { handleOrdersAPI } from './handlers/orders.js';
 import { withSecurityHeaders } from "./middleware/security.js";
+import { imageFilename } from "./data/imagePaths.js";
 
 const IMAGE_CONTENT_TYPES = {
   jpg: "image/jpeg", jpeg: "image/jpeg",
@@ -329,7 +330,7 @@ export default {
     // ── نسخه‌ی کوچیک‌شده‌ی عکس‌ها، مخصوص کارت‌های منو (/images/thumb/xxx.jpg) ──
     // باید قبل از چک عمومی /images/ باشه چون اون مسیر رو هم شامل میشه.
     if (url.pathname.startsWith('/images/thumb/')) {
-      const filename = url.pathname.split('/').pop();
+      const filename = imageFilename(url.pathname);
       const response = await withEdgeCache(request, ctx, () => serveThumbnail(filename, env, request));
       if (response) return response;
       return new Response("Not Found", { status: 404 });
@@ -339,19 +340,18 @@ export default {
     // قبلاً مودال عکس اصلی (چند مگابایت) رو تو موبایل می‌گرفت؛ دانلود کند + دیکد سنگین = پرش و لگ.
     // عکس اصلی فقط وقتی کاربر روی عکس بزنه و زوم کنه لود میشه.
     if (url.pathname.startsWith('/images/med/')) {
-      const filename = url.pathname.split('/').pop();
+      const filename = imageFilename(url.pathname);
       const response = await withEdgeCache(request, ctx, () => serveThumbnail(filename, env, request, MEDIUM_OPTS));
       if (response) return response;
       return new Response("Not Found", { status: 404 });
     }
 
-    // ── عکس‌های KV (هم مسیر قدیمی ربات /admin/images/... هم مسیر معمولی /images/...) ──
-    if (url.pathname.startsWith('/admin/images/') || url.pathname.startsWith('/images/')) {
-      const filename = url.pathname.split('/').pop();
+    // ── عکس‌های KV ───────────────────────────────────────────────────────────
+    if (url.pathname.startsWith('/images/')) {
+      const filename = imageFilename(url.pathname);
       const response = await withEdgeCache(request, ctx, () => serveImageFromKV(filename, env));
       if (response) return response;
-      if (url.pathname.startsWith('/admin/images/')) return new Response("Not Found", { status: 404 });
-      // برای /images/ اگه پیدا نشد، می‌ذاریم بره سراغ فایل‌های استاتیک (fallback قدیمی)
+      // برای /images/ اگه در KV نبود، می‌ذاریم بره سراغ فایل‌های استاتیک
     }
 
     // ── فایل‌های استاتیک (public/) ────────────────────────────────────────

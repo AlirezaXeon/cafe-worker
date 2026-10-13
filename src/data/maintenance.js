@@ -4,6 +4,7 @@
 
 import { getProducts } from "./products.js";
 import { getSiteConfig } from "./site.js";
+import { imageFilename } from "./imagePaths.js";
 
 const ORPHAN_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000; // ۲۴ ساعت مهلت برای آپلودهای تازه
 
@@ -14,10 +15,10 @@ async function usedImageFilenames(env) {
     getSiteConfig(env),
   ]);
   const used = new Set();
-  for (const c of categories) if (c.image) used.add(c.image.split("/").pop());
-  for (const p of products) if (p.image) used.add(p.image.split("/").pop());
-  if (siteCfg.logo) used.add(siteCfg.logo.split("/").pop());
-  if (siteCfg.cover) used.add(siteCfg.cover.split("/").pop());
+  for (const c of categories) if (c.image) used.add(imageFilename(c.image));
+  for (const p of products) if (p.image) used.add(imageFilename(p.image));
+  if (siteCfg.logo) used.add(imageFilename(siteCfg.logo));
+  if (siteCfg.cover) used.add(imageFilename(siteCfg.cover));
   return used;
 }
 
@@ -34,8 +35,7 @@ export async function findOrphanImageKeys(env, now = Date.now()) {
       if (typeof uploadedAt === "number" && now - uploadedAt < ORPHAN_GRACE_PERIOD_MS) {
         continue;
       }
-      const rawName = k.name.slice("image:".length);
-      const filename = rawName.replace(/^(thumb|med):/, "");
+      const filename = k.name.slice("image:".length);
       if (!used.has(filename)) orphans.push(k.name);
     }
     cursor = page.list_complete ? undefined : page.cursor;

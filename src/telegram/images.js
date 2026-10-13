@@ -1,6 +1,7 @@
 import { addProduct, findProduct, setProductImage, addCategory, findCategory, setCategoryImage } from "../data/products.js";
 import { getSiteConfig, setSiteLogo, setSiteCover } from "../data/site.js";
 import { clearSession } from "../data/session.js";
+import { imageFilename } from "../data/imagePaths.js";
 import { sendMessage, forceReply, downloadTelegramFile } from "./api.js";
 import { sendSiteImagesMenu, sendCategoriesMenu, sendProductDetail, sendProductList } from "./menus.js";
 import { MAX_UPLOAD_BYTES } from "../config.js";
@@ -58,7 +59,7 @@ export async function handleImageStep(env, chatId, msg, session) {
 
     // پاک کردن عکس قدیمی از KV تا هم جا اشغال نکنه، هم یتیم نمونه
     if (oldPath) {
-      const oldFilename = oldPath.split("/").pop();
+      const oldFilename = imageFilename(oldPath);
       if (oldFilename && oldFilename !== filename) {
         await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
       }
@@ -89,7 +90,7 @@ export async function handleImageStep(env, chatId, msg, session) {
       await setCategoryImage(env, catId, imagePath);
       await sendMessage(env, chatId, "✅ عکس دسته به‌روزرسانی شد.");
       if (oldCat && oldCat.image) {
-        const oldFilename = oldCat.image.split("/").pop();
+        const oldFilename = imageFilename(oldCat.image);
         if (oldFilename && oldFilename !== filename) {
           await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
         }
@@ -111,7 +112,7 @@ export async function handleImageStep(env, chatId, msg, session) {
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ عکس محصول به‌روزرسانی شد.");
     if (oldProduct && oldProduct.image) {
-      const oldFilename = oldProduct.image.split("/").pop();
+      const oldFilename = imageFilename(oldProduct.image);
       if (oldFilename && oldFilename !== filename) {
         await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
       }

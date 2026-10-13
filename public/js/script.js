@@ -591,16 +591,12 @@ modalAddBtn.addEventListener('click', () => {
   const addBtnLabel = document.getElementById('modalAddBtnLabel');
   if (addBtnLabel) {
     addBtnLabel.textContent = "به سبد خرید اضافه شد ✓";
-  } else {
-    modalAddBtn.textContent = "افزوده شد ✓";
   }
 
   setTimeout(() => {
     modalAddBtn.classList.remove('added');
     if (addBtnLabel) {
       addBtnLabel.textContent = "افزودن به سبد خرید";
-    } else {
-      modalAddBtn.textContent = "افزودن به سبد خرید";
     }
   }, 1500);
 });
@@ -1011,11 +1007,6 @@ function renderProducts() {
   } else if (currentSort === 'high-low') {
     items.sort((a, b) => b.price - a.price);
   }
-
-  const catLabel = id => {
-    const c = productsData.categories.find(c => c.id === id);
-    return c ? c.label : id;
-  };
 
   // محصولات زیر عنوان دسته‌بندی خودشون گروه میشن؛ هر گروه data-cat داره تا کلیک روی تب دسته
   // (و هایلایت خودکار تب موقع اسکرول) بتونه همون بخش رو پیدا کنه

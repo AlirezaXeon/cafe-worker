@@ -1099,7 +1099,7 @@
     // سقف حجم ورودی (قبل از فشرده‌سازی) و سقف نهایی سرور (باید با MAX_UPLOAD_BYTES تو src/config.js یکی باشه)
     const MAX_INPUT_BYTES = 5 * 1024 * 1024;
     const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
-    let TOKEN = localStorage.getItem('admin_token') || '';
+    let TOKEN = '';
     let editingProductId = null;
     let editingProductOriginalPrice = null;
     let editingProductPrice = null;
@@ -1128,7 +1128,6 @@
         const d = await r.json();
         if (!r.ok) { err.textContent = d.error; return; }
         TOKEN = d.token || '';
-        localStorage.removeItem('admin_token');
         initApp();
       } catch { err.textContent = 'خطا در اتصال به سرور'; }
       finally { btn.innerHTML = 'ورود به پنل'; btn.disabled = false; }
@@ -1142,7 +1141,6 @@
       try {
         await fetch(`${BASE}/logout`, { method: 'POST', credentials: 'same-origin' });
       } catch {}
-      localStorage.removeItem('admin_token');
       TOKEN = '';
       document.getElementById('app').style.display = 'none';
       document.getElementById('login-screen').style.display = 'flex';
@@ -1423,7 +1421,7 @@
 
     async function resolveOrderWeb(id, status) {
       try {
-        const res = await api(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+        await api(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
         toast(status === 'confirmed' ? 'سفارش تایید شد' : 'سفارش رد شد');
         await loadOrders(false, Math.min(Math.max(currentOrdersList.length, 50), 100));
         pollOrdersNow();
@@ -1907,7 +1905,7 @@
       if (file.size > MAX_UPLOAD_BYTES) { toast('حجم عکس بعد از فشرده‌سازی هم بیشتر از 2MB است', true); return; }
       const fd = new FormData(); fd.append('file', file);
       try {
-        const res = await api(`/site/${kind}`, { method: 'POST', body: fd });
+        await api(`/site/${kind}`, { method: 'POST', body: fd });
         toast('تصویر به‌روزرسانی شد ✓');
         loadSiteImages();
       } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در آپلود', true); }
@@ -1940,7 +1938,6 @@
           headers: TOKEN ? { 'Authorization': `Bearer ${TOKEN}` } : {}
         });
         if (r.ok) {
-          localStorage.removeItem('admin_token');
           initApp();
           return;
         }

@@ -66,15 +66,27 @@ test("validateDiscount: 0 to 99", () => {
   assert.equal(validateDiscount("1e3").valid, false);
 });
 
-test("roundPrice never rounds positive price to 0 or below MIN_PRICE", () => {
+test("roundPrice rounds to nearest 1000 toman and never drops below MIN_PRICE", () => {
   // قبلاً roundPrice(400) مساوی 0 می‌شد
   assert.equal(roundPrice(400), MIN_PRICE);
   assert.equal(roundPrice(100), MIN_PRICE);
   assert.equal(roundPrice(0), 0);
   assert.equal(roundPrice(123456), 123000);
+  assert.equal(roundPrice(123500), 124000);
+  assert.equal(roundPrice(1000), 1000);
 });
 
-test("resolvePrice respects MIN_PRICE boundary and handles discount rounding", () => {
+test("resolvePrice handles discount calculation, MIN_PRICE boundary and 0/invalid discount", () => {
+  // بدون تخفیف
+  const r0 = resolvePrice(150000, 0);
+  assert.equal(r0.price, 150000);
+  assert.equal(r0.originalPrice, null);
+
+  // با تخفیف معمولی
+  const rDisc = resolvePrice(200000, 20);
+  assert.equal(rDisc.originalPrice, 200000);
+  assert.equal(rDisc.price, 160000);
+
   // تخفیف ۵۰٪ روی محصول ۲۰۰۰ تومانی -> ۱۰۰۰ تومان (حداقل قیمت)
   const r1 = resolvePrice(2000, 50);
   assert.equal(r1.price, 1000);
@@ -84,6 +96,11 @@ test("resolvePrice respects MIN_PRICE boundary and handles discount rounding", (
   const r2 = resolvePrice(2000, 90);
   assert.equal(r2.price, MIN_PRICE);
   assert.equal(r2.originalPrice, 2000);
+
+  // تخفیف خارج از بازه (>=100) بدون تغییر قیمت
+  const r100 = resolvePrice(100000, 100);
+  assert.equal(r100.originalPrice, null);
+  assert.equal(r100.price, 100000);
 });
 
 test("previewCategoryPercent computes on originalPrice (does not compound on existing discount)", async () => {
