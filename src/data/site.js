@@ -2,6 +2,7 @@
 // ذخیره‌سازی اتمیک در D1 (جدول site_settings) با فالبک خواندن از KV برای اجراهای اولیه
 
 import { invalidateCache, SITE_CACHE_KEY } from "./cache.js";
+import { OPENING_HOURS } from "../config.js";
 
 const DEFAULTS = {
   logo: null, // تا وقتی از ربات/پنل آپلود نشده، سایت فقط فالبک متنی نشون میده
@@ -14,7 +15,7 @@ const EXT_TYPES = {
   png: "image/png", webp: "image/webp", gif: "image/gif",
 };
 
-export async function getSiteConfig(env) {
+async function readSiteConfig(env) {
   // ۱. تلاش برای خواندن از جدول site_settings در D1
   if (env.DB) {
     try {
@@ -49,6 +50,12 @@ export async function getSiteConfig(env) {
   }
 
   return { ...DEFAULTS };
+}
+
+// ساعت کاری از config.js میاد (نه دیتابیس) و تو خروجی قرار میگیره؛ اینطوری سایت (via /data/site.json و bootData)
+// دقیقاً از همون مقداری استفاده میکنه که سرور برای قبول/رد سفارش
+export async function getSiteConfig(env) {
+  return { ...(await readSiteConfig(env)), hours: OPENING_HOURS };
 }
 
 export async function setSiteSetting(env, key, value) {
