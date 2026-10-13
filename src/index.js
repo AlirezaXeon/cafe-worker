@@ -154,7 +154,7 @@ function injectSiteAssets(response, cfg, base, products) {
   if (cfg || products) {
     rewriter.on('head', {
       element(el) {
-        el.append(`<script type="application/json" id="bootData">${safeInlineJson({ site: cfg || null, products: products || null })}</script>`, { html: true });
+        el.append(`<script type="application/json" id="bootData">${safeInlineJson({ site: cfg || null, products: products || null, now: Date.now() })}</script>`, { html: true });
       },
     });
   }

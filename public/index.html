@@ -109,7 +109,7 @@
       <div class="hero-cover-logo-wrap">
         <div class="hero-live-badge" id="heroLiveBadge">
           <span class="live-dot" aria-hidden="true"></span>
-          <span id="heroLiveStatusText">هم‌اکنون باز است • سرویس‌دهی تا ۲۳:۰۰</span>
+          <span id="heroLiveStatusText"></span>
         </div>
         <h1 class="hero-cover-title">ROSHAN CAFÉ</h1>
         <p class="hero-cover-tagline">عطر دانه‌های تازه، در فضایی به وسعت آرامش</p>
@@ -259,7 +259,7 @@
           <span class="section-num">آدرس</span>
           <h2>کجا پیدامون کنید</h2>
           <p class="location-text selectable">خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲</p>
-          <p class="location-hours selectable">هر روز، ۸ صبح تا ۱۱ شب</p>
+          <p class="location-hours selectable" id="hoursToday"></p>
           <div class="map-container map-card">
             <div class="map-card-head">
               <span class="map-card-pin" aria-hidden="true">
@@ -280,10 +280,7 @@
         <div class="location-block">
           <span class="section-num">ساعات کاری</span>
           <h2>همیشه بازیم</h2>
-          <ul class="hours-list selectable">
-            <li><span>شنبه تا چهارشنبه</span><span class="mono">۰۸:۰۰ – ۲۳:۰۰</span></li>
-            <li><span>پنج‌شنبه و جمعه</span><span class="mono">۰۹:۰۰ – ۲۴:۰۰</span></li>
-          </ul>
+          <ul class="hours-list selectable" id="hoursList"></ul>
         </div>
 
       </div>
@@ -413,6 +410,7 @@
         <span class="cart-total-label">مبلغ کل سفارش</span>
         <span id="cartTotalPrice" class="cart-total-value mono">۰ ت</span>
       </div>
+      <p class="cart-closed-note" id="cartClosedNote" role="status" hidden></p>
       <button class="cart-checkout" id="checkoutBtn">
         <span>ثبت و ارسال سفارش</span>
         <svg class="cart-checkout-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">

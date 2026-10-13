@@ -1096,6 +1096,7 @@ const tableGrid = document.getElementById('tableGrid');
 const checkoutBtn = document.getElementById('checkoutBtn');
 const checkoutMsg = document.getElementById('checkoutMsg');
 const cartHoneypot = document.getElementById('cartHoneypot');
+const cartClosedNote = document.getElementById('cartClosedNote');
 
 // المان‌های نوار شناور
 const floatingCart = document.getElementById('floatingCart');
@@ -1105,6 +1106,7 @@ const floatCartCount = document.getElementById('floatCartCount');
 const floatCartTotal = document.getElementById('floatCartTotal');
 
 let cart = [];
+let checkoutBusy = false; // وقتی درخواست ثبت سفارش تو راهه
 const MAX_QTY = 50; // باید با MAX_QTY سمت سرور (src/handlers/orders.js) یکی باشه
 const CART_STORAGE_KEY = 'cafe-roshan-cart-v1';
 
@@ -1471,6 +1473,10 @@ function setCheckoutMsg(text, type) {
 }
 
 async function submitOrder() {
+  // کافه بسته‌ست؟ (سرور هم چک می‌کنه؛ اینجا فقط برای اینکه مشتری بیخود منتظر نمونه)
+  const openState = getOpenState();
+  if (openState && !openState.open) { applyOrderingState(); return; }
+
   const table = selectedTable;
   if (!table) {
     setCheckoutMsg('لطفاً شماره میز را انتخاب کنید.', 'error');
@@ -1480,6 +1486,7 @@ async function submitOrder() {
   }
   if (cart.length === 0) return;
 
+  checkoutBusy = true;
   checkoutBtn.disabled = true;
   if (!orderAttemptKey) orderAttemptKey = newOrderKey();
   const originalLabel = checkoutBtn.innerHTML;
@@ -1542,7 +1549,8 @@ async function submitOrder() {
       setCheckoutMsg(msg, 'error');
     }
   } finally {
-    checkoutBtn.disabled = false;
+    checkoutBusy = false;
+    applyOrderingState(); // دکمه فقط وقتی فعال میشه که کافه باز باشه
     checkoutBtn.innerHTML = originalLabel;
   }
 }
@@ -1642,6 +1650,12 @@ async function loadSiteConfig() {
   }
   renderTableGrid();
 
+  if (cfg.hours) {
+    siteHours = cfg.hours;
+    renderHoursSection();
+    refreshOpenState();
+  }
+
   const headerLogo = document.getElementById('headerLogoImg');
   const coverLogo = document.getElementById('heroCoverLogo');
   const coverImg = document.getElementById('heroCoverImg');
@@ -1705,10 +1719,21 @@ async function loadSiteConfig() {
   await Promise.all([revealDone, coverReady]);
 }
 
-// ============ وضعیت زنده کافه و دکمه اسکرول به منو در هیرو ============
-const HOURS = {
-  weekday: { open: 8, close: 23, openLabel: '۰۸:۰۰', closeLabel: '۲۳:۰۰' },
-  weekend: { open: 9, close: 24, openLabel: '۰۹:۰۰', closeLabel: '۲۴:۰۰' },
+// ============ ساعت کاری، وضعیت زنده کافه و قفل ثبت سفارش ============
+// ساعت‌ها دیگه اینجا هاردکد نیست؛ سرور تو تنظیمات سایت می‌فرسته (cfg.hours ← OPENING_HOURS تو src/config.js)
+// و نوار وضعیت هیرو، لیست ساعات کاری و دکمه‌ی ثبت سفارش همه از همون استفاده می‌کنن.
+let siteHours = (getBoot() && getBoot().site && getBoot().site.hours) || null;
+
+// اختلاف ساعت گوشی با ساعت سرور (سرور موقع ساخت صفحه ساعتش رو تو bootData می‌ذاره)؛
+// تا ساعت اشتباه گوشی مشتری، دکمه‌ی سفارش رو بیخود قفل نکنه
+const clockSkewMs = (() => {
+  const serverNow = Number(getBoot() && getBoot().now);
+  return Number.isFinite(serverNow) && serverNow > 0 ? serverNow - Date.now() : 0;
+})();
+
+const hhmmToMin = (hhmm) => {
+  const [h, m = 0] = String(hhmm).split(':').map(Number);
+  return h * 60 + m;
 };
 
 function getTehranTimeParts(date = new Date()) {
@@ -1737,29 +1762,84 @@ function getTehranTimeParts(date = new Date()) {
   }
 }
 
+// {open, slot, next} یا null اگه هنوز ساعتی نداریم. next = اولین باز شدن بعدی (امروز یا فردا)
+function getOpenState(date = new Date(Date.now() + clockSkewMs)) {
+  if (!siteHours || !Array.isArray(siteHours.schedule)) return null;
+  const { day, hour, minute } = getTehranTimeParts(date);
+  const cur = hour * 60 + minute;
+  const slot = siteHours.schedule.find(s => s.days.includes(day));
+  if (!slot) return { open: false, slot: null, next: null };
+
+  const open = cur >= hhmmToMin(slot.open) && cur < hhmmToMin(slot.close);
+  let next = null;
+  if (!open) {
+    if (cur < hhmmToMin(slot.open)) {
+      next = { when: 'امروز', time: slot.open };
+    } else {
+      const tomorrow = siteHours.schedule.find(s => s.days.includes((day + 1) % 7));
+      if (tomorrow) next = { when: 'فردا', time: tomorrow.open };
+    }
+  }
+  return { open, slot, next };
+}
+
+function renderHoursSection() {
+  if (!siteHours || !Array.isArray(siteHours.schedule)) return;
+  const list = document.getElementById('hoursList');
+  if (list) {
+    list.innerHTML = siteHours.schedule.map(s =>
+      `<li><span>${esc(s.label)}</span><span class="mono">${toFaDigits(s.open)} – ${toFaDigits(s.close)}</span></li>`
+    ).join('');
+  }
+}
+
 function updateHeroLiveStatus() {
   const badge = document.getElementById('heroLiveBadge');
   const text = document.getElementById('heroLiveStatusText');
   if (!badge || !text) return;
-
-  const { day, hour, minute } = getTehranTimeParts();
-  const curTime = hour + minute / 60;
-
-  // ساعات کاری بر مبنای وقت تهران:
-  // پنج‌شنبه و جمعه: 09:00 الی 24:00 (00:00)
-  // شنبه تا چهارشنبه: 08:00 الی 23:00
-  const isWeekend = (day === 4 || day === 5);
-  const sched = isWeekend ? HOURS.weekend : HOURS.weekday;
-
-  const isOpen = (curTime >= sched.open && curTime < sched.close);
-
-  if (isOpen) {
+  const st = getOpenState();
+  if (!st || !st.slot) { badge.style.display = 'none'; return; }
+  badge.style.display = '';
+  if (st.open) {
     badge.classList.remove('is-closed');
-    text.textContent = `هم‌اکنون باز است • سرویس‌دهی تا ${sched.closeLabel}`;
+    text.textContent = `هم‌اکنون باز است • سرویس‌دهی تا ${toFaDigits(st.slot.close)}`;
   } else {
     badge.classList.add('is-closed');
-    text.textContent = `هم‌اکنون بسته است • شروع از ${sched.openLabel}`;
+    text.textContent = st.next
+      ? `هم‌اکنون بسته است • ${st.next.when} از ${toFaDigits(st.next.time)}`
+      : 'هم‌اکنون بسته است';
   }
+}
+
+function updateTodayHours() {
+  const el = document.getElementById('hoursToday');
+  if (!el) return;
+  const st = getOpenState();
+  if (!st || !st.slot) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.textContent = `امروز ${toFaDigits(st.slot.open)} تا ${toFaDigits(st.slot.close)}`;
+}
+
+// وقتی کافه بسته‌ست دکمه‌ی ثبت سفارش غیرفعال میشه و دلیلش بالای دکمه نشون داده میشه
+// (سبد خرید همچنان قابل پر کردنه؛ فقط ثبت نهایی قفله). متن با پیام سرور یکیه.
+function applyOrderingState() {
+  const st = getOpenState();
+  const closed = !!st && !st.open;
+  if (checkoutBtn) checkoutBtn.disabled = closed || checkoutBusy;
+  if (!cartClosedNote) return;
+  if (closed) {
+    const nextTxt = st.next ? ` ${st.next.when} از ساعت ${toFaDigits(st.next.time)} سفارش می‌گیریم.` : '';
+    cartClosedNote.textContent = `کافه الان بسته است و سفارش ثبت نمی‌شود.${nextTxt}`;
+    cartClosedNote.hidden = false;
+  } else {
+    cartClosedNote.hidden = true;
+  }
+}
+
+function refreshOpenState() {
+  updateHeroLiveStatus();
+  updateTodayHours();
+  applyOrderingState();
 }
 
 function initHeroScrollButton() {
@@ -1778,8 +1858,9 @@ function initHeroScrollButton() {
 // ============ انیمیشن اسکرول: لوگوی وسط عکس با اسکرول به سمت لوگوی هدر «پرواز» می‌کنه ============
 (function initHeroScrollIntro() {
   const heroCover = document.querySelector('.hero-cover');
-  updateHeroLiveStatus();
-  setInterval(updateHeroLiveStatus, 60000);
+  renderHoursSection();
+  refreshOpenState();
+  setInterval(refreshOpenState, 60000);
   initHeroScrollButton();
   if (!heroCover) return;
 
