@@ -15,7 +15,10 @@ const IMAGE_CONTENT_TYPES = {
 // جواب‌های «فالبک» (مثلاً عکس اصلی به‌جای thumbnail) کش کوتاه می‌گیرن تا اگه بعداً
 // ریسایز درست شد، مرورگر/کش یه سال روی نسخه‌ی سنگین گیر نکنه.
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
-const SHORT_CACHE = "public, max-age=600";
+// فالبک عکس (وقتی ریسایز کار نمیکنه و عکس اصلی سرو میشه). اسم فایلها تایماستمپدار و تغییرناپذیرن، پس کش مرورگر
+// میتونه بلند باشه؛ هر بار که کش مرورگر منقضی بشه یه KV read مصرف میشه (سقف ۱۰۰ هزار در روز تو پلن رایگان).
+// فقط یک روز میذاریم نه یک سال، تا اگه بعداً ریسایز (مثلاً با دامنهی اختصاصی) فعال شد، نسخهی سنگین ماندگار نشه.
+const FALLBACK_CACHE = "public, max-age=86400";
 
 // آدرس پایه‌ی سایت برای sitemap/robots/canonical/og:url.
 // اگه SITE_URL تو تنظیمات Worker ست شده باشه همون استفاده میشه (برای وقتی که سایت روی چند دامنه باز میشه)،
@@ -120,7 +123,7 @@ async function serveThumbnail(filename, env, request, imageOpts = THUMB_OPTS) {
   }
 
   // فالبک: عکس اصلی، با کش کوتاه (تا بعداً که ریسایز درست شد، نسخه‌ی سنگین ماندگار نشه)
-  return serveImageFromKV(filename, env, SHORT_CACHE);
+  return serveImageFromKV(filename, env, FALLBACK_CACHE);
 }
 
 // JSON امن برای گذاشتن داخل <script>: اسم/توضیح محصول از ادمین میاد؛ بدون escape یه
