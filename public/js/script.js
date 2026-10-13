@@ -99,47 +99,32 @@ function getBoot() {
   return bootCache;
 }
 
-function hideSplash(immediate = false) {
+function hideSplash() {
   const splash = document.getElementById('splash');
-  try { sessionStorage.setItem('splash_shown', 'true'); } catch {}
-  document.body.classList.add('site-loaded');
-  window.dispatchEvent(new Event('siteloaded'));
   if (!splash || splash.dataset.hidden === 'true') return;
   splash.dataset.hidden = 'true';
-  if (immediate) {
-    splash.remove();
-  } else {
-    splash.classList.add('hide');
-    setTimeout(() => splash.remove(), 250);
-  }
+  splash.classList.add('hide');
+  document.body.classList.add('site-loaded');
+  window.dispatchEvent(new Event('siteloaded'));
+  setTimeout(() => splash.remove(), 250);
 }
 
-let splashShownThisSession = false;
-try {
-  splashShownThisSession = !!sessionStorage.getItem('splash_shown');
-} catch {}
+document.addEventListener('DOMContentLoaded', () => {
+  // مکث عمدی حداقل ۲.۲ ثانیه برای ماندگاری اسپلش و فرصت لود کامل تصاویر در بک‌گراند (مخصوصاً هیرو)
+  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, 2200));
 
-if (splashShownThisSession) {
-  // اگر در این نشست قبلاً اسپلش نمایش داده شده، فوراً اسپلش را حذف کرده و سایت را لود می‌کنیم
-  hideSplash(true);
-} else {
-  document.addEventListener('DOMContentLoaded', () => {
-    // مکث عمدی حداقل ۲.۲ ثانیه برای ماندگاری اسپلش و فرصت لود کامل تصاویر در بک‌گراند (مخصوصاً هیرو)
-    const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, 2200));
+  const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
+    .then(() => waitForMenuImages(4000));
 
-    const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
-      .then(() => waitForMenuImages(4000));
+  const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
 
-    const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
+  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان ۲.۲ ثانیه سپری شده باشد
+  const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
+  Promise.race([readyPromise, hardCap]).then(hideSplash);
+});
 
-    // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان ۲.۲ ثانیه سپری شده باشد
-    const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
-    Promise.race([readyPromise, hardCap]).then(() => hideSplash(false));
-  });
-
-  // شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
-  setTimeout(() => hideSplash(false), 6500);
-}
+// شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
+setTimeout(hideSplash, 6500);
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
