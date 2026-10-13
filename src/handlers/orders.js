@@ -2,12 +2,14 @@ import { createOrder } from "../data/orders.js";
 import { getSiteConfig } from "../data/site.js";
 import { memo, SITE_CACHE_KEY } from "../data/cache.js";
 import { sendRaw, getAdminIds } from "../telegram/api.js";
-import { formatToman, escapeHtml } from "../telegram/format.js";
+import { formatToman, escapeHtml, toFa } from "../telegram/format.js";
+import { getOpenStatus, nextOpening } from "../lib/hours.js";
 import {
   ORDER_RATE_LIMIT_MAX,
   ORDER_RATE_LIMIT_WINDOW_SEC,
   TABLE_PENDING_ORDER_LIMIT_MAX,
   TABLE_PENDING_ORDER_WINDOW_SEC,
+  OPENING_HOURS,
 } from "../config.js";
 
 const json = (data, status = 200) =>
@@ -102,6 +104,13 @@ async function notifyAdmins(env, { orderId, tableNumber, items, total }) {
   }
 }
 
+// پیام «کافه بسته‌ست»؛ سایت هم کنار دکمه‌ی ثبت سفارش همین متن رو نشون میده
+function closedMessage(hours) {
+  const next = nextOpening(hours);
+  const nextTxt = next ? ` ${next.when} از ساعت ${toFa(next.time)} سفارش می‌گیریم.` : "";
+  return `کافه الان بسته است و سفارش ثبت نمی‌شود.${nextTxt}`;
+}
+
 // ctx اختیاریه: اگه index.js پاسش بده، اطلاع‌رسانی تلگرام بعد از جواب دادن به مشتری انجام میشه
 // (مشتری منتظر رفت‌وبرگشت تلگرام نمی‌مونه)؛ وگرنه مثل قبل صبر می‌کنیم.
 export async function handleOrdersAPI(request, env, ctx) {
@@ -131,7 +140,8 @@ export async function handleOrdersAPI(request, env, ctx) {
   const tableRaw = String(body?.table ?? "").trim();
   if (!tableRaw) return json({ error: "شماره میز را وارد کنید" }, 400);
   const tableNum = /^\d{1,3}$/.test(tableRaw) ? Number(tableRaw) : NaN;
-  const { tableCount = 20 } = await memo(SITE_CACHE_KEY, () => getSiteConfig(env)).catch(() => ({ tableCount: 20 }));
+  const siteCfg = await memo(SITE_CACHE_KEY, () => getSiteConfig(env)).catch(() => ({ tableCount: 20 }));
+  const tableCount = siteCfg.tableCount ?? 20;
   if (!Number.isInteger(tableNum) || tableNum < 1 || tableNum > tableCount) {
     return json({ error: "شماره میز نامعتبر است" }, 400);
   }
@@ -155,6 +165,17 @@ export async function handleOrdersAPI(request, env, ctx) {
       }
     } catch (err) {
       console.error("[orders:requestId:check]", err);
+    }
+  }
+
+  // ثبت سفارش فقط تو ساعت کاری (به وقت تهران)؛ ساعت‌ها از OPENING_HOURS تو src/config.js میان.
+  // عمداً بعد از چک ضدتکرار: اگه سفارشی درست قبل از بسته شدن ثبت شده و گوشی مشتری جوابش رو نگرفته،
+  // تلاش مجدد بعد از بسته شدن همون سفارش قبلی رو برمی‌گردونه، نه خطای «بسته‌ایم».
+  // برای تست خارج از ساعت کاری، متغیر ENFORCE_ORDER_HOURS رو "0" کن.
+  if (String(env.ENFORCE_ORDER_HOURS ?? "1") !== "0") {
+    const hours = siteCfg.hours ?? OPENING_HOURS;
+    if (!getOpenStatus(hours).open) {
+      return json({ error: closedMessage(hours), closed: true }, 403);
     }
   }
 

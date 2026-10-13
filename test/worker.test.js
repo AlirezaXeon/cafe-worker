@@ -24,6 +24,7 @@ test("global error handler catches errors on /api/* and returns generic Persian 
 
   // Broken env missing DB and other properties to trigger unhandled exception in handleOrdersAPI
   const brokenEnv = {
+    ENFORCE_ORDER_HOURS: "0",
     DB: {
       prepare() {
         throw new Error("D1 connection failed (secret internal db stack trace)");

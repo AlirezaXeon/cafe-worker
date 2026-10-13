@@ -11,6 +11,7 @@ function makeEnv(opts = {}) {
   const rateLimitCount = opts.rateLimitCount ?? null;
 
   const env = {
+    ENFORCE_ORDER_HOURS: opts.enforceHours ? "1" : "0",
     PRODUCTS_KV: {
       get: async (k) => kv.get(k) ?? null,
       put: async (k, v) => void kv.set(k, v),
@@ -311,6 +312,66 @@ test("getSalesStats: جمع فروش فقط سفارش‌های تاییدشده
   assert.equal(stats.today, 100000, "فروش امروز فقط شامل سفارش تایید شده امروز باشد");
   assert.equal(stats.week, 300000, "فروش هفته شامل سفارش امروز و اوایل هفته باشد (100k + 200k)");
   assert.equal(stats.month, 600000, "فروش ماه شامل همه سفارش‌های این ماه باشد (100k + 200k + 300k)");
+});
+
+test("ساعت کاری: خارج از ساعت کاری سفارش با ۴۰۳ رد میشه و تو ساعت کاری ثبت میشه", async () => {
+  const origNow = Date.now;
+  clearMemo(SITE_CACHE_KEY);
+  try {
+    const { env, inserts } = makeEnv({ enforceHours: true });
+
+    Date.now = () => Date.parse("2026-10-13T23:30:00Z"); // چهارشنبه ۰۳:۰۰ بامداد تهران
+    const closed = await handleOrdersAPI(req(order()), env);
+    assert.equal(closed.status, 403);
+    const closedData = await closed.json();
+    assert.equal(closedData.closed, true);
+    assert.ok(closedData.error.includes("بسته"));
+    assert.equal(inserts(), 0);
+
+    Date.now = () => Date.parse("2026-10-14T08:30:00Z"); // چهارشنبه ۱۲:۰۰ تهران
+    const open = await handleOrdersAPI(req(order()), env);
+    assert.equal(open.status, 200);
+    assert.equal(inserts(), 1);
+  } finally {
+    Date.now = origNow;
+  }
+});
+
+test("ساعت کاری: تلاش مجدد با همون requestId بعد از بسته شدن، سفارش قبلی رو برمیگردونه", async () => {
+  const origNow = Date.now;
+  clearMemo(SITE_CACHE_KEY);
+  try {
+    const { env, inserts } = makeEnv({ enforceHours: true });
+    const key = "33333333-4444-5555-6666-777777777777";
+
+    Date.now = () => Date.parse("2026-10-14T19:29:00Z"); // ۲۲:۵۹ تهران
+    const first = await (await handleOrdersAPI(req(order({ requestId: key })), env)).json();
+    assert.equal(first.ok, true);
+
+    Date.now = () => Date.parse("2026-10-14T19:31:00Z"); // ۲۳:۰۱ تهران ← بسته
+    const retry = await handleOrdersAPI(req(order({ requestId: key })), env);
+    assert.equal(retry.status, 200);
+    const retryData = await retry.json();
+    assert.equal(retryData.duplicate, true);
+    assert.equal(retryData.orderId, first.orderId);
+    assert.equal(inserts(), 1);
+  } finally {
+    Date.now = origNow;
+  }
+});
+
+test("ENFORCE_ORDER_HOURS=0 چک ساعت کاری رو خاموش میکنه", async () => {
+  const origNow = Date.now;
+  clearMemo(SITE_CACHE_KEY);
+  try {
+    const { env, inserts } = makeEnv(); // پیشفرض تستها: ENFORCE_ORDER_HOURS = "0"
+    Date.now = () => Date.parse("2026-10-13T23:30:00Z"); // ۰۳:۰۰ بامداد تهران
+    const res = await handleOrdersAPI(req(order()), env);
+    assert.equal(res.status, 200);
+    assert.equal(inserts(), 1);
+  } finally {
+    Date.now = origNow;
+  }
 });
 
 
