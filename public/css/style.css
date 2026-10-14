@@ -7,7 +7,8 @@
   --line: #23262F;
   --accent: #B4925A;
   --accent-soft: #1C1911;
-  --on-accent: #14110A; /* متن روی دکمه‌های accent؛ کنتراست ۶.۴۶:۱ */
+  --on-accent: #14110A;
+  /* متن روی دکمه‌های accent؛ کنتراست ۶.۴۶:۱ */
   --gold: #C9A227;
   --card-bg: #14161E;
   --overlay-bg: rgba(0, 0, 0, 0.8);
@@ -694,9 +695,11 @@ body.header-hidden .menu-controls {
   0% {
     transform: scale(1) translate3d(0, 0, 0);
   }
+
   50% {
     transform: scale(1.07) translate3d(-1%, -0.8%, 0);
   }
+
   100% {
     transform: scale(1.04) translate3d(0.8%, -1.2%, 0);
   }
@@ -713,9 +716,12 @@ body.header-hidden .menu-controls {
 }
 
 @keyframes heroSkeletonPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     background-position: 30% 20%;
   }
+
   50% {
     background-position: 70% 60%;
   }
@@ -725,6 +731,7 @@ body.header-hidden .menu-controls {
   .hero-cover:not(.cover-ready) {
     animation: none;
   }
+
   .hero-cover.cover-ready .hero-cover-media img {
     animation: none !important;
     transform: none !important;
@@ -736,13 +743,11 @@ body.header-hidden .menu-controls {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(11, 13, 18, 0.45) 0%,
-    rgba(11, 13, 18, 0.15) 35%,
-    rgba(11, 13, 18, 0.65) 75%,
-    var(--bg) 100%
-  );
+  background: linear-gradient(180deg,
+      rgba(11, 13, 18, 0.45) 0%,
+      rgba(11, 13, 18, 0.15) 35%,
+      rgba(11, 13, 18, 0.65) 75%,
+      var(--bg) 100%);
   pointer-events: none;
   z-index: 1;
 }
@@ -802,10 +807,13 @@ body.header-hidden .menu-controls {
 }
 
 @keyframes liveBadgePulse {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
+
   50% {
     transform: scale(1.35);
     opacity: 0.7;
@@ -861,9 +869,12 @@ body.header-hidden .menu-controls {
 }
 
 @keyframes heroScrollBounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(6px);
   }
@@ -1002,8 +1013,17 @@ body.header-hidden .menu-controls {
 }
 
 @keyframes liveDotPulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.55; transform: scale(0.85); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
 }
 
 .highlight-pills {
@@ -1511,7 +1531,8 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   stroke-linecap: round;
   stroke-dasharray: 24 76;
   animation: neonTrace 3.5s linear infinite;
-  animation-play-state: paused; /* فقط کارت‌های تو دید (کلاس neon-on) انیمیشن می‌گیرن */
+  animation-play-state: paused;
+  /* فقط کارت‌های تو دید (کلاس neon-on) انیمیشن می‌گیرن */
 }
 
 .product-card.neon-on .card-neon rect {
@@ -2042,9 +2063,9 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   touch-action: none;
   overscroll-behavior: contain;
   transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-              backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-              -webkit-backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-              visibility 0.28s;
+    backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    -webkit-backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.28s;
 }
 
 .modal-overlay.open {
@@ -2055,9 +2076,9 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   visibility: visible;
   pointer-events: auto;
   transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-              backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-              -webkit-backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-              visibility 0s;
+    backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    -webkit-backdrop-filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
 }
 
 .modal-box {
@@ -2066,9 +2087,11 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   max-width: 500px;
   width: 100%;
   max-height: calc(100vh - 32px);
-  max-height: calc(100svh - 32px); /* svh ثابته (برخلاف dvh با جمع/باز شدن نوار آدرس تغییر نمی‌کنه) */
+  max-height: calc(100svh - 32px);
+  /* svh ثابته (برخلاف dvh با جمع/باز شدن نوار آدرس تغییر نمی‌کنه) */
   overflow-y: auto;
-  overscroll-behavior: contain; /* اسکرول داخل مودال صفحه‌ی پشتش رو تکون نده */
+  overscroll-behavior: contain;
+  /* اسکرول داخل مودال صفحه‌ی پشتش رو تکون نده */
   touch-action: pan-y;
   position: relative;
   transform-origin: center center;
@@ -2077,7 +2100,7 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   transform: scale(0.92) translateY(18px);
   opacity: 0;
   transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
 }
 
@@ -2092,18 +2115,19 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   -webkit-backdrop-filter: blur(0);
   pointer-events: none;
   transition: opacity 0.22s cubic-bezier(0.2, 0, 0, 1),
-              backdrop-filter 0.22s cubic-bezier(0.2, 0, 0, 1),
-              -webkit-backdrop-filter 0.22s cubic-bezier(0.2, 0, 0, 1);
+    backdrop-filter 0.22s cubic-bezier(0.2, 0, 0, 1),
+    -webkit-backdrop-filter 0.22s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .modal-overlay.closing .modal-box {
   transform: scale(0.94) translateY(14px);
   opacity: 0;
   transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1),
-              opacity 0.18s cubic-bezier(0.2, 0, 0, 1);
+    opacity 0.18s cubic-bezier(0.2, 0, 0, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .modal-box,
   .modal-overlay.closing .modal-box {
     transform: none;
@@ -2180,11 +2204,11 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   justify-content: center;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              background 0.2s ease,
-              border-color 0.2s ease,
-              box-shadow 0.2s ease,
-              color 0.2s ease,
-              opacity 0.2s ease;
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
@@ -2235,16 +2259,20 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     height: 40px;
     top: 26%;
   }
+
   .modal-nav-btn svg {
     width: 18px;
     height: 18px;
   }
+
   .modal-nav-next {
     right: 8px;
   }
+
   .modal-nav-prev {
     left: 8px;
   }
+
   .modal-nav-counter {
     height: 32px;
     padding: 0 11px;
@@ -2252,6 +2280,7 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     top: 14px;
     right: 14px;
   }
+
   .modal-close {
     width: 32px;
     height: 32px;
@@ -2274,6 +2303,7 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     transform: translate3d(30px, 0, 0);
     opacity: 0.65;
   }
+
   100% {
     transform: translate3d(0, 0, 0);
     opacity: 1;
@@ -2285,6 +2315,7 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     transform: translate3d(-30px, 0, 0);
     opacity: 0.65;
   }
+
   100% {
     transform: translate3d(0, 0, 0);
     opacity: 1;
@@ -2300,6 +2331,7 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .modal-content-slider.slide-from-right,
   .modal-content-slider.slide-from-left {
     animation: none !important;
@@ -2315,8 +2347,10 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   background: var(--bg-alt);
   position: relative;
   overflow: hidden;
-  isolation: isolate;          /* z-indexهای عکس‌ها بیرون از این کادر نشت نکنن (دکمه‌ی ✕ رو نپوشونن) */
-  touch-action: pan-y;         /* اسکرول عمودی مودال آزاد؛ پینچ و کشیدن با جاوااسکریپت */
+  isolation: isolate;
+  /* z-indexهای عکس‌ها بیرون از این کادر نشت نکنن (دکمه‌ی ✕ رو نپوشونن) */
+  touch-action: pan-y;
+  /* اسکرول عمودی مودال آزاد؛ پینچ و کشیدن با جاوااسکریپت */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -2351,10 +2385,22 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
 }
 
 /* دو لایه: تامبنیل (فوری) زیر، عکس واضح روش با fade؛ هیچ‌کدوم اندازه‌ی کادر رو تغییر نمیدن */
-.modal-image img.m-full { z-index: 2; }
-.modal-image img.m-hires { z-index: 3; }
-.modal-image img.shown { opacity: 1; }
-.modal-image img.m-thumb { transition: none; opacity: 1; }
+.modal-image img.m-full {
+  z-index: 2;
+}
+
+.modal-image img.m-hires {
+  z-index: 3;
+}
+
+.modal-image img.shown {
+  opacity: 1;
+}
+
+.modal-image img.m-thumb {
+  transition: none;
+  opacity: 1;
+}
 
 .modal-image .placeholder {
   position: absolute;
@@ -2838,6 +2884,7 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     opacity: 0;
     transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -3080,9 +3127,19 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
 }
 
 @keyframes tableShake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-5px);
+  }
+
+  75% {
+    transform: translateX(5px);
+  }
 }
 
 .cart-total {
