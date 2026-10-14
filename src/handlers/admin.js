@@ -21,6 +21,7 @@ import { MAX_UPLOAD_BYTES } from '../config.js';
 import { listOrders, resolveOrder, getSalesStats, getOrdersSummary } from '../data/orders.js';
 import { validatePrice, validateDiscount } from '../lib/validate.js';
 import { validateImage } from '../lib/images.js';
+import { getBotState, setBotState, deleteBotState } from '../data/botState.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -100,7 +101,7 @@ export async function handleAdminAPI(request, env) {
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
       const lockKey = `loginfail:${ip}`;
-      const failCountRaw = await env.PRODUCTS_KV.get(lockKey);
+      const failCountRaw = await getBotState(env, lockKey);
       const failCount = failCountRaw ? Number(failCountRaw) : 0;
       // آستانه ۱۵ تلاش برای جلوگیری از قفل شدن سریع ادمین روی وای‌فای مشترک کافه
       if (failCount >= 15) {
@@ -116,13 +117,13 @@ export async function handleAdminAPI(request, env) {
       const { password } = await request.json().catch(() => ({}));
       if (!password || !safeCompare(password, env.ADMIN_PASSWORD)) {
         // شمارنده‌ی تلاش ناموفق؛ بعد از ۱۵ دقیقه خودش پاک میشه (expirationTtl)
-        await env.PRODUCTS_KV.put(lockKey, String(failCount + 1), { expirationTtl: 900 });
+        await setBotState(env, lockKey, String(failCount + 1), 900);
         return json(request, { error: 'رمز عبور اشتباه است' }, 401);
       }
 
       // ورود موفق؛ شمارنده‌ی تلاش ناموفق فقط در صورت وجود پاک می‌شود تا رایت KV بیهوده انجام نشود
       if (failCount > 0) {
-        await env.PRODUCTS_KV.delete(lockKey);
+        await deleteBotState(env, lockKey);
       }
       const token = await signToken(
         { role: 'admin' },
