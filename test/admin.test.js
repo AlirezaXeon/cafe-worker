@@ -19,6 +19,7 @@ function makeEnv(overrides = {}) {
   const products = overrides.products || new Map();
   const siteSettings = overrides.siteSettings || new Map();
   const kv = new Map();
+  const botState = new Map();
 
   const env = {
     JWT_SECRET,
@@ -65,6 +66,10 @@ function makeEnv(overrides = {}) {
             if (/SELECT COALESCE\(MAX\(id\), 0\) AS max_id FROM orders/.test(sql)) {
               return { max_id: overrides.latestId ?? 1042 };
             }
+            if (/SELECT value, expires_at FROM bot_state/.test(sql)) {
+              const r = botState.get(args[0]);
+              return r ? { ...r } : null;
+            }
             return null;
           },
           run: async () => {
@@ -91,13 +96,22 @@ function makeEnv(overrides = {}) {
               siteSettings.set(key, value);
               return { meta: { changes: 1 } };
             }
+            if (/INSERT OR REPLACE INTO bot_state/.test(sql)) {
+              const [key, value, expires_at] = args;
+              botState.set(key, { value, expires_at });
+              return { meta: { changes: 1 } };
+            }
+            if (/DELETE FROM bot_state/.test(sql)) {
+              botState.delete(args[0]);
+              return { meta: { changes: 1 } };
+            }
             return { meta: { changes: 1 } };
           },
         }),
       }),
     },
   };
-  return { env, products, categories, siteSettings };
+  return { env, products, categories, siteSettings, botState };
 }
 
 test("POST /products defaults available to 1 when omitted", async () => {
@@ -322,10 +336,9 @@ test("listOrders omits sensitive columns (ip_hash, request_id, tg_messages)", as
 });
 
 test("POST /admin/api/login returns 429 when failure threshold is reached", async () => {
-  const { env } = makeEnv();
+  const { env, botState } = makeEnv();
   const testIp = "192.168.1.50";
-  // Simulate 15 failed login attempts
-  await env.PRODUCTS_KV.put(`loginfail:${testIp}`, "15");
+  botState.set(`loginfail:${testIp}`, { value: "15", expires_at: null });
 
   const req = new Request("https://x.test/admin/api/login", {
     method: "POST",
@@ -343,9 +356,9 @@ test("POST /admin/api/login returns 429 when failure threshold is reached", asyn
 });
 
 test("POST /admin/api/login clears failure counter on successful login", async () => {
-  const { env } = makeEnv();
+  const { env, botState } = makeEnv();
   const testIp = "192.168.1.51";
-  await env.PRODUCTS_KV.put(`loginfail:${testIp}`, "3");
+  botState.set(`loginfail:${testIp}`, { value: "3", expires_at: null });
 
   const req = new Request("https://x.test/admin/api/login", {
     method: "POST",
@@ -362,9 +375,7 @@ test("POST /admin/api/login clears failure counter on successful login", async (
   assert.equal(data.ok, true);
   assert.ok(data.token);
 
-  // Counter should be cleared from KV
-  const counterAfter = await env.PRODUCTS_KV.get(`loginfail:${testIp}`);
-  assert.equal(counterAfter, null);
+  assert.equal(botState.has(`loginfail:${testIp}`), false);
 });
 
 test("POST /admin/api/upload rejects PNG bytes named .webp with 400", async () => {
