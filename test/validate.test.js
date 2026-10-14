@@ -149,3 +149,11 @@ test("applyCategoryPercent rejects if prices changed between preview and confirm
     /تغییر کرده/
   );
 });
+test("validators accept Persian digits, separators and unicode minus", () => {
+  assert.equal(validatePrice("۱۵۰٬۰۰۰").price, 150000);
+  assert.equal(validatePrice("١٥٠٠٠٠").price, 150000);
+  assert.equal(validatePercent("−۱۵٪").percent, -15);
+  assert.equal(validatePercent("۲۰").percent, 20);
+  assert.equal(validateDiscount("۱۵٪").discount, 15);
+  assert.equal(validatePrice("۱e۳").valid, false);
+});

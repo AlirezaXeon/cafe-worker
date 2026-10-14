@@ -1,11 +1,23 @@
 import { MIN_PRICE, MAX_PRICE, MIN_PERCENT, MAX_PERCENT } from "../config.js";
 
+// تبدیل ارقام فارسی/عربی، جداکننده‌ها و علامت منفی یونیکد به معادل ASCII
+// (ادمین تلگرام معمولاً با کیبورد فارسی عدد می‌نویسه)
+function normalizeNumeric(input) {
+  return String(input)
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/[٬،]/g, ",")
+    .replace(/٫/g, ".")
+    .replace(/[−–—]/g, "-")
+    .trim();
+}
+
 // اعتبارسنجی قیمت (تومان)
 export function validatePrice(input) {
   if (input === null || input === undefined || input === "") {
     return { valid: false, error: "قیمت نمی‌تواند خالی باشد" };
   }
-  let str = String(input).trim().replace(/[,\s]/g, "");
+  const str = normalizeNumeric(input).replace(/[,\s]/g, "");
   // رد کردن نماد علمی (مانند 1e3)
   if (/[eE]/.test(str)) {
     return { valid: false, error: "فرمت قیمت نامعتبر است" };
@@ -37,7 +49,7 @@ export function validatePercent(input) {
   if (input === null || input === undefined || input === "") {
     return { valid: false, error: "درصد نمی‌تواند خالی باشد" };
   }
-  let str = String(input).trim().replace(/[٪%]/g, "").trim();
+  const str = normalizeNumeric(input).replace(/[٪%]/g, "").trim();
   // رد کردن نماد علمی
   if (/[eE]/.test(str)) {
     return { valid: false, error: "فرمت درصد نامعتبر است" };
@@ -63,7 +75,7 @@ export function validateDiscount(input) {
   if (input === null || input === undefined || input === "") {
     return { valid: true, discount: 0 };
   }
-  let str = String(input).trim().replace(/[٪%]/g, "").trim();
+  const str = normalizeNumeric(input).replace(/[٪%]/g, "").trim();
   if (/[eE]/.test(str)) {
     return { valid: false, error: "فرمت تخفیف نامعتبر است" };
   }
