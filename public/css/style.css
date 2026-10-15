@@ -3655,3 +3655,81 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     padding: 40px 0 120px;
   }
 }
+
+/* ============ MOBILE (زیر ۷۶۸px): هدر وسط‌چین + هیرو بزرگ‌تر ============ */
+/* این بلوک عمداً آخر فایله تا روی قانون‌های پایه (هیرو، بج، منو) اولویت داشته باشه */
+@media (max-width: 767px) {
+
+  /* --- هدر: لینک‌های منو دقیقاً وسط هدر، مستقل از عرض لوگو --- */
+  .header-inner {
+    position: relative;
+  }
+
+  .main-nav {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    gap: 16px;
+    white-space: nowrap;
+  }
+
+  .main-nav a {
+    font-size: 0.9rem;
+  }
+
+  .logo-fallback {
+    font-size: 1.05rem;
+  }
+
+  /* --- هیرو: بلندتر (به‌جای 16:9 که روی موبایل فقط ~۲۰۰px میشد) --- */
+  .hero-cover {
+    aspect-ratio: auto;
+    height: 72vh;
+    height: 72svh;
+    min-height: 430px;
+    max-height: 620px;
+  }
+
+  .hero-cover-logo-wrap {
+    gap: 14px;
+    /* بالا جا برای بج، پایین جا برای دکمه‌ی «مشاهده منو» */
+    padding: 68px 20px 76px;
+  }
+
+  /* بج «هم‌اکنون باز است» بالای هیرو، بدون وابستگی به وسط‌چین عمودی */
+  .hero-live-badge {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    margin: 0;
+    padding: 8px 18px;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    max-width: calc(100% - 32px);
+    justify-content: center;
+    text-align: center;
+    transform: translate(-50%, calc(var(--intro-progress, 0) * -16px));
+  }
+
+  .hero-cover-title {
+    font-size: 1.5rem;
+    letter-spacing: 0.24em;
+  }
+
+  .hero-cover-tagline {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    max-width: 320px;
+  }
+
+  .hero-cover-logo {
+    width: 150px;
+    height: 150px;
+  }
+
+  .hero-scroll-btn {
+    bottom: 20px;
+    font-size: 0.88rem;
+  }
+}

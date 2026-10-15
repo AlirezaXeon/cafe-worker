@@ -670,9 +670,9 @@ function waitForFonts(timeoutMs) {
   const cssReady = (!css || css.dataset.ready || css.sheet)
     ? Promise.resolve()
     : new Promise(resolve => {
-        css.addEventListener('load', resolve, { once: true });
-        css.addEventListener('error', resolve, { once: true });
-      });
+      css.addEventListener('load', resolve, { once: true });
+      css.addEventListener('error', resolve, { once: true });
+    });
   const loadFaces = () => {
     if (!document.fonts || !document.fonts.load) return null;
     const fa = 'سلام کافه روشن';
@@ -682,7 +682,7 @@ function waitForFonts(timeoutMs) {
       document.fonts.load('700 16px Vazirmatn', fa),
       document.fonts.load('900 16px Estedad', fa),
       document.fonts.load('italic 500 16px "Cormorant Garamond"', 'Roshan Cafe'),
-    ]).catch(() => {});
+    ]).catch(() => { });
   };
   fontsPromise = Promise.race([
     cssReady.then(loadFaces),
@@ -1344,8 +1344,8 @@ function renderCart() {
     <div class="cart-item" style="animation-delay: ${i * 45}ms">
       <div class="cart-item-thumb">
         ${item.image
-          ? `<img src="${esc(productThumbSrc(item.image))}" alt="${esc(item.name)}" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'">`
-          : `<span class="cart-item-ph" aria-hidden="true">${esc(item.name.charAt(0))}</span>`}
+      ? `<img src="${esc(productThumbSrc(item.image))}" alt="${esc(item.name)}" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'">`
+      : `<span class="cart-item-ph" aria-hidden="true">${esc(item.name.charAt(0))}</span>`}
       </div>
       <div class="cart-item-info">
         <div class="cart-item-header">
@@ -1818,16 +1818,21 @@ function refreshOpenState() {
   applyOrderingState();
 }
 
+// دکمه‌ی «مشاهده منو» توی هیرو: اسکرول تا جایی که نوار دسته‌بندی‌ها بچسبه بالای صفحه
+// و محصولات درست زیرش باشن. نوار دسته‌ها sticky هست و موقع اسکرول جاش عوض میشه، پس جای
+// «طبیعی» (بدون چسبیدن) اون رو از روی بخش قبلی‌ش (.menu-section-head) حساب می‌کنیم.
 function initHeroScrollButton() {
   const btn = document.getElementById('heroScrollBtn');
   if (!btn) return;
   btn.addEventListener('click', (e) => {
     e.preventDefault();
-    const menuSection = document.getElementById('menu');
-    if (menuSection) {
-      const targetY = menuSection.getBoundingClientRect().top + window.scrollY - menuBarOffset();
-      smoothScrollToY(targetY);
-    }
+    const head = document.querySelector('.menu-section-head');
+    const bar = document.querySelector('.menu-controls');
+    if (!head || !bar) return;
+    const gap = parseFloat(getComputedStyle(head).marginBottom) || 0;
+    const barNaturalTop = head.getBoundingClientRect().bottom + window.scrollY + gap;
+    // hideHeaderAtEnd: هدر مخفی میشه و نوار دقیقاً به top:0 می‌چسبه (مثل کلیک روی دسته‌ها)
+    smoothScrollToY(barNaturalTop, { hideHeaderAtEnd: true });
   });
 }
 
