@@ -180,9 +180,15 @@ export async function addProduct(env, { id, category, name, note, price, image, 
 }
 
 export async function updateProduct(env, id, { category, name, note, price, image, discount = 0, available = 1, originalPrice: explicitOriginal = undefined }) {
-  const { price: finalPrice, originalPrice } = explicitOriginal !== undefined
-    ? { price: roundPrice(price), originalPrice: explicitOriginal ? roundPrice(explicitOriginal) : null }
-    : resolvePrice(price, discount);
+  let finalPrice, originalPrice;
+  if (explicitOriginal !== undefined) {
+    finalPrice = roundPrice(price);
+    const o = explicitOriginal ? roundPrice(explicitOriginal) : null;
+    // قیمت اصلی فقط وقتی معتبره که از قیمت فعلی بیشتر باشه
+    originalPrice = o && o > finalPrice ? o : null;
+  } else {
+    ({ price: finalPrice, originalPrice } = resolvePrice(price, discount));
+  }
   await env.DB
     .prepare(
       `UPDATE products
