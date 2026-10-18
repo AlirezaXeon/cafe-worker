@@ -17,9 +17,7 @@
   <meta property="og:url" content="https://cafe-roshan.alireza-pespc.workers.dev/">
   <meta name="twitter:card" content="summary_large_image">
 
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
-  <link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png">
+  <link rel="icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
   <!-- فونت‌های کاملاً محلی و لوکال (بدون ارسال درخواست به گوگل یا سرورهای خارجی) -->
@@ -33,12 +31,27 @@
     "@type": "CafeOrCoffeeShop",
     "name": "کافه روشن",
     "servesCuisine": "قهوه، شیرینی، صبحانه",
+    "telephone": "+98-21-00000000",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲",
       "addressLocality": "تهران",
       "addressCountry": "IR"
-    }
+    },
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"],
+        "opens": "08:00",
+        "closes": "23:00"
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Thursday", "Friday"],
+        "opens": "09:00",
+        "closes": "23:59"
+      }
+    ]
   }
   </script>
 </head>
@@ -222,7 +235,7 @@
         </div>
         <div class="about-stats">
           <div class="stat"><span class="stat-num">۵+</span><span class="stat-label">سال تجربه</span></div>
-          <div class="stat"><span class="stat-num">۳۰+</span><span class="stat-label">آیتم منو</span></div>
+          <div class="stat"><span class="stat-num" id="menuItemCount">۱۰+</span><span class="stat-label">آیتم منو</span></div>
           <div class="stat"><span class="stat-num">۱۰۰٪</span><span class="stat-label">تازه و روزانه</span></div>
         </div>
       </div>
@@ -236,6 +249,7 @@
           <span class="section-num">شبکه‌های اجتماعی</span>
           <h2>دنبال‌مون کنید</h2>
           <div class="social-links">
+            <!-- TODO: انسان باید آدرس و شناسه واقعی صفحه اینستاگرام کافه را مشخص و جایگزین کند -->
             <a href="https://instagram.com/alirezaxeon" target="_blank" rel="noopener" aria-label="اینستاگرام">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="1.8" />
@@ -244,6 +258,7 @@
               </svg>
               <span class="sr-only">اینستاگرام</span>
             </a>
+            <!-- TODO: انسان باید آدرس و شناسه واقعی کانال/حساب تلگرام کافه را مشخص و جایگزین کند -->
             <a href="https://t.me/alirezaxeon" target="_blank" rel="noopener" aria-label="تلگرام">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <path
@@ -400,7 +415,7 @@
         <button type="button" class="table-select-btn" id="tableSelectBtn" aria-haspopup="dialog"
           aria-labelledby="tableFieldLabel tableSelectValue">
           <div class="table-select-btn-info">
-            <span class="table-chip-status" id="tableChipStatus" aria-hidden="true"></span>
+            <span class="table-chip-status" aria-hidden="true"></span>
             <span id="tableSelectValue">انتخاب شماره میز</span>
           </div>
           <span class="table-select-action">تغییر میز</span>

@@ -8,7 +8,7 @@ import { addCategory, addProduct, getProducts } from "../src/data/products.js";
 import { getOrderStatusByPublicId, confirmOrder, getSalesStats } from "../src/data/orders.js";
 import { handleOrdersAPI } from "../src/handlers/orders.js";
 import { setSiteSetting, getSiteConfig } from "../src/data/site.js";
-import { setBotState, getBotState, deleteExpiredBotState } from "../src/data/botState.js";
+import { setBotState, getBotState, deleteExpiredBotState, incrementBotState } from "../src/data/botState.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -143,4 +143,32 @@ test("D1 Smoke Test: اعمال ترتیبی همه migrations/*.sql روی دی
   assert.equal(await getBotState(env, "smoke_key"), "smoke_val");
   await deleteExpiredBotState(env, Date.now() + 20000);
   assert.equal(await getBotState(env, "smoke_key"), null);
+});
+
+test("incrementBotState with real SQLite: expired row with value=14 resets to 1 after increment", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  const migrationsDir = path.resolve(__dirname, "../migrations");
+  const migrationFiles = fs.readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+  for (const file of migrationFiles) {
+    sqlite.exec(fs.readFileSync(path.join(migrationsDir, file), "utf8"));
+  }
+
+  const env = { DB: createD1Adapter(sqlite) };
+
+  // Manually insert an expired row with value '14'
+  const expiredTime = Date.now() - 5000;
+  sqlite.exec(`INSERT INTO bot_state (key, value, expires_at) VALUES ('loginfail:test_ip', '14', ${expiredTime})`);
+
+  // Call incrementBotState
+  const nextVal = await incrementBotState(env, "loginfail:test_ip", 900);
+  assert.equal(nextVal, 1, "ردیف منقضی با مقدار ۱۴ باید بعد از increment برابر ۱ شود");
+
+  // Verify DB state
+  const row = sqlite.prepare("SELECT value, expires_at FROM bot_state WHERE key = 'loginfail:test_ip'").get();
+  assert.equal(row.value, "1");
+  assert.ok(row.expires_at > Date.now());
+
+  // Second increment on active row should become 2
+  const nextVal2 = await incrementBotState(env, "loginfail:test_ip", 900);
+  assert.equal(nextVal2, 2, "ردیف فعال باید به ۲ افزایش یابد");
 });

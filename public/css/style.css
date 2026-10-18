@@ -21,7 +21,6 @@
   --radius: 16px;
   --shadow-sm: 0 4px 20px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.4);
   --aurora-1: rgba(160, 122, 56, 0.22);
   --aurora-2: rgba(120, 38, 56, 0.16);
   --aurora-3: rgba(150, 112, 46, 0.13);
@@ -3760,4 +3759,33 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     bottom: 20px;
     font-size: 0.88rem;
   }
+}
+
+/* ============ UTILITY BUTTONS & TABS ============ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.btn-primary {
+  background: var(--accent, #d4af37);
+  color: #0b0d12;
+  border-color: var(--accent, #d4af37);
+}
+
+.btn-primary:hover {
+  background: #e2c158;
+  border-color: #e2c158;
+}
+
+.tab-btn {
+  flex-shrink: 0;
+  display: inline-block;
 }

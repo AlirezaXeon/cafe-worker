@@ -24,29 +24,27 @@ export async function deleteBotState(env, key) {
 }
 
 export async function incrementBotState(env, key, ttlSec = 900) {
-  const expiresAt = ttlSec ? Date.now() + ttlSec * 1000 : null;
-  if (env.DB) {
-    try {
-      await env.DB
-        .prepare(`
-          INSERT INTO bot_state (key, value, expires_at)
-          VALUES (?, '1', ?)
-          ON CONFLICT(key) DO UPDATE SET
-            value = CAST(CAST(value AS INTEGER) + 1 AS TEXT),
-            expires_at = excluded.expires_at
-        `)
-        .bind(key, expiresAt)
-        .run();
-      const val = await getBotState(env, key);
-      return Number(val) || 1;
-    } catch {
-      const current = Number(await getBotState(env, key)) || 0;
-      const next = current + 1;
-      await setBotState(env, key, String(next), ttlSec);
-      return next;
-    }
+  const now = Date.now();
+  const expiresAt = ttlSec ? now + ttlSec * 1000 : null;
+  try {
+    await env.DB
+      .prepare(`
+        INSERT INTO bot_state (key, value, expires_at) VALUES (?1, '1', ?2)
+        ON CONFLICT(key) DO UPDATE SET
+          value = CASE WHEN bot_state.expires_at IS NOT NULL AND bot_state.expires_at <= ?3
+                       THEN '1' ELSE CAST(CAST(bot_state.value AS INTEGER) + 1 AS TEXT) END,
+          expires_at = excluded.expires_at
+      `)
+      .bind(key, expiresAt, now)
+      .run();
+    const val = await getBotState(env, key, now);
+    return Number(val) || 1;
+  } catch {
+    const currentVal = await getBotState(env, key, now);
+    const next = currentVal ? Number(currentVal) + 1 : 1;
+    await setBotState(env, key, String(next), ttlSec);
+    return next;
   }
-  return 1;
 }
 
 export async function deleteExpiredBotState(env, now = Date.now()) {

@@ -378,6 +378,27 @@ test("POST /admin/api/login clears failure counter on successful login", async (
   assert.equal(botState.has(`loginfail:${testIp}`), false);
 });
 
+test("POST /admin/api/login succeeds with correct password even when globalFail is high (prevent DoS)", async () => {
+  const { env, botState } = makeEnv();
+  const testIp = "192.168.1.99";
+  botState.set("loginfail:global", { value: "60", expires_at: null });
+
+  const req = new Request("https://x.test/admin/api/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "CF-Connecting-IP": testIp,
+    },
+    body: JSON.stringify({ password: "test-admin-password" }),
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.ok, true);
+  assert.ok(data.token);
+});
+
 test("POST /admin/api/upload rejects PNG bytes named .webp with 400", async () => {
   const { env } = makeEnv();
   const headers = await authHeaders();
@@ -583,4 +604,131 @@ test("POST /admin/api/site/cover accepts valid JPEG and updates cover in site se
   assert.equal(data2.links[0].table, 1);
   assert.match(data2.links[0].url, /^\/\?t=1&sig=[a-f0-9]{64}$/);
 });
+
+test("POST /admin/api/products with price='۱۵۰۰۰۰' saves price=150000", async () => {
+  const { env, products } = makeEnv();
+  const headers = await authHeaders();
+
+  const req = new Request("https://x.test/admin/api/products", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      name: "لاته مخصوص",
+      category: "cat1",
+      price: "۱۵۰۰۰۰",
+      note: "شیر کم‌چرب",
+    }),
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 201);
+  const data = await res.json();
+  assert.equal(data.success, true);
+  const saved = products.get(data.id);
+  assert.equal(saved.price, 150000);
+});
+
+test("POST /admin/api/products with name longer than 80 chars returns 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+
+  const req = new Request("https://x.test/admin/api/products", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      name: "الف".repeat(81),
+      category: "cat1",
+      price: 150000,
+    }),
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.match(data.error, /۸۰/);
+});
+
+test("PUT /admin/api/products/:id with image containing quote or angle bracket returns 400", async () => {
+  const { env, products } = makeEnv();
+  products.set("prod_1", {
+    id: "prod_1",
+    category: "cat1",
+    name: "قهوه دمی",
+    price: 90000,
+    available: 1,
+  });
+  const headers = await authHeaders();
+
+  const req = new Request("https://x.test/admin/api/products/prod_1", {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      name: "قهوه دمی",
+      category: "cat1",
+      price: 90000,
+      image: '/images/xss"onerror="alert(1).jpg',
+    }),
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.equal(data.error, "مسیر تصویر نامعتبر است");
+});
+
+test("PUT /admin/api/site/table-count updates table count when valid integer 1..100", async () => {
+  const { env, siteSettings } = makeEnv();
+  const headers = await authHeaders();
+
+  const req = new Request("https://x.test/admin/api/site/table-count", {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ tableCount: 25 }),
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.success, true);
+  assert.equal(data.tableCount, 25);
+  assert.equal(siteSettings.get("tableCount"), "25");
+});
+
+test("PUT /admin/api/site/table-count rejects invalid table count with 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+
+  for (const bad of [0, 101, -5, "abc", null]) {
+    const req = new Request("https://x.test/admin/api/site/table-count", {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ tableCount: bad }),
+    });
+    const res = await handleAdminAPI(req, env);
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.match(data.error, /۱ تا ۱۰۰/);
+  }
+});
+
+test("POST /admin/api/upload rejects string file field with 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+  delete headers["Content-Type"];
+
+  const fd = new FormData();
+  fd.append("file", "not-a-file-object");
+
+  const req = new Request("https://x.test/admin/api/upload", {
+    method: "POST",
+    headers,
+    body: fd,
+  });
+
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.match(data.error, /فایلی ارسال نشده یا نامعتبر است/);
+});
+
 

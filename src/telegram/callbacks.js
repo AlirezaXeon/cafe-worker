@@ -40,7 +40,7 @@ export async function handleCallback(env, chatId, data, cq) {
   }
 
   // ── لغو / بازگشت به منو ─────────────────────────────────────────────
-  // این دکمه زیر همه‌ی forceReply‌ها نشون داده میشه تا کاربر بتونه
+  // این دکمه زیر همه‌ی پیام‌های سوال (askQuestion) نشون داده میشه تا کاربر بتونه
   // در هر مرحله‌ای انصراف بده و برگرده به منوی اصلی
   if (data === "cancel") {
     await clearSession(env, chatId);

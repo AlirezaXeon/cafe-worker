@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { handleOrdersAPI, hashIp } from "../src/handlers/orders.js";
+import { handleOrdersAPI, hashIp, formatOrderMessage } from "../src/handlers/orders.js";
 import { ORDER_RATE_LIMIT_MAX, TABLE_PENDING_ORDER_LIMIT_MAX } from "../src/config.js";
 import { clearMemo, SITE_CACHE_KEY } from "../src/data/cache.js";
 import { tehranBoundaries, getSalesStats, getPendingOrdersNeedingNotification } from "../src/data/orders.js";
@@ -21,7 +21,7 @@ function makeEnv(opts = {}) {
       prepare: (sql) => {
         const createStmt = (args = []) => ({
           all: async () => {
-            if (/SELECT id, table_number, items, total FROM orders WHERE status = 'pending' AND tg_notified = 0/.test(sql)) {
+            if (/SELECT id, table_number, items, total(?:, created_at)? FROM orders WHERE status = 'pending' AND tg_notified = 0/.test(sql)) {
               const [minCreatedAt, maxCreatedAt] = args;
               const filtered = orders.filter((o) =>
                 (o.status ?? "pending") === "pending" &&
@@ -88,6 +88,7 @@ function makeEnv(opts = {}) {
         return stmt;
       },
     },
+    JWT_SECRET: "test-default-jwt-secret-for-orders",
   };
   return { env, orders: () => orders, inserts: () => orders.length, rawOrders: orders };
 }
@@ -153,7 +154,7 @@ test("هش IP ذخیره می‌شود و هرگز IP خام در پایگاه �
   assert.ok(stored.ip_hash, "ip_hash باید پر باشد");
   assert.notEqual(stored.ip_hash, rawIp, "IP خام نباید ذخیره شود");
   assert.equal(stored.ip_hash.length, 64, "هش SHA-256 باید ۶۴ کاراکتر باشد");
-  assert.equal(stored.ip_hash, await hashIp(rawIp));
+  assert.equal(stored.ip_hash, await hashIp(rawIp, env.JWT_SECRET));
   assert.equal(JSON.stringify(stored).includes(rawIp), false, "رشته IP خام در هیچ فیلدی نباید باشد");
 });
 
@@ -161,14 +162,10 @@ test("hashIp: با دو secret متفاوت، هش یک IP یکسان متفاو
   const ip = "192.168.1.100";
   const hash1 = await hashIp(ip, "secret-one");
   const hash2 = await hashIp(ip, "secret-two");
-  const hashDefault = await hashIp(ip);
 
   assert.equal(hash1.length, 64);
   assert.equal(hash2.length, 64);
-  assert.equal(hashDefault.length, 64);
   assert.notEqual(hash1, hash2);
-  assert.notEqual(hash1, hashDefault);
-  assert.notEqual(hash2, hashDefault);
 });
 
 test("handleOrdersAPI: از env.IP_HASH_SECRET برای ساخت هش IP استفاده می‌کند", async () => {
@@ -180,6 +177,18 @@ test("handleOrdersAPI: از env.IP_HASH_SECRET برای ساخت هش IP است�
 
   const stored = orders()[0];
   assert.equal(stored.ip_hash, await hashIp(rawIp, "custom-order-secret-salt"));
+});
+
+test("handleOrdersAPI: اگر IP_HASH_SECRET ست نباشد از env.JWT_SECRET به عنوان فالبک استفاده می‌کند", async () => {
+  const { env, orders } = makeEnv();
+  env.JWT_SECRET = "jwt-secret-used-as-hash-salt";
+  delete env.IP_HASH_SECRET;
+  const rawIp = "192.168.1.105";
+  const res = await handleOrdersAPI(req(order(), { "cf-connecting-ip": rawIp }), env);
+  assert.equal(res.status, 200);
+
+  const stored = orders()[0];
+  assert.equal(stored.ip_hash, await hashIp(rawIp, "jwt-secret-used-as-hash-salt"));
 });
 
 
@@ -591,7 +600,24 @@ test("getPendingOrdersNeedingNotification: سفارش‌های pending با tg_n
   assert.equal(needingRetry[0].orderId, 2);
   assert.equal(needingRetry[0].tableNumber, "2");
   assert.equal(needingRetry[0].total, 50000);
+  assert.equal(needingRetry[0].createdAt, rawOrders[1].created_at);
 });
+
+test("formatOrderMessage: ساعت ثبت سفارش را بر اساس createdAt (UTC به تهران) نمایش می‌دهد", () => {
+  const msg = formatOrderMessage({
+    orderId: 42,
+    tableNumber: "5",
+    items: [{ id: "p1", name: "اسپرسو", price: 60000, quantity: 2 }],
+    total: 120000,
+    createdAt: "2026-10-18 10:15:00",
+  });
+
+  assert.match(msg, /سفارش جدید #42/);
+  assert.match(msg, /میز 5/);
+  assert.match(msg, /اسپرسو × 2/);
+  assert.match(msg, /۱۳:۴۵/); // 10:15 UTC -> 13:45 Tehran
+});
+
 
 
 

@@ -20,15 +20,8 @@ export async function signTable(table, secret) {
     .join("");
 }
 
-export function safeCompare(a, b) {
-  if (typeof a !== "string" || typeof b !== "string") return false;
-  const maxLen = Math.max(a.length, b.length, 32);
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < maxLen; i++) {
-    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
-  }
-  return diff === 0;
-}
+import { safeCompare } from "./safeCompare.js";
+export { safeCompare };
 
 export async function verifyTableSig(table, sig, secret) {
   if (!secret) return true; // backward compatible: اگر secret ست نشده باشد چک غیرفعال است

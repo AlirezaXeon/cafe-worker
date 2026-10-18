@@ -2,7 +2,8 @@ import { handleUpdate } from "./telegram.js";
 import { getProducts } from "./data/products.js";
 import { getSiteConfig } from "./data/site.js";
 import { memo, PRODUCTS_CACHE_KEY, SITE_CACHE_KEY } from "./data/cache.js";
-import { handleAdminAPI, safeCompare } from './handlers/admin.js';
+import { handleAdminAPI } from './handlers/admin.js';
+import { safeCompare } from './lib/safeCompare.js';
 import { handleOrdersAPI, notifyAdmins } from './handlers/orders.js';
 import { getPendingOrdersNeedingNotification } from './data/orders.js';
 import { cleanupExpiredBotState } from './data/botState.js';
@@ -144,7 +145,7 @@ function safeInlineJson(value) {
 // رو کامل می‌کرد و بعد src رو ست می‌کرد. این تابع همون src واقعی رو مستقیم تو HTML
 // (سمت سرور) می‌ذاره تا دانلود عکس همون لحظه‌ی اول شروع بشه.
 // base: آدرس پایه‌ی سایت (بدون اسلش آخر) برای canonical / og:url / og:image
-function injectSiteAssets(response, cfg, base, products) {
+function injectSiteAssets(response, cfg, base, products, env) {
   const rewriter = new HTMLRewriter();
 
   // canonical و og:url با دامنه‌ی واقعی (نه مقدار هاردکد داخل index.html)
@@ -158,9 +159,12 @@ function injectSiteAssets(response, cfg, base, products) {
   // دیتای سایت و محصولات رو مستقیم تو HTML می‌ذاریم تا مرورگر مجبور نباشه بعد از لود script.js
   // دو تا fetch جدا (site.json و products.json) بزنه؛ script.js اگه این رو ببینه fetch نمی‌کنه.
   if (cfg || products) {
+    const siteConfig = cfg
+      ? { ...cfg, signingEnabled: cfg.signingEnabled ?? Boolean(env?.TABLE_SIGNING_SECRET) }
+      : { signingEnabled: Boolean(env?.TABLE_SIGNING_SECRET) };
     rewriter.on('head', {
       element(el) {
-        el.append(`<script type="application/json" id="bootData">${safeInlineJson({ site: cfg || null, products: products || null, now: Date.now() })}</script>`, { html: true });
+        el.append(`<script type="application/json" id="bootData">${safeInlineJson({ site: siteConfig, products: products || null, now: Date.now() })}</script>`, { html: true });
       },
     });
   }
@@ -374,7 +378,7 @@ export default {
       if (isHome && contentType.includes('text/html')) {
         const [cfg, products] = await bootPromise;
         // اگه دیتا نیومد، صفحه همون‌طور که هست می‌ره و script.js خودش fetch می‌کنه
-        response = injectSiteAssets(response, cfg, siteBase(env, url), products);
+        response = injectSiteAssets(response, cfg, siteBase(env, url), products, env);
       }
       response.headers.set('Cache-Control', 'no-cache');
       return response;

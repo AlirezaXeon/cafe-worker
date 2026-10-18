@@ -627,7 +627,7 @@ test("handleTextStep: edit_price قیمت نامعتبر رو رد میکنه و
     await handleTextStep(env, 111, "abc", session);
     // قیمت نباید عوض شده باشه
     assert.equal(products.get("p1").price, 85000);
-    // باید دوباره سوال بپرسه (forceReply = sendMessage با inline keyboard بازگشت)
+    // باید دوباره سوال بپرسه (askQuestion = sendMessage با inline keyboard بازگشت)
     const sends = tgCalls.filter((c) => c.method === "sendMessage");
     const last = sends[sends.length - 1];
     assert.ok(last.payload.text.includes("قیمت"), "باید دوباره قیمت بخواد");
@@ -708,7 +708,7 @@ test("handleTextStep: bulk_percent درصد نامعتبر رو رد میکنه"
     await handleTextStep(env, 111, "abc", session);
     const sends = tgCalls.filter((c) => c.method === "sendMessage");
     const last = sends[sends.length - 1];
-    assert.ok(last.payload.reply_markup?.inline_keyboard, "باید forceReply (با دکمه بازگشت) باشه");
+    assert.ok(last.payload.reply_markup?.inline_keyboard, "باید askQuestion (با دکمه بازگشت) باشه");
   } finally {
     restore();
   }

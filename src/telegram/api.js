@@ -101,7 +101,7 @@ export const sendMessage = (env, chatId, text, keyboard) =>
     reply_markup: keyboard ? { inline_keyboard: keyboard } : undefined,
   });
 
-export const MAIN_PANEL_BUTTONS = [
+const MAIN_PANEL_BUTTONS = [
   ["📦 محصولات", "🏷 دسته‌بندی‌ها"],
   ["💰 تغییر قیمت دسته‌جمعی", "🖼 تصاویر سایت"],
 ];
@@ -133,8 +133,6 @@ export const askQuestion = (env, chatId, text) =>
       inline_keyboard: [[{ text: "🔙 بازگشت به منو", callback_data: "cancel" }]],
     },
   });
-
-export const forceReply = askQuestion;
 
 export const answerCallback = (env, id, text) =>
   tg(env, "answerCallbackQuery", { callback_query_id: id, text, show_alert: false }); 

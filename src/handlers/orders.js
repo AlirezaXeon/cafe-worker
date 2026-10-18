@@ -45,23 +45,12 @@ const MAX_LINES = 30; // سقف تعداد ردیف سبد؛ هم جلوی سو�
 // گوشی نرسه و مشتری دوباره بزنه، همون سفارش قبلی برمی‌گرده و دوباره ثبت (و به گارسون اطلاع) نمیشه.
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9-]{8,64}$/;
 
-const DEFAULT_IP_HASH_SECRET = "cafe-roshan-ip-hash-default-fallback-key";
-let warnedMissingIpSecret = false;
-
 export async function hashIp(ip, secret) {
-  if (!ip) return "";
-  let keyString = secret;
-  if (!keyString) {
-    if (!warnedMissingIpSecret) {
-      console.warn("[orders:hashIp] IP_HASH_SECRET is not configured; using fallback secret.");
-      warnedMissingIpSecret = true;
-    }
-    keyString = DEFAULT_IP_HASH_SECRET;
-  }
+  if (!ip || !secret) return "";
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    enc.encode(keyString),
+    enc.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -72,11 +61,25 @@ export async function hashIp(ip, secret) {
     .join("");
 }
 
-function formatOrderMessage({ orderId, tableNumber, items, total }) {
+function parseOrderDate(val) {
+  if (!val) return new Date();
+  if (val instanceof Date) return val;
+  if (typeof val === "number") return new Date(val);
+  if (typeof val === "string") {
+    const s = val.includes("T") ? val : val.replace(" ", "T");
+    const withZ = s.endsWith("Z") ? s : `${s}Z`;
+    const d = new Date(withZ);
+    return isNaN(d.getTime()) ? new Date(val) : d;
+  }
+  return new Date();
+}
+
+export function formatOrderMessage({ orderId, tableNumber, items, total, createdAt, created_at }) {
   const lines = items
     .map((it) => `• ${escapeHtml(it.name)} × ${it.quantity} — ${formatToman(it.price * it.quantity)}`)
     .join("\n");
-  const time = new Date().toLocaleTimeString("fa-IR", {
+  const dateObj = parseOrderDate(createdAt || created_at);
+  const time = dateObj.toLocaleTimeString("fa-IR", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Asia/Tehran",
@@ -103,12 +106,12 @@ async function loadProducts(env, ids) {
 // پاک‌شدن خودکار پیام‌های منوی ربات نشه — هر سفارش پیام مستقل خودشو داره.
 // سفارش قبلاً تو دیتابیس ثبت شده، پس هر خطایی اینجا (تلگرام قطع، KV و ...) فقط لاگ میشه
 // و نباید به مشتری «خطا» نشون بده (وگرنه دوباره می‌زنه و سفارش تکراری ثبت میشه).
-export async function notifyAdmins(env, { orderId, tableNumber, items, total }) {
+export async function notifyAdmins(env, { orderId, tableNumber, items, total, createdAt, created_at }) {
   try {
     const adminIds = getAdminIds(env);
     if (adminIds.length === 0) return;
 
-    const text = formatOrderMessage({ orderId, tableNumber, items, total });
+    const text = formatOrderMessage({ orderId, tableNumber, items, total, createdAt: createdAt || created_at });
     const keyboard = [[
       { text: "✅ تایید سفارش", callback_data: `order:confirm:${orderId}` },
       { text: "❌ رد سفارش", callback_data: `order:reject:${orderId}` },
@@ -249,7 +252,8 @@ export async function handleOrdersAPI(request, env, ctx) {
 
   // محدودیت نرخ بر اساس هش IP (هرگز IP خام ذخیره نمی‌شود)
   const clientIp = request.headers.get("cf-connecting-ip") || "";
-  const ipHash = clientIp ? await hashIp(clientIp, env.IP_HASH_SECRET) : null;
+  const ipSecret = env.IP_HASH_SECRET || env.JWT_SECRET;
+  const ipHash = clientIp && ipSecret ? await hashIp(clientIp, ipSecret) : null;
 
   if (ipHash) {
     try {

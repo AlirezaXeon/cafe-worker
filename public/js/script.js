@@ -729,6 +729,10 @@ async function loadProducts() {
     }
     return;
   }
+  const countEl = document.getElementById('menuItemCount');
+  if (countEl && productsData?.products?.length) {
+    countEl.textContent = `${productsData.products.length.toLocaleString('fa-IR')}+`;
+  }
   renderTabs();
   renderProducts();
   restoreCart();
@@ -751,7 +755,7 @@ function renderTabs() {
   const catBtns = productsData.categories.map(c => {
     const img = getCategoryImage(c.id);
     const imgHtml = img
-      ? `<img src="${productThumbSrc(img)}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
+      ? `<img src="${esc(productThumbSrc(img))}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
       : esc(c.label.charAt(0));
     return `<button class="cat-card" data-cat="${esc(c.id)}" role="tab" aria-selected="false">
       <span class="cat-card-img">${imgHtml}</span>
@@ -984,7 +988,7 @@ function productCardHtml(p) {
         <rect x="1" y="1" width="98" height="98" rx="7" ry="7" pathLength="100"></rect>
       </svg>
       <div class="product-image">
-        ${imgSrc ? `<img src="${thumbSrc}" alt="${esc(p.name)}" loading="${lazy}" decoding="async" onload="this.parentElement.classList.add('img-ready')" onerror="this.remove(); this.parentElement.classList.add('img-ready'); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
+        ${imgSrc ? `<img src="${esc(thumbSrc)}" alt="${esc(p.name)}" loading="${lazy}" decoding="async" onload="this.parentElement.classList.add('img-ready')" onerror="this.remove(); this.parentElement.classList.add('img-ready'); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
         <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${esc(p.name.charAt(0))}</div>
       </div>
       <div class="product-info">
@@ -1470,6 +1474,35 @@ try {
 } catch {}
 
 function renderTableSelect() {
+  const signingEnabled = Boolean(getBoot()?.site?.signingEnabled);
+  let qrMsgEl = document.getElementById('tableQrRequiredMsg');
+
+  if (signingEnabled && !selectedTableSig) {
+    tableSelectBtn.style.display = 'none';
+    if (!qrMsgEl) {
+      qrMsgEl = document.createElement('div');
+      qrMsgEl.id = 'tableQrRequiredMsg';
+      qrMsgEl.className = 'table-qr-required-msg';
+      qrMsgEl.textContent = 'کد QR روی میز را اسکن کنید';
+      qrMsgEl.style.padding = '10px 14px';
+      qrMsgEl.style.borderRadius = '10px';
+      qrMsgEl.style.background = 'rgba(212, 175, 55, 0.12)';
+      qrMsgEl.style.color = 'var(--color-gold, #d4af37)';
+      qrMsgEl.style.fontWeight = '600';
+      qrMsgEl.style.fontSize = '0.92rem';
+      qrMsgEl.style.textAlign = 'center';
+      qrMsgEl.style.marginTop = '6px';
+      qrMsgEl.style.border = '1px dashed rgba(212, 175, 55, 0.35)';
+      tableSelectBtn.parentNode.appendChild(qrMsgEl);
+    } else {
+      qrMsgEl.style.display = 'block';
+    }
+    return;
+  }
+
+  tableSelectBtn.style.display = '';
+  if (qrMsgEl) qrMsgEl.style.display = 'none';
+
   if (selectedTable) {
     const label = /^\d+$/.test(selectedTable) ? Number(selectedTable).toLocaleString('fa-IR') : selectedTable;
     tableSelectValue.textContent = `میز شماره ${label}`;
@@ -1490,6 +1523,8 @@ function renderTableGrid() {
 }
 
 function openTableModal() {
+  const signingEnabled = Boolean(getBoot()?.site?.signingEnabled);
+  if (signingEnabled && !selectedTableSig) return;
   renderTableGrid();
   tableModal.classList.add('open');
   tableOverlay.classList.add('open');
@@ -1542,6 +1577,12 @@ async function submitOrder() {
   // کافه بسته‌ست؟ (سرور هم چک می‌کنه؛ اینجا فقط برای اینکه مشتری بیخود منتظر نمونه)
   const openState = getOpenState();
   if (openState && !openState.open) { applyOrderingState(); return; }
+
+  const signingEnabled = Boolean(getBoot()?.site?.signingEnabled);
+  if (signingEnabled && !selectedTableSig) {
+    setCheckoutMsg('کد QR روی میز را اسکن کنید.', 'error');
+    return;
+  }
 
   const table = selectedTable;
   if (!table) {
@@ -1640,17 +1681,21 @@ function startOrderStatusPolling(publicId) {
 
   const maxDuration = 15 * 60 * 1000; // سقف ۱۵ دقیقه
   const startTime = Date.now();
+  let pollInterval = 6000;
 
   async function poll() {
     if (!document.getElementById('receipt-status-badge')) return;
     if (Date.now() - startTime > maxDuration) return;
     if (document.visibilityState !== 'visible') {
-      orderStatusPollTimer = setTimeout(poll, 6000);
+      orderStatusPollTimer = setTimeout(poll, pollInterval);
       return;
     }
     try {
       const res = await fetch(`/api/orders/${encodeURIComponent(publicId)}/status`);
-      if (res.ok) {
+      if (res.status === 429) {
+        pollInterval = Math.min(30000, pollInterval * 2);
+      } else if (res.ok) {
+        pollInterval = 6000;
         const d = await res.json();
         const badge = document.getElementById('receipt-status-badge');
         const hint = document.getElementById('receipt-status-hint');
@@ -1675,7 +1720,7 @@ function startOrderStatusPolling(publicId) {
         }
       }
     } catch {}
-    orderStatusPollTimer = setTimeout(poll, 6000);
+    orderStatusPollTimer = setTimeout(poll, pollInterval);
   }
 
   orderStatusPollTimer = setTimeout(poll, 5000);
@@ -1765,13 +1810,18 @@ async function loadSiteConfig() {
     return;
   }
 
+  if (cfg.signingEnabled !== undefined) {
+    if (!bootCache) bootCache = {};
+    if (!bootCache.site) bootCache.site = {};
+    bootCache.site.signingEnabled = cfg.signingEnabled;
+  }
   if (cfg.tableCount) {
     tableCount = Number(cfg.tableCount) || 20;
   }
   if (selectedTable && Number(selectedTable) > tableCount) {
     selectedTable = '';
-    renderTableSelect();
   }
+  renderTableSelect();
   renderTableGrid();
 
   if (cfg.hours) {
@@ -1886,6 +1936,8 @@ function getTehranTimeParts(date = new Date()) {
   }
 }
 
+// توجه: منطق ساعت کاری در سرور (src/lib/hours.js) و کلاینت (public/js/script.js) به دلیل
+// عدم امکان ایمپورت مستقیم ماژول ES سرور در کلاینت، جداگانه پیاده‌سازی شده‌اند و هر دو باید با هم هماهنگ بمانند.
 // {open, slot, next} یا null اگه هنوز ساعتی نداریم. next = اولین باز شدن بعدی (امروز یا فردا)
 function getOpenState(date = new Date(Date.now() + clockSkewMs)) {
   if (!siteHours || !Array.isArray(siteHours.schedule)) return null;

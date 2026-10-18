@@ -102,11 +102,20 @@ export async function handleTextStep(env, chatId, text, session) {
   }
 
   if (session.step === "new_product_name") {
+    if (!trimmed) {
+      return askQuestion(env, chatId, "نام محصول نمی‌تواند خالی باشد. لطفاً نام محصول را بفرست:");
+    }
+    if (trimmed.length > 80) {
+      return askQuestion(env, chatId, "نام محصول نمی‌تواند بیشتر از ۸۰ نویسه باشد. لطفاً نام کوتاه‌تری بفرست:");
+    }
     await setSession(env, chatId, { ...session, step: "new_product_note", name: trimmed });
     return askQuestion(env, chatId, "توضیح کوتاه محصول رو بفرست:");
   }
 
   if (session.step === "new_product_note") {
+    if (trimmed.length > 300) {
+      return askQuestion(env, chatId, "یادداشت محصول نمی‌تواند بیشتر از ۳۰۰ نویسه باشد. لطفاً توضیح کوتاه‌تری بفرست:");
+    }
     await setSession(env, chatId, { ...session, step: "new_product_price", note: trimmed });
     return askQuestion(env, chatId, "قیمت رو به تومان بفرست (فقط عدد):");
   }

@@ -1,5 +1,5 @@
 // کش در حافظه ایزوله (Per-isolate in-memory memoization)
-// حذف کامل لایه KV getCached برای جلوگیری از سوزاندن سهمیه نوشتن/خواندن پلن رایگان Cloudflare
+// کلیدهای زیر شناسه‌های کش در حافظه محلی ورکر هستند (لایه کش KV قبلاً برای صرفه‌جویی در سهمیه حذف شده است)
 
 export const PRODUCTS_CACHE_KEY = "cache:products.json";
 export const SITE_CACHE_KEY = "cache:site.json";

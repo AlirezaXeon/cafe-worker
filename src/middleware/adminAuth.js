@@ -47,7 +47,7 @@ export async function signToken(payload = {}, secret, version = "1") {
     role: 'admin',
     iat: nowSec,
     exp: nowSec + 12 * 3600, // ۱۲ ساعت
-    jti: (typeof crypto.randomUUID === 'function') ? crypto.randomUUID() : Math.random().toString(36).slice(2),
+    jti: crypto.randomUUID(),
     ver: version,
     ...payload,
   };

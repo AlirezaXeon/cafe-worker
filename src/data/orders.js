@@ -30,7 +30,7 @@ export async function getPendingOrdersNeedingNotification(env, now = Date.now())
   const maxCreatedAt = new Date(now - 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
   const res = await env.DB
     .prepare(
-      "SELECT id, table_number, items, total FROM orders WHERE status = 'pending' AND tg_notified = 0 AND created_at >= ? AND created_at <= ? ORDER BY id ASC"
+      "SELECT id, table_number, items, total, created_at FROM orders WHERE status = 'pending' AND tg_notified = 0 AND created_at >= ? AND created_at <= ? ORDER BY id ASC"
     )
     .bind(minCreatedAt, maxCreatedAt)
     .all();
@@ -47,6 +47,7 @@ export async function getPendingOrdersNeedingNotification(env, now = Date.now())
       tableNumber: o.table_number,
       items,
       total: o.total,
+      createdAt: o.created_at,
     };
   });
 }

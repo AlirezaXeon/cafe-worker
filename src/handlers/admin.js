@@ -1,4 +1,4 @@
-import { getSiteConfig, saveSiteImage, removeSiteImage } from '../data/site.js';
+import { getSiteConfig, saveSiteImage, removeSiteImage, setSiteSetting } from '../data/site.js';
 import { signToken, requireAdmin } from '../middleware/adminAuth.js';
 import {
   newProductId,
@@ -20,7 +20,7 @@ import { MAX_UPLOAD_BYTES } from '../config.js';
 import { listOrders, resolveOrder, getSalesStats, getOrdersSummary } from '../data/orders.js';
 import { validatePrice, validateDiscount } from '../lib/validate.js';
 import { validateImage } from '../lib/images.js';
-import { imagePath } from '../data/imagePaths.js';
+import { imagePath, imageFilename } from '../data/imagePaths.js';
 import { signTable } from '../lib/tableSig.js';
 import { getBotState, deleteBotState, incrementBotState } from '../data/botState.js';
 
@@ -47,25 +47,26 @@ function serverError(request, e, context) {
 }
 
 // مقایسه‌ی constant-time برای جلوگیری از timing attack روی رمز عبور
-export function safeCompare(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
-  const maxLen = Math.max(a.length, b.length, 32);
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < maxLen; i++) {
-    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
-  }
-  return diff === 0;
-}
+import { safeCompare } from '../lib/safeCompare.js';
+export { safeCompare };
+
+const IMAGE_PATH_RE = /^\/images\/[\w.-]+\.(jpg|jpeg|png|webp|gif)$/i;
 
 // اعتبارسنجی مشترک بین ساخت و ویرایش محصول
 function validateProductBody(b) {
-  if (!b?.name?.trim()) return 'نام محصول اجباری است';
-  if (!b.category) return 'دسته‌بندی اجباری است';
+  const name = typeof b?.name === 'string' ? b.name.trim() : '';
+  if (!name) return { error: 'نام محصول اجباری است' };
+  if (name.length > 80) return { error: 'نام محصول نمی‌تواند بیشتر از ۸۰ نویسه باشد' };
+  const note = typeof b?.note === 'string' ? b.note.trim() : (b?.note ? String(b.note).trim() : '');
+  if (note.length > 300) return { error: 'یادداشت محصول نمی‌تواند بیشتر از ۳۰۰ نویسه باشد' };
+  if (!b?.category) return { error: 'دسته‌بندی اجباری است' };
   const priceCheck = validatePrice(b.price);
-  if (!priceCheck.valid) return priceCheck.error;
+  if (!priceCheck.valid) return { error: priceCheck.error };
   const discountCheck = validateDiscount(b.discount);
-  if (!discountCheck.valid) return discountCheck.error;
-  return null;
+  if (!discountCheck.valid) return { error: discountCheck.error };
+  const image = b?.image ? String(b.image).trim() : null;
+  if (image && !IMAGE_PATH_RE.test(image)) return { error: 'مسیر تصویر نامعتبر است' };
+  return { valid: true, price: priceCheck.price, discount: discountCheck.discount, image };
 }
 
 export async function handleAdminAPI(request, env) {
@@ -109,14 +110,16 @@ export async function handleAdminAPI(request, env) {
       ]);
       const failCount = failCountRaw ? Number(failCountRaw) : 0;
       const globalFail = globalFailRaw ? Number(globalFailRaw) : 0;
-      // آستانه ۱۵ تلاش برای IP یا ۵۰ تلاش سراسری برای جلوگیری از حملات گسترده
-      if (failCount >= 15 || globalFail >= 50) {
+      // آستانه ۱۵ تلاش ناموفق برای IP جاری (قفل کامل سراسری به دلیل پتانسیل DoS حذف شده است)
+      if (failCount >= 15) {
         return json(request, { error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگر امتحان کنید.' }, 429);
       }
 
-      // تأخیر تصاعدی از تلاش پنجم به بعد برای کند کردن حملات بدون قفل کردن کامل آی‌پی
-      if (failCount >= 5) {
-        const delayMs = Math.min(2000, (failCount - 4) * 200);
+      // تأخیر تصاعدی بر اساس تلاش‌های ناموفق IP یا سراسری (سقف ۲ ثانیه) برای کند کردن حملات بدون قفل سراسری
+      const ipDelay = failCount >= 5 ? (failCount - 4) * 200 : 0;
+      const globalDelay = globalFail >= 10 ? Math.floor((globalFail - 9) * 50) : 0;
+      const delayMs = Math.min(2000, Math.max(ipDelay, globalDelay));
+      if (delayMs > 0) {
         await new Promise((r) => setTimeout(r, delayMs));
       }
 
@@ -173,7 +176,9 @@ export async function handleAdminAPI(request, env) {
   async function readValidatedImage(req) {
     const formData = await req.formData();
     const file = formData.get('file');
-    if (!file) return { error: json(request, { error: 'فایلی ارسال نشده' }, 400) };
+    if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') {
+      return { error: json(request, { error: 'فایلی ارسال نشده یا نامعتبر است' }, 400) };
+    }
 
     const clientExt = (file.name || '').split('.').pop().toLowerCase();
     if (file.size > MAX_UPLOAD_BYTES)
@@ -239,6 +244,19 @@ export async function handleAdminAPI(request, env) {
     }
   }
 
+  // ── تنظیم تعداد میزها ───────────────────────────────────────────────
+  if (path === '/site/table-count' && method === 'PUT') {
+    try {
+      const b = await request.json().catch(() => ({}));
+      const count = Number(b.tableCount);
+      if (!Number.isInteger(count) || count < 1 || count > 100) {
+        return json(request, { error: 'تعداد میز باید یک عدد صحیح بین ۱ تا ۱۰۰ باشد' }, 400);
+      }
+      await setSiteSetting(env, 'tableCount', count);
+      return json(request, { success: true, tableCount: count });
+    } catch (e) { return serverError(request, e, 'site:table-count'); }
+  }
+
   // ── فروش (فقط سفارش‌های تایید‌شده) ────────────────────────────────────
   if (path === '/sales-stats' && method === 'GET') {
     try {
@@ -273,8 +291,10 @@ export async function handleAdminAPI(request, env) {
       try {
         const b = await request.json();
         if (!b.label?.trim()) return json(request, { error: 'نام دسته‌بندی اجباری است' }, 400);
+        const image = b.image ? String(b.image).trim() : null;
+        if (image && !IMAGE_PATH_RE.test(image)) return json(request, { error: 'مسیر تصویر نامعتبر است' }, 400);
         const id = newCategoryId();
-        await addCategory(env, id, b.label.trim(), b.image || null);
+        await addCategory(env, id, b.label.trim(), image);
         return json(request, { success: true, id }, 201);
       } catch (e) { return serverError(request, e, 'categories:post'); }
     }
@@ -306,12 +326,15 @@ export async function handleAdminAPI(request, env) {
       try {
         const b = await request.json();
         if (!b.label?.trim()) return json(request, { error: 'نام دسته‌بندی اجباری است' }, 400);
+        const image = b.image ? String(b.image).trim() : null;
+        if (image && !IMAGE_PATH_RE.test(image)) return json(request, { error: 'مسیر تصویر نامعتبر است' }, 400);
         const old = await findCategory(env, id);
         if (!old) return json(request, { error: 'دسته‌بندی پیدا نشد' }, 404);
-        await updateCategory(env, id, b.label.trim(), b.image || null);
-        if (old?.image && old.image !== b.image) {
-          const oldFilename = old.image.split('/').pop();
-          if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+        await updateCategory(env, id, b.label.trim(), image);
+        const oldFilename = imageFilename(old?.image);
+        const newFilename = imageFilename(b.image);
+        if (oldFilename && oldFilename !== newFilename) {
+          await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
         }
         return json(request, { success: true });
       } catch (e) { return serverError(request, e, 'categories:put'); }
@@ -329,8 +352,8 @@ export async function handleAdminAPI(request, env) {
     if (method === 'POST') {
       try {
         const b = await request.json();
-        const invalid = validateProductBody(b);
-        if (invalid) return json(request, { error: invalid }, 400);
+        const check = validateProductBody(b);
+        if (check.error) return json(request, { error: check.error }, 400);
 
         const cat = await findCategory(env, b.category);
         if (!cat) return json(request, { error: 'دسته‌بندی انتخاب‌شده وجود ندارد' }, 400);
@@ -343,9 +366,9 @@ export async function handleAdminAPI(request, env) {
           category: b.category,
           name: b.name.trim(),
           note: b.note || '',
-          price: Number(b.price),
-          discount: Number(b.discount || 0),
-          image: b.image || null,
+          price: check.price,
+          discount: check.discount,
+          image: check.image,
           available,
         });
         return json(request, { success: true, id }, 201);
@@ -373,8 +396,8 @@ export async function handleAdminAPI(request, env) {
     if (method === 'PUT') {
       try {
         const b = await request.json();
-        const invalid = validateProductBody(b);
-        if (invalid) return json(request, { error: invalid }, 400);
+        const check = validateProductBody(b);
+        if (check.error) return json(request, { error: check.error }, 400);
 
         const old = await findProduct(env, id);
         if (!old) return json(request, { error: 'محصول پیدا نشد' }, 404);
@@ -388,15 +411,16 @@ export async function handleAdminAPI(request, env) {
           category: b.category,
           name: b.name.trim(),
           note: b.note || '',
-          price: Number(b.price),
-          discount: Number(b.discount || 0),
+          price: check.price,
+          discount: check.discount,
           originalPrice: origPrice !== undefined ? (origPrice === null ? null : Number(origPrice)) : undefined,
-          image: b.image || null,
+          image: check.image,
           available,
         });
-        if (old.image && old.image !== b.image) {
-          const oldFilename = old.image.split('/').pop();
-          if (oldFilename) await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
+        const oldFilename = imageFilename(old?.image);
+        const newFilename = imageFilename(b.image);
+        if (oldFilename && oldFilename !== newFilename) {
+          await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
         }
         return json(request, { success: true });
       } catch (e) { return serverError(request, e, 'products:put'); }

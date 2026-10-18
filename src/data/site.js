@@ -90,7 +90,11 @@ export async function seedFromKvIfEmpty(env) {
 // ساعت کاری از config.js میاد (نه دیتابیس) و تو خروجی قرار میگیره؛ اینطوری سایت (via /data/site.json و bootData)
 // دقیقاً از همون مقداری استفاده میکنه که سرور برای قبول/رد سفارش
 export async function getSiteConfig(env) {
-  return { ...(await readSiteConfig(env)), hours: OPENING_HOURS };
+  return {
+    ...(await readSiteConfig(env)),
+    hours: OPENING_HOURS,
+    signingEnabled: Boolean(env?.TABLE_SIGNING_SECRET),
+  };
 }
 
 export async function setSiteSetting(env, key, value) {
