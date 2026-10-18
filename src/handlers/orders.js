@@ -1,9 +1,10 @@
-import { createOrder } from "../data/orders.js";
+import { createOrder, getOrderStatusByPublicId } from "../data/orders.js";
 import { getSiteConfig } from "../data/site.js";
 import { memo, SITE_CACHE_KEY } from "../data/cache.js";
 import { sendRaw, getAdminIds } from "../telegram/api.js";
 import { formatToman, escapeHtml, toFa } from "../telegram/format.js";
 import { getOpenStatus, nextOpening } from "../lib/hours.js";
+import { verifyTableSig } from "../lib/tableSig.js";
 import {
   ORDER_RATE_LIMIT_MAX,
   ORDER_RATE_LIMIT_WINDOW_SEC,
@@ -18,6 +19,25 @@ const json = (data, status = 200) =>
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 
+const statusRateLimits = new Map();
+function checkStatusRateLimit(ip) {
+  const now = Date.now();
+  const entry = statusRateLimits.get(ip) || { count: 0, resetAt: now + 60000 };
+  if (now > entry.resetAt) {
+    entry.count = 1;
+    entry.resetAt = now + 60000;
+  } else {
+    entry.count++;
+  }
+  statusRateLimits.set(ip, entry);
+  if (statusRateLimits.size > 2000) {
+    for (const [k, v] of statusRateLimits) {
+      if (now > v.resetAt) statusRateLimits.delete(k);
+    }
+  }
+  return entry.count <= 180;
+}
+
 const MAX_QTY = 50;
 const MAX_LINES = 30; // سقف تعداد ردیف سبد؛ هم جلوی سوءاستفاده رو می‌گیره هم IN(...) رو کوچیک نگه می‌داره
 
@@ -25,10 +45,29 @@ const MAX_LINES = 30; // سقف تعداد ردیف سبد؛ هم جلوی سو�
 // گوشی نرسه و مشتری دوباره بزنه، همون سفارش قبلی برمی‌گرده و دوباره ثبت (و به گارسون اطلاع) نمیشه.
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9-]{8,64}$/;
 
-export async function hashIp(ip) {
+const DEFAULT_IP_HASH_SECRET = "cafe-roshan-ip-hash-default-fallback-key";
+let warnedMissingIpSecret = false;
+
+export async function hashIp(ip, secret) {
   if (!ip) return "";
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
-  return Array.from(new Uint8Array(buf))
+  let keyString = secret;
+  if (!keyString) {
+    if (!warnedMissingIpSecret) {
+      console.warn("[orders:hashIp] IP_HASH_SECRET is not configured; using fallback secret.");
+      warnedMissingIpSecret = true;
+    }
+    keyString = DEFAULT_IP_HASH_SECRET;
+  }
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(keyString),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(ip));
+  return Array.from(new Uint8Array(sig))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
@@ -64,7 +103,7 @@ async function loadProducts(env, ids) {
 // پاک‌شدن خودکار پیام‌های منوی ربات نشه — هر سفارش پیام مستقل خودشو داره.
 // سفارش قبلاً تو دیتابیس ثبت شده، پس هر خطایی اینجا (تلگرام قطع، KV و ...) فقط لاگ میشه
 // و نباید به مشتری «خطا» نشون بده (وگرنه دوباره می‌زنه و سفارش تکراری ثبت میشه).
-async function notifyAdmins(env, { orderId, tableNumber, items, total }) {
+export async function notifyAdmins(env, { orderId, tableNumber, items, total }) {
   try {
     const adminIds = getAdminIds(env);
     if (adminIds.length === 0) return;
@@ -115,6 +154,22 @@ function closedMessage(hours) {
 // (مشتری منتظر رفت‌وبرگشت تلگرام نمی‌مونه)؛ وگرنه مثل قبل صبر می‌کنیم.
 export async function handleOrdersAPI(request, env, ctx) {
   const url = new URL(request.url);
+
+  // بررسی وضعیت سفارش با publicId
+  const statusMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/status$/);
+  if (statusMatch && request.method === "GET") {
+    const publicId = statusMatch[1];
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    if (!checkStatusRateLimit(ip)) {
+      return json({ error: "تعداد درخواست‌ها بیش از حد مجاز است." }, 429);
+    }
+    const order = await getOrderStatusByPublicId(env, publicId);
+    if (!order) {
+      return json({ error: "سفارش پیدا نشد" }, 404);
+    }
+    return json({ status: order.status }, 200);
+  }
+
   if (url.pathname !== "/api/orders" || request.method !== "POST") {
     return json({ error: "مسیر پیدا نشد" }, 404);
   }
@@ -126,7 +181,11 @@ export async function handleOrdersAPI(request, env, ctx) {
 
   let body;
   try {
-    body = await request.json();
+    const rawText = await request.text();
+    if (new TextEncoder().encode(rawText).byteLength > 16 * 1024) {
+      return json({ error: "حجم درخواست بیش از حد مجاز است" }, 413);
+    }
+    body = JSON.parse(rawText);
   } catch {
     return json({ error: "درخواست نامعتبر است" }, 400);
   }
@@ -147,6 +206,15 @@ export async function handleOrdersAPI(request, env, ctx) {
   }
   const tableNumber = String(tableNum);
 
+  // در صورت فعال بودن TABLE_SIGNING_SECRET، امضای معتبر میز برای ثبت سفارش الزامی است
+  if (env.TABLE_SIGNING_SECRET) {
+    const tableSig = typeof body?.tableSig === "string" ? body.tableSig : "";
+    const valid = await verifyTableSig(tableNumber, tableSig, env.TABLE_SIGNING_SECRET);
+    if (!valid) {
+      return json({ error: "امضای میز نامعتبر است. لطفاً کد QR روی میز را اسکن کنید." }, 403);
+    }
+  }
+
   // جلوگیری از سفارش تکراری: اول در D1 بررسی می‌کنیم (requestId یا idempotencyKey قدیمی)
   const reqIdRaw = typeof body?.requestId === "string"
     ? body.requestId
@@ -157,11 +225,11 @@ export async function handleOrdersAPI(request, env, ctx) {
   if (requestId) {
     try {
       const existing = await env.DB
-        .prepare("SELECT id FROM orders WHERE request_id = ?")
+        .prepare("SELECT id, public_id, total FROM orders WHERE request_id = ?")
         .bind(requestId)
         .first();
       if (existing?.id) {
-        return json({ ok: true, orderId: existing.id, duplicate: true });
+        return json({ ok: true, orderId: existing.id, publicId: existing.public_id, total: existing.total, duplicate: true });
       }
     } catch (err) {
       console.error("[orders:requestId:check]", err);
@@ -181,7 +249,7 @@ export async function handleOrdersAPI(request, env, ctx) {
 
   // محدودیت نرخ بر اساس هش IP (هرگز IP خام ذخیره نمی‌شود)
   const clientIp = request.headers.get("cf-connecting-ip") || "";
-  const ipHash = clientIp ? await hashIp(clientIp) : null;
+  const ipHash = clientIp ? await hashIp(clientIp, env.IP_HASH_SECRET) : null;
 
   if (ipHash) {
     try {
@@ -248,25 +316,27 @@ export async function handleOrdersAPI(request, env, ctx) {
 
   const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
-  let orderId;
+  let orderResult;
   try {
-    orderId = await createOrder(env, { tableNumber, items, total, requestId, ipHash });
+    orderResult = await createOrder(env, { tableNumber, items, total, requestId, ipHash });
   } catch (err) {
     if (requestId && /UNIQUE constraint failed.*request_id/i.test(err?.message || "")) {
       const existing = await env.DB
-        .prepare("SELECT id FROM orders WHERE request_id = ?")
+        .prepare("SELECT id, public_id, total FROM orders WHERE request_id = ?")
         .bind(requestId)
         .first();
       if (existing?.id) {
-        return json({ ok: true, orderId: existing.id, duplicate: true });
+        return json({ ok: true, orderId: existing.id, publicId: existing.public_id, total: existing.total, duplicate: true });
       }
     }
     throw err;
   }
 
+  const { orderId, publicId } = orderResult;
+
   const notify = notifyAdmins(env, { orderId, tableNumber, items, total });
   if (ctx?.waitUntil) ctx.waitUntil(notify);
   else await notify;
 
-  return json({ ok: true, orderId });
-}
+  return json({ ok: true, orderId, publicId, total });
+}

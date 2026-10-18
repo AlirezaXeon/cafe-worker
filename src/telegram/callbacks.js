@@ -13,7 +13,7 @@ import { getSession, setSession, clearSession } from "../data/session.js";
 import { findOrphanImageKeys, deleteOrphanImages } from "../data/maintenance.js";
 import { resolveOrder } from "../data/orders.js";
 import { imageFilename } from "../data/imagePaths.js";
-import { sendMessage, forceReply } from "./api.js";
+import { sendMessage, askQuestion } from "./api.js";
 import { toFa, escapeHtml } from "./format.js";
 import {
   sendMainMenu,
@@ -54,11 +54,11 @@ export async function handleCallback(env, chatId, data, cq) {
 
   if (data === "siteimg:logo") {
     await setSession(env, chatId, { step: "edit_site_logo" });
-    return forceReply(env, chatId, "🖼 عکس جدید لوگو رو بفرست (ترجیحاً مربعی، با پس‌زمینه‌ی شفاف اگه PNG داری):");
+    return askQuestion(env, chatId, "🖼 عکس جدید لوگو رو بفرست (ترجیحاً مربعی، با پس‌زمینه‌ی شفاف اگه PNG داری):");
   }
   if (data === "siteimg:cover") {
     await setSession(env, chatId, { step: "edit_site_cover" });
-    return forceReply(env, chatId, "🖼 عکس جدید بالای سایت رو بفرست (افقی، عریض، از فضای کافه):");
+    return askQuestion(env, chatId, "🖼 عکس جدید بالای سایت رو بفرست (افقی، عریض، از فضای کافه):");
   }
 
   if (data === "siteimg:cleanup") {
@@ -91,11 +91,11 @@ export async function handleCallback(env, chatId, data, cq) {
     if (mode === "browse") return sendProductList(env, chatId, catId);
     if (mode === "bulk") {
       await setSession(env, chatId, { step: "bulk_percent", catId });
-      return forceReply(env, chatId, "درصد تغییر قیمت رو بفرست (مثبت = افزایش، منفی = تخفیف). مثال: 20 یا -15");
+      return askQuestion(env, chatId, "درصد تغییر قیمت رو بفرست (مثبت = افزایش، منفی = تخفیف). مثال: 20 یا -15");
     }
     if (mode === "newprod") {
       await setSession(env, chatId, { step: "new_product_name", catId });
-      return forceReply(env, chatId, "اسم محصول جدید رو بفرست:");
+      return askQuestion(env, chatId, "اسم محصول جدید رو بفرست:");
     }
   }
 
@@ -103,12 +103,12 @@ export async function handleCallback(env, chatId, data, cq) {
 
   if (action === "editprice") {
     await setSession(env, chatId, { step: "edit_price", productId: a });
-    return forceReply(env, chatId, "قیمت جدید رو به تومان بفرست (فقط عدد):");
+    return askQuestion(env, chatId, "قیمت جدید رو به تومان بفرست (فقط عدد):");
   }
 
   if (action === "discount") {
     await setSession(env, chatId, { step: "discount_percent", productId: a });
-    return forceReply(env, chatId, "چند درصد تخفیف بدیم؟ (مثلاً 15):");
+    return askQuestion(env, chatId, "چند درصد تخفیف بدیم؟ (مثلاً 15):");
   }
 
   if (action === "rmdiscount") {
@@ -118,7 +118,7 @@ export async function handleCallback(env, chatId, data, cq) {
 
   if (action === "editimg") {
     await setSession(env, chatId, { step: "edit_product_image", productId: a });
-    return forceReply(env, chatId, "📷 عکس جدید این محصول رو بفرست:");
+    return askQuestion(env, chatId, "📷 عکس جدید این محصول رو بفرست:");
   }
 
   if (action === "rmimg") {
@@ -164,12 +164,12 @@ export async function handleCallback(env, chatId, data, cq) {
   if (data === "newcat") {
     // شناسه رو دیگه از ادمین نمی‌پرسیم؛ خودکار ساخته میشه (مثل پنل وب) تا فرمت شناسه‌ها یکی بمونه
     await setSession(env, chatId, { step: "new_category_label" });
-    return forceReply(env, chatId, "اسم این دسته رو بفرست (مثلاً «نوشیدنی‌ها»):");
+    return askQuestion(env, chatId, "اسم این دسته رو بفرست (مثلاً «نوشیدنی‌ها»):");
   }
 
   if (action === "catimg") {
     await setSession(env, chatId, { step: "edit_category_image", catId: a });
-    return forceReply(env, chatId, "📷 عکس جدید این دسته رو بفرست:");
+    return askQuestion(env, chatId, "📷 عکس جدید این دسته رو بفرست:");
   }
 
   if (action === "delcat") {

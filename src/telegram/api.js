@@ -120,11 +120,11 @@ export const sendMessageWithPanel = (env, chatId, text) =>
     reply_markup: mainPanelKeyboard(),
   });
 
-// ── forceReply تغییر کرد ──────────────────────────────────────────────────
+// ── askQuestion ────────────────────────────────────────────────────────
 // قبلاً از force_reply استفاده می‌کرد که روی موبایل کیبورد اصلی رو پنهان
 // می‌کرد و کاربر راهی برای لغو نداشت. الان یه دکمه «🔙 بازگشت به منو»
 // زیر هر سوال نشون میده که هر وقت خواست بتونه انصراف بده.
-export const forceReply = (env, chatId, text) =>
+export const askQuestion = (env, chatId, text) =>
   sendAndTrack(env, chatId, {
     chat_id: chatId,
     text,
@@ -133,6 +133,8 @@ export const forceReply = (env, chatId, text) =>
       inline_keyboard: [[{ text: "🔙 بازگشت به منو", callback_data: "cancel" }]],
     },
   });
+
+export const forceReply = askQuestion;
 
 export const answerCallback = (env, id, text) =>
   tg(env, "answerCallbackQuery", { callback_query_id: id, text, show_alert: false }); 

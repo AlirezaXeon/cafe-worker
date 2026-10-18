@@ -3,7 +3,7 @@
 
 import { invalidateCache, SITE_CACHE_KEY } from "./cache.js";
 import { OPENING_HOURS } from "../config.js";
-import { imageFilename } from "./imagePaths.js";
+import { imageFilename, imagePath } from "./imagePaths.js";
 
 const DEFAULTS = {
   logo: null, // تا وقتی از ربات/پنل آپلود نشده، سایت فقط فالبک متنی نشون میده
@@ -53,6 +53,40 @@ async function readSiteConfig(env) {
   return { ...DEFAULTS };
 }
 
+export async function seedFromKvIfEmpty(env) {
+  if (!env.DB || !env.PRODUCTS_KV) return;
+  try {
+    const stmt = env.DB.prepare("SELECT COUNT(*) AS c FROM site_settings");
+    const countRow = stmt.first ? await stmt.first() : (await stmt.all())?.results?.[0];
+    const count = Number(countRow?.c ?? 0);
+    if (count > 0) return;
+
+    const raw = await env.PRODUCTS_KV.get("site:config");
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw);
+    const statements = [];
+    for (const [k, v] of Object.entries(parsed)) {
+      if (v !== null && v !== undefined && v !== "") {
+        statements.push(
+          env.DB.prepare("INSERT OR IGNORE INTO site_settings (key, value) VALUES (?, ?)").bind(k, String(v))
+        );
+      }
+    }
+    if (statements.length > 0) {
+      if (typeof env.DB.batch === "function") {
+        await env.DB.batch(statements);
+      } else {
+        for (const s of statements) {
+          await s.run();
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[site:seedFromKvIfEmpty]", err);
+  }
+}
+
 // ساعت کاری از config.js میاد (نه دیتابیس) و تو خروجی قرار میگیره؛ اینطوری سایت (via /data/site.json و bootData)
 // دقیقاً از همون مقداری استفاده میکنه که سرور برای قبول/رد سفارش
 export async function getSiteConfig(env) {
@@ -60,6 +94,7 @@ export async function getSiteConfig(env) {
 }
 
 export async function setSiteSetting(env, key, value) {
+  await seedFromKvIfEmpty(env);
   const valStr = value === null || value === undefined ? "" : String(value);
   if (env.DB) {
     await env.DB
@@ -86,7 +121,7 @@ export async function saveSiteImage(env, kind, buffer, ext) {
     metadata: { contentType: EXT_TYPES[ext] || "image/jpeg", uploadedAt: Date.now() },
   });
   const old = (await getSiteConfig(env))[kind];
-  const path = `images/${filename}`;
+  const path = imagePath(filename);
   await setSiteSetting(env, kind, path);
   await deleteOldImage(env, old, filename);
   return path;

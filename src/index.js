@@ -3,7 +3,9 @@ import { getProducts } from "./data/products.js";
 import { getSiteConfig } from "./data/site.js";
 import { memo, PRODUCTS_CACHE_KEY, SITE_CACHE_KEY } from "./data/cache.js";
 import { handleAdminAPI, safeCompare } from './handlers/admin.js';
-import { handleOrdersAPI } from './handlers/orders.js';
+import { handleOrdersAPI, notifyAdmins } from './handlers/orders.js';
+import { getPendingOrdersNeedingNotification } from './data/orders.js';
+import { cleanupExpiredBotState } from './data/botState.js';
 import { withSecurityHeaders } from "./middleware/security.js";
 import { imageFilename } from "./data/imagePaths.js";
 
@@ -262,9 +264,9 @@ export default {
       return handleAdminAPI(request, env);
     }
 
-    // ── ثبت سفارش (عمومی، بدون احراز هویت) ──────────────────────────────────
+    // ── ثبت و پیگیری سفارش (عمومی، بدون احراز هویت) ─────────────────────────
     // ctx پاس داده میشه تا اطلاع‌رسانی تلگرام بعد از جواب دادن به مشتری انجام بشه
-    if (url.pathname === "/api/orders") {
+    if (url.pathname === "/api/orders" || url.pathname.startsWith("/api/orders/")) {
       return handleOrdersAPI(request, env, ctx);
     }
 
@@ -379,5 +381,26 @@ export default {
     }
 
     return assetResponse;
+  },
+
+  async scheduled(event, env, _ctx) {
+    try {
+      const pendingOrders = await getPendingOrdersNeedingNotification(env);
+      for (const order of pendingOrders) {
+        try {
+          await notifyAdmins(env, order);
+        } catch (err) {
+          console.error(`[scheduled:retry-notify] order ${order.orderId}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[scheduled:retry-orders-failed]", err);
+    }
+
+    try {
+      await cleanupExpiredBotState(env);
+    } catch (err) {
+      console.error("[scheduled:cleanup-bot-state-failed]", err);
+    }
   },
 };

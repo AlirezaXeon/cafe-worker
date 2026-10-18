@@ -18,7 +18,7 @@ export async function handleUpdate(update, env) {
 
     await deleteMessageSafe(env, chatId, msg.message_id);
 
-    if (msg.text === "/start") {
+    if (msg.text && /^\/start(@\w+)?(\s|$)/.test(msg.text)) {
       await clearSession(env, chatId);
       return sendMainMenu(env, chatId);
     }

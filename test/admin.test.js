@@ -528,7 +528,7 @@ test("POST /admin/api/site/logo accepts valid JPEG, saves image and updates site
   const data = await res.json();
   assert.equal(data.success, true);
   assert.match(data.url, /^\/images\/site-logo-\d+\.jpg$/);
-  assert.match(siteSettings.get("logo"), /^images\/site-logo-\d+\.jpg$/);
+  assert.match(siteSettings.get("logo"), /^\/images\/site-logo-\d+\.jpg$/);
 });
 
 test("POST /admin/api/site/cover accepts valid JPEG and updates cover in site settings", async () => {
@@ -551,7 +551,36 @@ test("POST /admin/api/site/cover accepts valid JPEG and updates cover in site se
   const data = await res.json();
   assert.equal(data.success, true);
   assert.match(data.url, /^\/images\/site-cover-\d+\.jpg$/);
-  assert.match(siteSettings.get("cover"), /^images\/site-cover-\d+\.jpg$/);
-});
+  assert.match(siteSettings.get("cover"), /^\/images\/site-cover-\d+\.jpg$/);
+});test("GET /admin/api/table-qr-links returns list of table URLs with or without signature", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
 
+  // 1. Without secret
+  const res1 = await handleAdminAPI(new Request("https://x.test/admin/api/table-qr-links", {
+    method: "GET",
+    headers,
+  }), env);
+  assert.equal(res1.status, 200);
+  const data1 = await res1.json();
+  assert.equal(data1.ok, true);
+  assert.equal(data1.signingEnabled, false);
+  assert.equal(data1.links.length, 20);
+  assert.equal(data1.links[0].table, 1);
+  assert.equal(data1.links[0].url, "/?t=1");
+
+  // 2. With secret
+  env.TABLE_SIGNING_SECRET = "super-secret-key";
+  const res2 = await handleAdminAPI(new Request("https://x.test/admin/api/table-qr-links", {
+    method: "GET",
+    headers,
+  }), env);
+  assert.equal(res2.status, 200);
+  const data2 = await res2.json();
+  assert.equal(data2.ok, true);
+  assert.equal(data2.signingEnabled, true);
+  assert.equal(data2.links.length, 20);
+  assert.equal(data2.links[0].table, 1);
+  assert.match(data2.links[0].url, /^\/\?t=1&sig=[a-f0-9]{64}$/);
+});
 

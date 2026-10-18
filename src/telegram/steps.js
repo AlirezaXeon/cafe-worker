@@ -8,7 +8,7 @@ import {
   newCategoryId,
 } from "../data/products.js";
 import { setSession, clearSession } from "../data/session.js";
-import { sendMessage, forceReply } from "./api.js";
+import { sendMessage, askQuestion } from "./api.js";
 import { toFa, formatToman, escapeHtml } from "./format.js";
 import { sendMainMenu, sendCategoriesMenu, sendProductDetail, sendProductList } from "./menus.js";
 import { validatePrice, validatePercent, validateDiscount } from "../lib/validate.js";
@@ -21,14 +21,14 @@ export async function handleTextStep(env, chatId, text, session) {
   if (session.step === "bulk_percent") {
     const check = validatePercent(trimmed);
     if (!check.valid || check.percent === 0) {
-      return forceReply(env, chatId, check.error || "یه عدد معتبر بفرست (مثلاً 20 یا -10):");
+      return askQuestion(env, chatId, check.error || "یه عدد معتبر بفرست (مثلاً 20 یا -10):");
     }
     const percent = check.percent;
     let preview;
     try {
       preview = await previewCategoryPercent(env, session.catId, percent);
     } catch (err) {
-      return forceReply(env, chatId, `⚠️ ${escapeHtml(err.message)}\nیه عدد دیگر وارد کن:`);
+      return askQuestion(env, chatId, `⚠️ ${escapeHtml(err.message)}\nیه عدد دیگر وارد کن:`);
     }
     if (preview.length === 0) {
       await clearSession(env, chatId);
@@ -51,11 +51,11 @@ export async function handleTextStep(env, chatId, text, session) {
 
   if (session.step === "edit_price") {
     const check = validatePrice(trimmed);
-    if (!check.valid) return forceReply(env, chatId, `${escapeHtml(check.error)}\nقیمت جدید رو به تومان بفرست:`);
+    if (!check.valid) return askQuestion(env, chatId, `${escapeHtml(check.error)}\nقیمت جدید رو به تومان بفرست:`);
     try {
       await setProductPrice(env, session.productId, check.price);
     } catch (err) {
-      return forceReply(env, chatId, `⚠️ ${escapeHtml(err.message)}\nیه قیمت معتبر بفرست:`);
+      return askQuestion(env, chatId, `⚠️ ${escapeHtml(err.message)}\nیه قیمت معتبر بفرست:`);
     }
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ قیمت به‌روزرسانی شد.");
@@ -65,7 +65,7 @@ export async function handleTextStep(env, chatId, text, session) {
   if (session.step === "discount_percent") {
     const check = validateDiscount(trimmed);
     if (!check.valid || check.discount <= 0) {
-      return forceReply(env, chatId, `${escapeHtml(check.error || "درصد باید بین ۱ تا ۹۹ باشه")}:`);
+      return askQuestion(env, chatId, `${escapeHtml(check.error || "درصد باید بین ۱ تا ۹۹ باشه")}:`);
     }
     await setProductDiscount(env, session.productId, check.discount);
     await clearSession(env, chatId);
@@ -80,7 +80,7 @@ export async function handleTextStep(env, chatId, text, session) {
       id: newCategoryId(),
       label: trimmed,
     });
-    return forceReply(env, chatId, "📷 عکس این دسته رو بفرست، یا اگه نمی‌خوای بنویس «بدون عکس»:");
+    return askQuestion(env, chatId, "📷 عکس این دسته رو بفرست، یا اگه نمی‌خوای بنویس «بدون عکس»:");
   }
 
   if (session.step === "new_category_image") {
@@ -90,33 +90,33 @@ export async function handleTextStep(env, chatId, text, session) {
       await sendMessage(env, chatId, "✅ دسته جدید اضافه شد (بدون عکس).");
       return sendCategoriesMenu(env, chatId);
     }
-    return forceReply(env, chatId, "لطفاً فقط عکس بفرست یا بنویس «بدون عکس»:");
+    return askQuestion(env, chatId, "لطفاً فقط عکس بفرست یا بنویس «بدون عکس»:");
   }
 
   if (session.step === "edit_category_image") {
-    return forceReply(env, chatId, "لطفاً فقط عکس بفرست:");
+    return askQuestion(env, chatId, "لطفاً فقط عکس بفرست:");
   }
 
   if (session.step === "edit_product_image") {
-    return forceReply(env, chatId, "لطفاً فقط عکس بفرست:");
+    return askQuestion(env, chatId, "لطفاً فقط عکس بفرست:");
   }
 
   if (session.step === "new_product_name") {
     await setSession(env, chatId, { ...session, step: "new_product_note", name: trimmed });
-    return forceReply(env, chatId, "توضیح کوتاه محصول رو بفرست:");
+    return askQuestion(env, chatId, "توضیح کوتاه محصول رو بفرست:");
   }
 
   if (session.step === "new_product_note") {
     await setSession(env, chatId, { ...session, step: "new_product_price", note: trimmed });
-    return forceReply(env, chatId, "قیمت رو به تومان بفرست (فقط عدد):");
+    return askQuestion(env, chatId, "قیمت رو به تومان بفرست (فقط عدد):");
   }
 
   if (session.step === "new_product_price") {
     const check = validatePrice(trimmed);
-    if (!check.valid) return forceReply(env, chatId, `${escapeHtml(check.error)}\nقیمت رو به تومان بفرست:`);
+    if (!check.valid) return askQuestion(env, chatId, `${escapeHtml(check.error)}\nقیمت رو به تومان بفرست:`);
     const newId = newProductId();
     await setSession(env, chatId, { ...session, step: "new_product_image", price: check.price, productId: newId });
-    return forceReply(env, chatId, "📷 حالا عکس محصول رو بفرست، یا اگر عکس نداره بنویس «بدون عکس»:");
+    return askQuestion(env, chatId, "📷 حالا عکس محصول رو بفرست، یا اگر عکس نداره بنویس «بدون عکس»:");
   }
 
   if (session.step === "new_product_image") {
@@ -133,7 +133,7 @@ export async function handleTextStep(env, chatId, text, session) {
       await sendMessage(env, chatId, "✅ محصول جدید اضافه شد (بدون عکس).");
       return sendProductList(env, chatId, session.catId);
     }
-    return forceReply(env, chatId, "لطفاً فقط عکس بفرست یا بنویس «بدون عکس»:");
+    return askQuestion(env, chatId, "لطفاً فقط عکس بفرست یا بنویس «بدون عکس»:");
   }
 
   await clearSession(env, chatId);

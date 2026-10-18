@@ -6,7 +6,6 @@ import {
   listProducts,
   listCategories,
   countProductsInCategory,
-  getStats,
   findProduct,
   findCategory,
   addProduct,
@@ -21,7 +20,9 @@ import { MAX_UPLOAD_BYTES } from '../config.js';
 import { listOrders, resolveOrder, getSalesStats, getOrdersSummary } from '../data/orders.js';
 import { validatePrice, validateDiscount } from '../lib/validate.js';
 import { validateImage } from '../lib/images.js';
-import { getBotState, setBotState, deleteBotState } from '../data/botState.js';
+import { imagePath } from '../data/imagePaths.js';
+import { signTable } from '../lib/tableSig.js';
+import { getBotState, deleteBotState, incrementBotState } from '../data/botState.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -101,10 +102,15 @@ export async function handleAdminAPI(request, env) {
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
       const lockKey = `loginfail:${ip}`;
-      const failCountRaw = await getBotState(env, lockKey);
+      const globalLockKey = `loginfail:global`;
+      const [failCountRaw, globalFailRaw] = await Promise.all([
+        getBotState(env, lockKey),
+        getBotState(env, globalLockKey),
+      ]);
       const failCount = failCountRaw ? Number(failCountRaw) : 0;
-      // آستانه ۱۵ تلاش برای جلوگیری از قفل شدن سریع ادمین روی وای‌فای مشترک کافه
-      if (failCount >= 15) {
+      const globalFail = globalFailRaw ? Number(globalFailRaw) : 0;
+      // آستانه ۱۵ تلاش برای IP یا ۵۰ تلاش سراسری برای جلوگیری از حملات گسترده
+      if (failCount >= 15 || globalFail >= 50) {
         return json(request, { error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگر امتحان کنید.' }, 429);
       }
 
@@ -116,12 +122,14 @@ export async function handleAdminAPI(request, env) {
 
       const { password } = await request.json().catch(() => ({}));
       if (!password || !safeCompare(password, env.ADMIN_PASSWORD)) {
-        // شمارنده‌ی تلاش ناموفق؛ بعد از ۱۵ دقیقه خودش پاک میشه (expirationTtl)
-        await setBotState(env, lockKey, String(failCount + 1), 900);
+        await Promise.all([
+          incrementBotState(env, lockKey, 900),
+          incrementBotState(env, globalLockKey, 900),
+        ]);
         return json(request, { error: 'رمز عبور اشتباه است' }, 401);
       }
 
-      // ورود موفق؛ شمارنده‌ی تلاش ناموفق فقط در صورت وجود پاک می‌شود تا رایت KV بیهوده انجام نشود
+      // ورود موفق؛ شمارنده‌ی تلاش ناموفق فقط در صورت وجود پاک می‌شود تا رایت بیهوده انجام نشود
       if (failCount > 0) {
         await deleteBotState(env, lockKey);
       }
@@ -161,36 +169,44 @@ export async function handleAdminAPI(request, env) {
     return json(request, { ok: true, role: admin.role });
   }
 
+  // اعتبارسنجی مشترک آپلود تصویر (13g)
+  async function readValidatedImage(req) {
+    const formData = await req.formData();
+    const file = formData.get('file');
+    if (!file) return { error: json(request, { error: 'فایلی ارسال نشده' }, 400) };
+
+    const clientExt = (file.name || '').split('.').pop().toLowerCase();
+    if (file.size > MAX_UPLOAD_BYTES)
+      return { error: json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413) };
+
+    const buffer = await file.arrayBuffer();
+    if (buffer.byteLength > MAX_UPLOAD_BYTES)
+      return { error: json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413) };
+
+    const val = validateImage(buffer, clientExt);
+    if (!val.valid) {
+      return { error: json(request, { error: val.error }, 400) };
+    }
+
+    const ext = val.format === 'jpeg' ? 'jpg' : val.format;
+    return { buffer, ext, format: val.format };
+  }
+
   // ── Upload Image ──────────────────────────────────────────────────────
   if (path === '/upload' && method === 'POST') {
     try {
-      const formData = await request.formData();
-      const file = formData.get('file');
-      if (!file) return json(request, { error: 'فایلی ارسال نشده' }, 400);
+      const imgRes = await readValidatedImage(request);
+      if (imgRes.error) return imgRes.error;
 
-      const clientExt = (file.name || '').split('.').pop().toLowerCase();
-      if (file.size > MAX_UPLOAD_BYTES)
-        return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
-
-      const buffer = await file.arrayBuffer();
-      // حجم واقعی رو هم بعد از خوندن چک می‌کنیم، نه فقط چیزی که کلاینت ادعا کرده
-      if (buffer.byteLength > MAX_UPLOAD_BYTES)
-        return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
-
-      const val = validateImage(buffer, clientExt);
-      if (!val.valid) {
-        return json(request, { error: val.error }, 400);
-      }
-
-      const ext = val.format === 'jpeg' ? 'jpg' : val.format;
+      const { buffer, ext, format } = imgRes;
       const filename = `p${Date.now()}.${ext}`;
       await env.PRODUCTS_KV.put(`image:${filename}`, buffer, {
         metadata: {
-          contentType: `image/${val.format}`,
+          contentType: `image/${format}`,
           uploadedAt: Date.now(),
         },
       });
-      return json(request, { url: `/images/${filename}` });
+      return json(request, { url: imagePath(filename) });
     } catch (e) { return serverError(request, e, 'upload'); }
   }
   // ── تصاویر سایت (لوگو + عکس بالای سایت) ───────────────────────────────
@@ -213,32 +229,14 @@ export async function handleAdminAPI(request, env) {
 
     if (method === 'POST') {
       try {
-        const file = (await request.formData()).get('file');
-        if (!file) return json(request, { error: 'فایلی ارسال نشده' }, 400);
-        const clientExt = (file.name || '').split('.').pop().toLowerCase();
-        if (file.size > MAX_UPLOAD_BYTES)
-          return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
-        const buffer = await file.arrayBuffer();
-        if (buffer.byteLength > MAX_UPLOAD_BYTES)
-          return json(request, { error: 'حجم عکس نباید بیشتر از ۲ مگابایت باشد' }, 413);
+        const imgRes = await readValidatedImage(request);
+        if (imgRes.error) return imgRes.error;
 
-        const val = validateImage(buffer, clientExt);
-        if (!val.valid) {
-          return json(request, { error: val.error }, 400);
-        }
-
-        const ext = val.format === 'jpeg' ? 'jpg' : val.format;
+        const { buffer, ext } = imgRes;
         const url = await saveSiteImage(env, kind, buffer, ext);
-        return json(request, { success: true, url: '/' + url });
+        return json(request, { success: true, url: url.startsWith('/') ? url : '/' + url });
       } catch (e) { return serverError(request, e, 'site:post'); }
     }
-  }
-
-  // ── Stats ─────────────────────────────────────────────────────────────
-  if (path === '/stats' && method === 'GET') {
-    try {
-      return json(request, await getStats(env));
-    } catch (e) { return serverError(request, e, 'stats'); }
   }
 
   // ── فروش (فقط سفارش‌های تایید‌شده) ────────────────────────────────────
@@ -246,6 +244,22 @@ export async function handleAdminAPI(request, env) {
     try {
       return json(request, await getSalesStats(env));
     } catch (e) { return serverError(request, e, 'sales-stats'); }
+  }
+
+  // ── لینک‌های QR میزها با امضای معتبر ───────────────────────────────────
+  if (path === '/table-qr-links' && method === 'GET') {
+    try {
+      const siteCfg = await getSiteConfig(env);
+      const tableCount = siteCfg.tableCount ?? 20;
+      const secret = env.TABLE_SIGNING_SECRET || '';
+      const links = [];
+      for (let i = 1; i <= tableCount; i++) {
+        const sig = secret ? await signTable(i, secret) : '';
+        const query = sig ? `?t=${i}&sig=${sig}` : `?t=${i}`;
+        links.push({ table: i, sig, query, url: `/?t=${i}${sig ? `&sig=${sig}` : ''}` });
+      }
+      return json(request, { ok: true, tableCount, signingEnabled: Boolean(secret), links });
+    } catch (e) { return serverError(request, e, 'table-qr-links'); }
   }
 
   // ── Categories ────────────────────────────────────────────────────────

@@ -37,6 +37,50 @@ test("toggleProductAvailability toggles available atomically using RETURNING", a
   assert.equal(res3, null);
 });
 
+function makeSiteDb(d1Store) {
+  return {
+    prepare: (sql) => ({
+      bind: (...args) => ({
+        all: async () => {
+          const results = Array.from(d1Store.entries()).map(([key, value]) => ({ key, value }));
+          return { results };
+        },
+        first: async () => {
+          if (/SELECT COUNT/.test(sql)) {
+            return { c: d1Store.size };
+          }
+          return null;
+        },
+        run: async () => {
+          const [k, v] = args;
+          if (/INSERT OR IGNORE/.test(sql)) {
+            if (!d1Store.has(k)) d1Store.set(k, v);
+            return { meta: { changes: 1 } };
+          }
+          d1Store.set(k, v);
+          return { meta: { changes: 1 } };
+        },
+      }),
+      all: async () => {
+        const results = Array.from(d1Store.entries()).map(([key, value]) => ({ key, value }));
+        return { results };
+      },
+      first: async () => {
+        if (/SELECT COUNT/.test(sql)) {
+          return { c: d1Store.size };
+        }
+        return null;
+      },
+    }),
+    batch: async (statements) => {
+      for (const stmt of statements) {
+        await stmt.run();
+      }
+      return [];
+    },
+  };
+}
+
 test("site_settings reads from D1 and falls back to KV if D1 empty", async () => {
   const d1Store = new Map();
   const kvStore = new Map([
@@ -44,25 +88,7 @@ test("site_settings reads from D1 and falls back to KV if D1 empty", async () =>
   ]);
 
   const env = {
-    DB: {
-      prepare: (sql) => ({
-        bind: (...args) => ({
-          all: async () => {
-            const results = Array.from(d1Store.entries()).map(([key, value]) => ({ key, value }));
-            return { results };
-          },
-          run: async () => {
-            const [k, v] = args;
-            d1Store.set(k, v);
-            return { meta: { changes: 1 } };
-          },
-        }),
-        all: async () => {
-          const results = Array.from(d1Store.entries()).map(([key, value]) => ({ key, value }));
-          return { results };
-        },
-      }),
-    },
+    DB: makeSiteDb(d1Store),
     PRODUCTS_KV: {
       get: async (k) => kvStore.get(k) || null,
       put: async (k, v) => kvStore.set(k, v),
@@ -84,3 +110,28 @@ test("site_settings reads from D1 and falls back to KV if D1 empty", async () =>
   assert.equal(cfg2.logo, "/images/d1-logo.png");
   assert.equal(cfg2.cover, "/images/d1-cover.png");
 });
+
+test("seedFromKvIfEmpty: KV دارای logo و cover است؛ فقط logo عوض می‌شود؛ cover در getSiteConfig همچنان وجود دارد", async () => {
+  const d1Store = new Map();
+  const kvStore = new Map([
+    ["site:config", JSON.stringify({ logo: "/images/old-logo.png", cover: "/images/old-cover.png" })],
+  ]);
+
+  const env = {
+    DB: makeSiteDb(d1Store),
+    PRODUCTS_KV: {
+      get: async (k) => kvStore.get(k) || null,
+      put: async (k, v) => kvStore.set(k, v),
+      delete: async (k) => kvStore.delete(k),
+    },
+  };
+
+  // فقط لوگو تغییر می‌کند
+  await setSiteSetting(env, "logo", "/images/new-logo.png");
+
+  // بررسی می‌کنیم که cover هم از KV به D1 کپی شده و پاک نشده است
+  const cfg = await getSiteConfig(env);
+  assert.equal(cfg.logo, "/images/new-logo.png");
+  assert.equal(cfg.cover, "/images/old-cover.png");
+});
+

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { handleOrdersAPI, hashIp } from "../src/handlers/orders.js";
 import { ORDER_RATE_LIMIT_MAX, TABLE_PENDING_ORDER_LIMIT_MAX } from "../src/config.js";
 import { clearMemo, SITE_CACHE_KEY } from "../src/data/cache.js";
-import { tehranBoundaries, getSalesStats } from "../src/data/orders.js";
+import { tehranBoundaries, getSalesStats, getPendingOrdersNeedingNotification } from "../src/data/orders.js";
+import { signTable } from "../src/lib/tableSig.js";
 
 function makeEnv(opts = {}) {
   const kv = new Map();
@@ -20,6 +21,16 @@ function makeEnv(opts = {}) {
       prepare: (sql) => {
         const createStmt = (args = []) => ({
           all: async () => {
+            if (/SELECT id, table_number, items, total FROM orders WHERE status = 'pending' AND tg_notified = 0/.test(sql)) {
+              const [minCreatedAt, maxCreatedAt] = args;
+              const filtered = orders.filter((o) =>
+                (o.status ?? "pending") === "pending" &&
+                (o.tg_notified ?? 0) === 0 &&
+                o.created_at >= minCreatedAt &&
+                o.created_at <= maxCreatedAt
+              );
+              return { results: filtered };
+            }
             if (/SELECT.*FROM products/.test(sql)) {
               return { results: [{ id: "p1", name: "اسپرسو", price: 100000, available: 1 }] };
             }
@@ -29,10 +40,15 @@ function makeEnv(opts = {}) {
             return { results: [] };
           },
           first: async (col) => {
-            if (/SELECT id FROM orders WHERE request_id/.test(sql)) {
+            if (/SELECT.*FROM orders WHERE request_id/.test(sql)) {
               const reqId = args[0];
               const found = orders.find((o) => o.request_id === reqId);
-              return found ? { id: found.id } : null;
+              return found ? { id: found.id, public_id: found.public_id } : null;
+            }
+            if (/SELECT status FROM orders WHERE public_id/.test(sql)) {
+              const pId = args[0];
+              const found = orders.find((o) => o.public_id === pId);
+              return found ? { status: found.status } : null;
             }
             if (/SELECT COUNT\(\*\).*FROM orders WHERE ip_hash/.test(sql)) {
               const [ipHash, since] = args;
@@ -49,7 +65,7 @@ function makeEnv(opts = {}) {
           },
           run: async () => {
             if (/INSERT INTO orders/.test(sql)) {
-              const [table_number, items, total, request_id, ip_hash] = args;
+              const [table_number, items, total, request_id, ip_hash, public_id] = args;
               const id = 42 + orders.length;
               orders.push({
                 id,
@@ -58,6 +74,7 @@ function makeEnv(opts = {}) {
                 total,
                 request_id,
                 ip_hash,
+                public_id: public_id || `mock-uuid-${id}`,
                 status: "pending",
                 created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
               });
@@ -72,7 +89,7 @@ function makeEnv(opts = {}) {
       },
     },
   };
-  return { env, orders: () => orders, inserts: () => orders.length };
+  return { env, orders: () => orders, inserts: () => orders.length, rawOrders: orders };
 }
 
 const req = (body, headers = {}) =>
@@ -139,6 +156,32 @@ test("هش IP ذخیره می‌شود و هرگز IP خام در پایگاه �
   assert.equal(stored.ip_hash, await hashIp(rawIp));
   assert.equal(JSON.stringify(stored).includes(rawIp), false, "رشته IP خام در هیچ فیلدی نباید باشد");
 });
+
+test("hashIp: با دو secret متفاوت، هش یک IP یکسان متفاوت است", async () => {
+  const ip = "192.168.1.100";
+  const hash1 = await hashIp(ip, "secret-one");
+  const hash2 = await hashIp(ip, "secret-two");
+  const hashDefault = await hashIp(ip);
+
+  assert.equal(hash1.length, 64);
+  assert.equal(hash2.length, 64);
+  assert.equal(hashDefault.length, 64);
+  assert.notEqual(hash1, hash2);
+  assert.notEqual(hash1, hashDefault);
+  assert.notEqual(hash2, hashDefault);
+});
+
+test("handleOrdersAPI: از env.IP_HASH_SECRET برای ساخت هش IP استفاده می‌کند", async () => {
+  const { env, orders } = makeEnv();
+  env.IP_HASH_SECRET = "custom-order-secret-salt";
+  const rawIp = "192.168.1.100";
+  const res = await handleOrdersAPI(req(order(), { "cf-connecting-ip": rawIp }), env);
+  assert.equal(res.status, 200);
+
+  const stored = orders()[0];
+  assert.equal(stored.ip_hash, await hashIp(rawIp, "custom-order-secret-salt"));
+});
+
 
 test("محدودیت نرخ: بیش از سقف مجاز سفارش در ۱۰ دقیقه منجر به خطای ۴۲۹ می‌شود", async () => {
   const { env } = makeEnv({ rateLimitCount: ORDER_RATE_LIMIT_MAX }); // سقف مجاز پر شده
@@ -228,8 +271,8 @@ test("tehranBoundaries: محاسبه دقیق مرزهای روز، هفته (ش
   // آغاز هفته: شنبه ۱۰ اکتبر ساعت ۰۰:۰۰ به وقت تهران = ۹ اکتبر ۲۰:۳۰ UTC
   assert.equal(b.startOfWeek, "2026-10-09 20:30:00");
 
-  // آغاز ماه: ۱ اکتبر ساعت ۰۰:۰۰ به وقت تهران = ۳۰ سپتامبر ۲۰:۳۰ UTC
-  assert.equal(b.startOfMonth, "2026-09-30 20:30:00");
+  // آغاز ماه: ۱ مهر ساعت ۰۰:۰۰ به وقت تهران = ۲۲ سپتامبر ۲۰:۳۰ UTC
+  assert.equal(b.startOfMonth, "2026-09-22 20:30:00");
 });
 
 test("tehranBoundaries: تغییر روز دقیقا در نیمه‌شب تهران (23:59:59 تا 00:00:00)", () => {
@@ -257,25 +300,35 @@ test("tehranBoundaries: شروع هفته از شنبه مطابق تقویم ا
   assert.equal(bSat.startOfDay, "2026-10-16 20:30:00");  // با startOfDay برابر است
 });
 
-test("tehranBoundaries: مرز آغاز ماه میلادی به وقت تهران", () => {
-  // ۳۱ اکتبر ۲۰۲۶ ساعت ۲۳:۵۹:۵۹ تهران = ۲۰:۲۹:۵۹ UTC
-  const octEnd = Date.parse("2026-10-31T20:29:59Z");
-  const bOct = tehranBoundaries(octEnd);
-  assert.equal(bOct.startOfMonth, "2026-09-30 20:30:00"); // آغاز ماه اکتبر تهران
+test("tehranBoundaries: مرز آغاز ماه شمسی و تغییر ماه در نیمه‌شب تهران", () => {
+  // ۳۱ شهریور ۱۴۰۵ ساعت ۲۳:۵۹:۵۹ تهران = ۲۲ سپتامبر ۲۰۲۶ ساعت ۲۰:۲۹:۵۹ UTC
+  const shahrivarEnd = Date.parse("2026-09-22T20:29:59Z");
+  const bShahrivar = tehranBoundaries(shahrivarEnd);
+  assert.equal(bShahrivar.startOfMonth, "2026-08-22 20:30:00"); // آغاز شهریور: ۱ شهریور ۱۴۰۵ تهران
 
-  // ۱ نوامبر ۲۰۲۶ ساعت ۰۰:۰۰:۰۰ تهران = ۲۰:۳۰:۰۰ UTC
-  const novStart = Date.parse("2026-10-31T20:30:00Z");
-  const bNov = tehranBoundaries(novStart);
-  assert.equal(bNov.startOfMonth, "2026-10-31 20:30:00"); // آغاز ماه نوامبر تهران
+  // ۱ مهر ۱۴۰۵ ساعت ۰۰:۰۰:۰۰ تهران = ۲۲ سپتامبر ۲۰۲۶ ساعت ۲۰:۳۰:۰۰ UTC
+  const mehrStart = Date.parse("2026-09-22T20:30:00Z");
+  const bMehr = tehranBoundaries(mehrStart);
+  assert.equal(bMehr.startOfMonth, "2026-09-22 20:30:00"); // آغاز مهر: ۱ مهر ۱۴۰۵ تهران
+
+  // ۳۰ مهر ۱۴۰۵ ساعت ۲۳:۵۹:۵۹ تهران = ۲۲ اکتبر ۲۰۲۶ ساعت ۲۰:۲۹:۵۹ UTC
+  const mehrEnd = Date.parse("2026-10-22T20:29:59Z");
+  const bMehrEnd = tehranBoundaries(mehrEnd);
+  assert.equal(bMehrEnd.startOfMonth, "2026-09-22 20:30:00"); // هنوز در ماه مهر
+
+  // ۱ آبان ۱۴۰۵ ساعت ۰۰:۰۰:۰۰ تهران = ۲۲ اکتبر ۲۰۲۶ ساعت ۲۰:۳۰:۰۰ UTC
+  const abanStart = Date.parse("2026-10-22T20:30:00Z");
+  const bAban = tehranBoundaries(abanStart);
+  assert.equal(bAban.startOfMonth, "2026-10-22 20:30:00"); // آغاز آبان: ۱ آبان ۱۴۰۵ تهران
 });
 
 test("getSalesStats: جمع فروش فقط سفارش‌های تاییدشده را در مرزهای روز/هفته/ماه محاسبه می‌کند", async () => {
-  // تاریخ مبنا: چهارشنبه ۱۴ اکتبر ۲۰۲۶ ساعت ۱۲:۰۰ تهران
+  // تاریخ مبنا: چهارشنبه ۱۴ اکتبر ۲۰۲۶ ساعت ۱۲:۰۰ تهران (۲۲ مهر ۱۴۰۵)
   const now = Date.parse("2026-10-14T08:30:00Z");
   // مرزها:
   // startOfDay = "2026-10-13 20:30:00"
   // startOfWeek = "2026-10-09 20:30:00"
-  // startOfMonth = "2026-09-30 20:30:00"
+  // startOfMonth = "2026-09-22 20:30:00" (۱ مهر ۱۴۰۵)
 
   const mockOrders = [
     // امروز (تایید شده): 100,000
@@ -286,10 +339,10 @@ test("getSalesStats: جمع فروش فقط سفارش‌های تاییدشده
     { total: 700000, status: "pending", created_at: "2026-10-14 07:00:00" },
     // اوایل این هفته دوشنبه ۱۲ اکتبر (تایید شده): 200,000
     { total: 200000, status: "confirmed", created_at: "2026-10-12 10:00:00" },
-    // اوایل این ماه یکشنبه ۴ اکتبر (تایید شده): 300,000
+    // اوایل این ماه یکشنبه ۴ اکتبر / ۱۳ مهر (تایید شده): 300,000
     { total: 300000, status: "confirmed", created_at: "2026-10-04 10:00:00" },
-    // ماه قبل سپتامبر (تایید شده): 400,000
-    { total: 400000, status: "confirmed", created_at: "2026-09-25 10:00:00" },
+    // ماه قبل شهریور ۲۰ سپتامبر / ۲۹ شهریور (تایید شده): 400,000
+    { total: 400000, status: "confirmed", created_at: "2026-09-20 10:00:00" },
   ];
 
   const env = {
@@ -372,6 +425,172 @@ test("ENFORCE_ORDER_HOURS=0 چک ساعت کاری رو خاموش میکنه", 
   } finally {
     Date.now = origNow;
   }
+});
+
+test("پاسخ ثبت سفارش شامل publicId است", async () => {
+  const { env } = makeEnv();
+  const res = await handleOrdersAPI(req(order()), env);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.ok(data.publicId, "پاسخ باید حاوی publicId باشد");
+  assert.equal(typeof data.publicId, "string");
+  assert.notEqual(data.publicId, String(data.orderId), "publicId نباید برابر با id عددی ترتیبی باشد");
+});
+
+test("GET /api/orders/:publicId/status وضعیت سفارش‌های pending، confirmed و rejected را برمی‌گرداند", async () => {
+  const { env, orders } = makeEnv();
+
+  // ثبت یک سفارش جدید
+  const res = await handleOrdersAPI(req(order()), env);
+  const data = await res.json();
+  const publicId = data.publicId;
+
+  // وضعیت pending اولیه
+  const statusReq1 = new Request(`https://x.test/api/orders/${publicId}/status`, { method: "GET" });
+  const statusRes1 = await handleOrdersAPI(statusReq1, env);
+  assert.equal(statusRes1.status, 200);
+  assert.equal(statusRes1.headers.get("cache-control"), "no-store");
+  const body1 = await statusRes1.json();
+  assert.deepEqual(body1, { status: "pending" });
+  assert.equal(Object.keys(body1).length, 1, "نباید هیچ فیلد حساس دیگری در پاسخ وجود داشته باشد");
+
+  // تغییر وضعیت به confirmed
+  const createdOrder = orders().find((o) => o.public_id === publicId);
+  createdOrder.status = "confirmed";
+
+  const statusRes2 = await handleOrdersAPI(new Request(`https://x.test/api/orders/${publicId}/status`, { method: "GET" }), env);
+  assert.equal(statusRes2.status, 200);
+  const body2 = await statusRes2.json();
+  assert.deepEqual(body2, { status: "confirmed" });
+
+  // تغییر وضعیت به rejected
+  createdOrder.status = "rejected";
+  const statusRes3 = await handleOrdersAPI(new Request(`https://x.test/api/orders/${publicId}/status`, { method: "GET" }), env);
+  assert.equal(statusRes3.status, 200);
+  const body3 = await statusRes3.json();
+  assert.deepEqual(body3, { status: "rejected" });
+});
+
+test("GET /api/orders/:publicId/status برای شناسه ناموجود و id ترتیبی ۴۰۴ می‌دهد", async () => {
+  const { env } = makeEnv();
+
+  // شناسه رندوم ناموجود
+  const resNonExistent = await handleOrdersAPI(
+    new Request("https://x.test/api/orders/non-existent-uuid/status", { method: "GET" }),
+    env
+  );
+  assert.equal(resNonExistent.status, 404);
+
+  // شناسه عددی ترتیبی هرگز نباید سفارش را پیدا کند
+  const resNumeric = await handleOrdersAPI(
+    new Request("https://x.test/api/orders/42/status", { method: "GET" }),
+    env
+  );
+  assert.equal(resNumeric.status, 404);
+});
+
+test("TABLE_SIGNING_SECRET: اگر ست باشد، سفارش بدون sig معتبر با ۴۰۳ رد می‌شود", async () => {
+  const { env, inserts } = makeEnv();
+  env.TABLE_SIGNING_SECRET = "super-table-secret";
+
+  // بدون tableSig
+  const resNoSig = await handleOrdersAPI(req(order({ table: "3" })), env);
+  assert.equal(resNoSig.status, 403);
+  const dataNoSig = await resNoSig.json();
+  assert.ok(dataNoSig.error.includes("امضای میز نامعتبر"));
+  assert.equal(inserts(), 0);
+
+  // با tableSig اشتباه
+  const resBadSig = await handleOrdersAPI(req(order({ table: "3", tableSig: "invalid-signature" })), env);
+  assert.equal(resBadSig.status, 403);
+  assert.equal(inserts(), 0);
+
+  // با tableSig مربوط به یک میز دیگر (مثلاً میز 4 به جای 3)
+  const sigForTable4 = await signTable("4", env.TABLE_SIGNING_SECRET);
+  const resWrongTable = await handleOrdersAPI(req(order({ table: "3", tableSig: sigForTable4 })), env);
+  assert.equal(resWrongTable.status, 403);
+  assert.equal(inserts(), 0);
+
+  // با tableSig معتبر میز 3
+  const validSig = await signTable("3", env.TABLE_SIGNING_SECRET);
+  const resValid = await handleOrdersAPI(req(order({ table: "3", tableSig: validSig })), env);
+  assert.equal(resValid.status, 200);
+  assert.equal(inserts(), 1);
+});
+
+test("TABLE_SIGNING_SECRET: اگر ست نباشد (backward compatible)، سفارش بدون sig ثبت می‌شود", async () => {
+  const { env, inserts } = makeEnv();
+  // env.TABLE_SIGNING_SECRET تعریف نشده است
+  const res = await handleOrdersAPI(req(order({ table: "3" })), env);
+  assert.equal(res.status, 200);
+  assert.equal(inserts(), 1);
+});
+
+test("getPendingOrdersNeedingNotification: سفارش‌های pending با tg_notified=0 بین ۱ دقیقه تا ۲ ساعت قبل را برمی‌گرداند", async () => {
+  const { env, rawOrders } = makeEnv();
+  const now = Date.now();
+  const toUtcSql = (ms) => new Date(ms).toISOString().slice(0, 19).replace("T", " ");
+
+  // ۱. سفارش ۳۰ ثانیه قبل (زیر ۱ دقیقه، نباید بیاید)
+  rawOrders.push({
+    id: 1,
+    table_number: "1",
+    items: JSON.stringify([{ id: "p1", name: "قهوه", price: 50000, quantity: 1 }]),
+    total: 50000,
+    status: "pending",
+    tg_notified: 0,
+    created_at: toUtcSql(now - 30 * 1000),
+  });
+
+  // ۲. سفارش ۵ دقیقه قبل (بین ۱ دقیقه و ۲ ساعت، باید بیاید)
+  rawOrders.push({
+    id: 2,
+    table_number: "2",
+    items: JSON.stringify([{ id: "p1", name: "قهوه", price: 50000, quantity: 1 }]),
+    total: 50000,
+    status: "pending",
+    tg_notified: 0,
+    created_at: toUtcSql(now - 5 * 60 * 1000),
+  });
+
+  // ۳. سفارش ۵ دقیقه قبل اما قبلاً نوتیفای شده (tg_notified = 1)
+  rawOrders.push({
+    id: 3,
+    table_number: "3",
+    items: JSON.stringify([{ id: "p1", name: "قهوه", price: 50000, quantity: 1 }]),
+    total: 50000,
+    status: "pending",
+    tg_notified: 1,
+    created_at: toUtcSql(now - 5 * 60 * 1000),
+  });
+
+  // ۴. سفارش ۵ دقیقه قبل اما تایید شده (status = confirmed)
+  rawOrders.push({
+    id: 4,
+    table_number: "4",
+    items: JSON.stringify([{ id: "p1", name: "قهوه", price: 50000, quantity: 1 }]),
+    total: 50000,
+    status: "confirmed",
+    tg_notified: 0,
+    created_at: toUtcSql(now - 5 * 60 * 1000),
+  });
+
+  // ۵. سفارش ۳ ساعت قبل (قدیمی‌تر از ۲ ساعت، نباید بیاید)
+  rawOrders.push({
+    id: 5,
+    table_number: "5",
+    items: JSON.stringify([{ id: "p1", name: "قهوه", price: 50000, quantity: 1 }]),
+    total: 50000,
+    status: "pending",
+    tg_notified: 0,
+    created_at: toUtcSql(now - 3 * 60 * 60 * 1000),
+  });
+
+  const needingRetry = await getPendingOrdersNeedingNotification(env, now);
+  assert.equal(needingRetry.length, 1);
+  assert.equal(needingRetry[0].orderId, 2);
+  assert.equal(needingRetry[0].tableNumber, "2");
+  assert.equal(needingRetry[0].total, 50000);
 });
 
 

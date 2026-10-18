@@ -3280,7 +3280,35 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   color: var(--gold);
   font-weight: 700;
   font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.receipt-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.84rem;
   margin-bottom: 10px;
+  transition: all 0.3s ease;
+}
+
+.receipt-status-badge.pending {
+  background: rgba(250, 173, 20, 0.12);
+  border: 1px solid rgba(250, 173, 20, 0.35);
+  color: #faad14;
+}
+
+.receipt-status-badge.confirmed {
+  background: rgba(82, 196, 26, 0.14);
+  border: 1px solid rgba(82, 196, 26, 0.35);
+  color: #52c41a;
+}
+
+.receipt-status-badge.rejected {
+  background: rgba(255, 77, 79, 0.14);
+  border: 1px solid rgba(255, 77, 79, 0.35);
+  color: #ff4d4f;
 }
 
 .receipt-hint {

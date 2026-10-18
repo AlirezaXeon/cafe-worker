@@ -1525,6 +1525,8 @@
       openCatModal();
     }
 
+    const imgSrc = (p) => p ? (/^https?:\/\//i.test(p) ? p : '/' + String(p).replace(/^\/+/, '')) : '';
+
     // ── Products ──────────────────────────────────────────────────────────────
     async function renderProducts(m) {
       m.innerHTML = `
@@ -1554,7 +1556,7 @@
     <thead><tr><th>تصویر</th><th>محصول</th><th>دسته</th><th>قیمت</th><th>موجودی</th><th>عملیات</th></tr></thead>
     <tbody>${rows.map(p => `
       <tr>
-        <td>${p.image ? `<img class="img-preview" src="${esc(p.image)}" alt="" onerror="this.style.display='none'">` : `<div class="img-placeholder">🍽</div>`}</td>
+        <td>${p.image ? `<img class="img-preview" src="${esc(imgSrc(p.image))}" alt="" onerror="this.style.display='none'">` : `<div class="img-placeholder">🍽</div>`}</td>
         <td><div class="prod-name">${esc(p.name)}</div>${p.note ? `<div class="prod-note">${esc(p.note.slice(0, 55))}${p.note.length > 55 ? '…' : ''}</div>` : ''}</td>
         <td><span style="background:var(--bg);padding:.18rem .55rem;border-radius:20px;font-size:.77rem">${esc(catLabel(p.category))}</span></td>
         <td>
@@ -1611,7 +1613,7 @@
       el.innerHTML = `<div class="cat-grid">${allCategories.map(c => {
         const count = allProducts.filter(p => p.category === c.id).length;
         return `<div class="cat-item">
-      ${c.image ? `<img src="${esc(c.image)}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border)" alt="">` : '<span style="font-size:1.2rem">📂</span>'}
+      ${c.image ? `<img src="${esc(imgSrc(c.image))}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border)" alt="">` : '<span style="font-size:1.2rem">📂</span>'}
       <div style="flex:1;min-width:0">
         <div class="cat-name" title="${esc(c.label)}">${esc(c.label)}</div>
         <div class="cat-count">${count} محصول</div>
@@ -1632,7 +1634,7 @@
       document.getElementById('c-img').value = c ? (c.image || '') : '';
       document.getElementById('cat-err').textContent = '';
       const prev = document.getElementById('cat-upload-preview');
-      if (c && c.image) { document.getElementById('cat-preview-img').src = c.image; prev.style.display = 'block'; }
+      if (c && c.image) { document.getElementById('cat-preview-img').src = imgSrc(c.image); prev.style.display = 'block'; }
       else { prev.style.display = 'none'; }
       openModal('cat-modal');
     }
@@ -1726,7 +1728,7 @@
       fd.append('file', file);
       try {
         const d = await api('/upload', { method: 'POST', body: fd });
-        document.getElementById(context === 'prod' ? 'p-img' : 'c-img').value = d.url;
+        document.getElementById(context === 'prod' ? 'p-img' : 'c-img').value = imgSrc(d.url);
         statusEl.textContent = '✅ آپلود شد';
         toast('تصویر آپلود شد ✓');
       } catch (err) {
@@ -1774,7 +1776,7 @@
         }
 
         if (p.image) {
-          document.getElementById('prod-preview-img').src = p.image;
+          document.getElementById('prod-preview-img').src = imgSrc(p.image);
           document.getElementById('prod-upload-preview').style.display = 'block';
           document.getElementById('prod-upload-status').textContent = '✅ تصویر فعلی';
         }
@@ -1882,7 +1884,7 @@
       try {
         const cfg = await api('/site');
         el.innerHTML = `<div class="cat-grid">${['logo', 'cover'].map(kind => {
-          const src = cfg[kind] ? '/' + String(cfg[kind]).replace(/^\//, '') : '';
+          const src = imgSrc(cfg[kind]);
           return `<div class="cat-item" style="flex-direction:column;align-items:stretch;gap:.7rem">
         <div class="cat-name">${SITE_IMG_LABELS[kind]}</div>
         ${src ? `<img src="${esc(src)}" alt="" style="max-height:110px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:#fff">`

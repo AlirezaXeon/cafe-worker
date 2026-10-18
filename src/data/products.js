@@ -94,7 +94,7 @@ export async function applyCategoryPercent(env, catId, percent, previewedItems =
     const p = productMap.get(item.id);
     const base = p.originalPrice ?? p.price;
     const newPrice = item.newPrice ?? roundPrice(base * (1 + percent / 100));
-    const newOriginal = percent < 0 ? base : null;
+    const newOriginal = percent < 0 ? (newPrice >= base ? null : base) : null;
     return env.DB.prepare("UPDATE products SET price = ?, original_price = ? WHERE id = ?").bind(
       newPrice,
       newOriginal,
@@ -138,9 +138,10 @@ export async function setProductDiscount(env, productId, percent) {
   if (!p) return;
   const base = p.originalPrice ?? p.price;
   const newPrice = roundPrice(base * (1 - percent / 100));
+  const newOriginal = newPrice >= base ? null : base;
   await env.DB
     .prepare("UPDATE products SET price = ?, original_price = ? WHERE id = ?")
-    .bind(newPrice, base, productId)
+    .bind(newPrice, newOriginal, productId)
     .run();
   await invalidate(env);
 }
@@ -162,7 +163,9 @@ export function resolvePrice(basePrice, discountPercent = 0) {
   const base = roundPrice(basePrice);
   const d = Number(discountPercent) || 0;
   if (d <= 0 || d >= 100) return { price: base, originalPrice: null };
-  return { price: roundPrice(base * (1 - d / 100)), originalPrice: base };
+  const price = roundPrice(base * (1 - d / 100));
+  if (price >= base) return { price: base, originalPrice: null };
+  return { price, originalPrice: base };
 }
 
 export async function addProduct(env, { id, category, name, note, price, image, discount = 0, available = 1 }) {
@@ -201,7 +204,7 @@ export async function deleteProduct(env, productId) {
 export async function listProducts(env) {
   const { results } = await env.DB
     .prepare(
-      "SELECT id, category, name, note, price, original_price, image, available FROM products ORDER BY category, name"
+      "SELECT id, category, name, note, price, original_price AS originalPrice, original_price, image, available FROM products ORDER BY category, name"
     )
     .all();
   return results;
@@ -222,18 +225,6 @@ export async function countProductsInCategory(env, catId) {
   return row?.c ?? 0;
 }
 
-export async function getStats(env) {
-  const [total, avail, cats] = await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) AS c FROM products").first(),
-    env.DB.prepare("SELECT COUNT(*) AS c FROM products WHERE available = 1").first(),
-    env.DB.prepare("SELECT COUNT(*) AS c FROM categories").first(),
-  ]);
-  return {
-    totalProducts: total?.c ?? 0,
-    availableProducts: avail?.c ?? 0,
-    totalCategories: cats?.c ?? 0,
-  };
-}
 
 export async function addCategory(env, id, label, image = null) {
   await env.DB.prepare("INSERT INTO categories (id, label, image) VALUES (?, ?, ?)")

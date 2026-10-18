@@ -1,7 +1,6 @@
 // منطق مشترک «الان باز هستیم یا نه» بر اساس OPENING_HOURS (src/config.js)
 // ایران ساعت تابستانی نداره و همیشه +۳:۳۰ هست (همون روشی که tehranBoundaries تو src/data/orders.js استفاده میکنه)
-
-const TEHRAN_OFFSET_MS = 3.5 * 60 * 60 * 1000;
+import { TEHRAN_OFFSET_MS } from "./time.js";
 
 // "08:30" ← 510 (دقیقه از ابتدای روز)؛ "24:00" ← 1440
 export function toMinutes(hhmm) {

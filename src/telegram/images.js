@@ -1,8 +1,8 @@
 import { addProduct, findProduct, setProductImage, addCategory, findCategory, setCategoryImage } from "../data/products.js";
 import { getSiteConfig, setSiteLogo, setSiteCover } from "../data/site.js";
 import { clearSession } from "../data/session.js";
-import { imageFilename } from "../data/imagePaths.js";
-import { sendMessage, forceReply, downloadTelegramFile } from "./api.js";
+import { imageFilename, imagePath } from "../data/imagePaths.js";
+import { sendMessage, askQuestion, downloadTelegramFile } from "./api.js";
 import { sendSiteImagesMenu, sendCategoriesMenu, sendProductDetail, sendProductList } from "./menus.js";
 import { MAX_UPLOAD_BYTES } from "../config.js";
 
@@ -19,17 +19,17 @@ export async function handleImageStep(env, chatId, msg, session) {
   } else if (msg.document) {
     fileId = msg.document.file_id;
   } else {
-    return forceReply(env, chatId, "❌ فرمت فایل شناسایی نشد. یه عکس (یا فایل تصویری) بفرست:");
+    return askQuestion(env, chatId, "❌ فرمت فایل شناسایی نشد. یه عکس (یا فایل تصویری) بفرست:");
   }
 
   await sendMessage(env, chatId, "⏳ در حال آپلود عکس...");
 
   const fileData = await downloadTelegramFile(env, fileId);
   if (!fileData || fileData.error) {
-    return forceReply(env, chatId, `❌ ${fileData?.error || "خطا در دریافت عکس"}. لطفاً دوباره بفرست یا بنویس «بدون عکس»:`);
+    return askQuestion(env, chatId, `❌ ${fileData?.error || "خطا در دریافت عکس"}. لطفاً دوباره بفرست یا بنویس «بدون عکس»:`);
   }
   if (fileData.buffer.byteLength > MAX_UPLOAD_BYTES) {
-    return forceReply(
+    return askQuestion(
       env,
       chatId,
       `❌ حجم عکس (${formatMB(fileData.buffer.byteLength)} مگابایت) بیشتر از سقف مجازه (حداکثر ${formatMB(MAX_UPLOAD_BYTES)} مگابایت). یه عکس کوچیک‌تر بفرست:`
@@ -45,15 +45,15 @@ export async function handleImageStep(env, chatId, msg, session) {
       metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}`, uploadedAt: Date.now() }
     });
 
-    const imagePath = `images/${filename}`;
+    const savedPath = imagePath(filename);
     const oldConfig = await getSiteConfig(env);
     const oldPath = kind === "logo" ? oldConfig.logo : oldConfig.cover;
 
     if (kind === "logo") {
-      await setSiteLogo(env, imagePath);
+      await setSiteLogo(env, savedPath);
       await sendMessage(env, chatId, "✅ لوگوی سایت به‌روزرسانی شد.");
     } else {
-      await setSiteCover(env, imagePath);
+      await setSiteCover(env, savedPath);
       await sendMessage(env, chatId, "✅ عکس بالای سایت به‌روزرسانی شد.");
     }
 
@@ -80,14 +80,14 @@ export async function handleImageStep(env, chatId, msg, session) {
       metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}`, uploadedAt: Date.now() }
     });
 
-    const imagePath = `images/categories/${filename}`;
+    const savedPath = imagePath(filename);
 
     if (session.step === "new_category_image") {
-      await addCategory(env, session.id, session.label, imagePath);
+      await addCategory(env, session.id, session.label, savedPath);
       await sendMessage(env, chatId, "✅ دسته جدید همراه با عکس اضافه شد.");
     } else {
       const oldCat = await findCategory(env, catId);
-      await setCategoryImage(env, catId, imagePath);
+      await setCategoryImage(env, catId, savedPath);
       await sendMessage(env, chatId, "✅ عکس دسته به‌روزرسانی شد.");
       if (oldCat && oldCat.image) {
         const oldFilename = imageFilename(oldCat.image);
@@ -108,7 +108,7 @@ export async function handleImageStep(env, chatId, msg, session) {
       metadata: { contentType: `image/${fileData.ext === 'jpg' ? 'jpeg' : fileData.ext}`, uploadedAt: Date.now() }
     });
     const oldProduct = await findProduct(env, session.productId);
-    await setProductImage(env, session.productId, `images/products/${filename}`);
+    await setProductImage(env, session.productId, imagePath(filename));
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ عکس محصول به‌روزرسانی شد.");
     if (oldProduct && oldProduct.image) {
@@ -135,7 +135,7 @@ export async function handleImageStep(env, chatId, msg, session) {
     name: session.name,
     note: session.note,
     price: session.price,
-    image: `images/products/${filename}`, // آدرس نسبی برای سایت
+    image: imagePath(filename), // آدرس برای سایت
   });
   await clearSession(env, chatId);
 

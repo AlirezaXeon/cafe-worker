@@ -101,7 +101,12 @@ test("resolvePrice handles discount calculation, MIN_PRICE boundary and 0/invali
   const r100 = resolvePrice(100000, 100);
   assert.equal(r100.originalPrice, null);
   assert.equal(r100.price, 100000);
+
+  // تخفیف ناچیز که بعد از گرد کردن قیمت را تغییر نمی‌دهد (تخفیف ۱٪ روی ۱۰٬۰۰۰)
+  const rTiny = resolvePrice(10000, 1);
+  assert.deepEqual(rTiny, { price: 10000, originalPrice: null });
 });
+
 
 test("previewCategoryPercent computes on originalPrice (does not compound on existing discount)", async () => {
   const env = {

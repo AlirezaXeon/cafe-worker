@@ -102,6 +102,9 @@ function getBoot() {
 function hideSplash() {
   const splash = document.getElementById('splash');
   if (!splash || splash.dataset.hidden === 'true') return;
+  try {
+    sessionStorage.setItem('cafe-roshan-splash-seen', '1');
+  } catch {}
   splash.dataset.hidden = 'true';
   splash.classList.add('hide');
   document.body.classList.add('site-loaded');
@@ -110,15 +113,20 @@ function hideSplash() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // مکث عمدی حداقل ۲.۲ ثانیه برای ماندگاری اسپلش و فرصت لود کامل تصاویر در بک‌گراند (مخصوصاً هیرو)
-  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, 2200));
+  let splashSeen = false;
+  try {
+    splashSeen = Boolean(sessionStorage.getItem('cafe-roshan-splash-seen'));
+  } catch {}
+
+  // اگر قبلاً اسپلش دیده شده، مکث کوتاه (۳۰۰ms) وگرنه ۲.۲ ثانیه برای ماندگاری اسپلش
+  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, splashSeen ? 300 : 2200));
 
   const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
     .then(() => waitForMenuImages(4000));
 
   const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
 
-  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان ۲.۲ ثانیه سپری شده باشد
+  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان سپری شده باشد
   const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
   Promise.race([readyPromise, hardCap]).then(hideSplash);
 });
@@ -703,6 +711,22 @@ async function loadProducts() {
     }
   } catch (err) {
     console.error('محصولات لود نشدند:', err);
+    const grid = document.getElementById('productGrid');
+    if (grid) {
+      grid.innerHTML = `
+        <div class="menu-error-state" style="text-align: center; padding: 40px 20px; grid-column: 1 / -1;">
+          <p style="margin-bottom: 16px; color: var(--text-muted, #aaa);">دریافت منوی محصولات با خطا مواجه شد.</p>
+          <button id="retryLoadProductsBtn" type="button" class="btn btn-primary" style="padding: 10px 24px; border-radius: 8px; cursor: pointer;">تلاش مجدد</button>
+        </div>
+      `;
+      const btn = document.getElementById('retryLoadProductsBtn');
+      if (btn) {
+        btn.onclick = () => {
+          grid.innerHTML = '';
+          loadProducts();
+        };
+      }
+    }
     return;
   }
   renderTabs();
@@ -967,12 +991,12 @@ function productCardHtml(p) {
         <div class="product-header">
           <span class="cat-dot"></span>
           <div class="product-name">${esc(p.name)}</div>
-          ${p.originalPrice ? '<span class="discount-badge">تخفیف</span>' : ''}
+          ${p.originalPrice && p.originalPrice > p.price ? '<span class="discount-badge">تخفیف</span>' : ''}
         </div>
         ${formatProductNote(p.note)}
         <div class="product-footer">
           <div class="price-group">
-            ${p.originalPrice ? `<span class="price-old mono">${formatPrice(p.originalPrice)}</span>` : ''}
+            ${p.originalPrice && p.originalPrice > p.price ? `<span class="price-old mono">${formatPrice(p.originalPrice)}</span>` : ''}
             <span class="product-price mono">${formatPrice(p.price)}</span>
           </div>
           <button class="add-to-cart-btn" data-id="${esc(p.id)}">افزودن +</button>
@@ -1103,6 +1127,7 @@ function saveCart() {
     sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify({
       items: cart.map(i => ({ id: i.id, quantity: i.quantity })),
       table: selectedTable,
+      tableSig: selectedTableSig,
     }));
   } catch { /* حالت خصوصی/حافظه پر؛ مهم نیست */ }
 }
@@ -1123,7 +1148,22 @@ function restoreCart() {
     }
     const t = String(saved?.table ?? '');
     if (/^\d{1,3}$/.test(t) && Number(t) >= 1) selectedTable = t;
+    const sig = String(saved?.tableSig ?? '');
+    if (sig) selectedTableSig = sig;
   } catch { /* داده‌ی خراب؛ با سبد خالی شروع می‌کنیم */ }
+
+  // انتخاب خودکار میز و امضا از روی لینک QR در URL
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const urlTable = params.get('t');
+    const urlSig = params.get('sig');
+    if (urlTable && /^\d{1,3}$/.test(urlTable) && Number(urlTable) >= 1) {
+      selectedTable = urlTable;
+      selectedTableSig = urlSig || '';
+      saveCart();
+    }
+  } catch {}
+
   renderTableSelect();
   renderCart();
   if (droppedNames.length > 0) {
@@ -1131,6 +1171,43 @@ function restoreCart() {
     const names = droppedNames.map(n => `«${n}»`).join(' و ');
     setCheckoutMsg(`${names} در حال حاضر موجود نیست و از سبد خرید حذف شد.`, 'warning');
   }
+}
+
+async function refreshCartProducts() {
+  try {
+    const res = await fetch('data/products.json');
+    if (res.ok) {
+      const fresh = await res.json();
+      if (fresh?.products) {
+        productsData = fresh;
+        let changed = false;
+        const dropped = [];
+        for (let i = cart.length - 1; i >= 0; i--) {
+          const item = cart[i];
+          const freshP = fresh.products.find((x) => x.id === item.id);
+          if (!freshP || freshP.available === 0) {
+            dropped.push(item.name);
+            cart.splice(i, 1);
+            changed = true;
+          } else {
+            if (item.price !== freshP.price || item.name !== freshP.name || item.originalPrice !== freshP.originalPrice) {
+              item.price = freshP.price;
+              item.name = freshP.name;
+              item.originalPrice = freshP.originalPrice;
+              changed = true;
+            }
+          }
+        }
+        if (changed) {
+          saveCart();
+          renderCart();
+          if (dropped.length > 0) {
+            setCheckoutMsg(`«${dropped.join('» و «')}» دیگر موجود نیست و از سبد حذف شد.`, 'warning');
+          }
+        }
+      }
+    }
+  } catch {}
 }
 
 function openCart() {
@@ -1142,6 +1219,7 @@ function openCart() {
   syncDialogInert();
   history.pushState({ cart: true }, "");
   focusInside(cartClose);
+  refreshCartProducts();
 }
 
 function closeCart() {
@@ -1379,6 +1457,17 @@ function renderCart() {
 // ============ انتخاب شماره میز (پاپ‌آپ؛ بدون تایپ دستی) ============
 let tableCount = Number(getBoot()?.site?.tableCount) || 20; // تعداد میزهای کافه (پیش‌فرض؛ از تنظیمات سایت خوانده می‌شود)
 let selectedTable = '';
+let selectedTableSig = '';
+
+try {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlT = urlParams.get('t');
+  const urlSig = urlParams.get('sig');
+  if (urlT && /^\d{1,3}$/.test(urlT) && Number(urlT) >= 1) {
+    selectedTable = urlT;
+    selectedTableSig = urlSig || '';
+  }
+} catch {}
 
 function renderTableSelect() {
   if (selectedTable) {
@@ -1430,6 +1519,7 @@ tableGrid.addEventListener('click', (e) => {
   const opt = e.target.closest('.table-option');
   if (!opt) return;
   selectedTable = opt.dataset.table;
+  selectedTableSig = ''; // انتخاب دستی میز، امضای قبلی QR را باطل می‌کند
   saveCart(); // میز هم ذخیره میشه و کلید ثبت سفارش عوض میشه
   tableGrid.querySelectorAll('.table-option').forEach(b => {
     const on = b === opt;
@@ -1476,6 +1566,7 @@ async function submitOrder() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         table,
+        ...(selectedTableSig ? { tableSig: selectedTableSig } : {}),
         items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
         requestId: orderAttemptKey,
         idempotencyKey: orderAttemptKey,
@@ -1505,10 +1596,16 @@ async function submitOrder() {
         </div>
         <h3>سفارش شما با موفقیت ثبت شد</h3>
         <div class="receipt-table-badge">میز شماره ${tableLabel}</div>
-        <p class="receipt-hint">سفارش شما برای باریستای کافه ارسال شد و در حال آماده‌سازی است. نیازی به مراجعه به صندوق نیست.</p>
+        ${data.total ? `<div class="receipt-total-badge" style="margin: 8px 0; font-size: 1.05rem; color: var(--color-gold, #d4af37); font-weight: 600;">مبلغ کل: ${formatPrice(data.total)}</div>` : ''}
+        <div id="receipt-status-badge" class="receipt-status-badge pending">در انتظار تایید</div>
+        <p class="receipt-hint" id="receipt-status-hint">سفارش شما برای باریستای کافه ارسال شد و در انتظار تایید است. نیازی به مراجعه به صندوق نیست.</p>
         <button type="button" class="receipt-close-btn">متوجه شدم ✓</button>
       </div>
     `;
+
+    if (data.publicId) {
+      startOrderStatusPolling(data.publicId);
+    }
   } catch (err) {
     const msg = err.message || 'خطایی رخ داد، لطفاً دوباره امتحان کنید.';
     const match = msg.match(/«([^»]+)»\s*در حال حاضر موجود نیست/);
@@ -1532,6 +1629,57 @@ async function submitOrder() {
 }
 
 if (checkoutBtn) checkoutBtn.addEventListener('click', submitOrder);
+
+let orderStatusPollTimer = null;
+function startOrderStatusPolling(publicId) {
+  if (orderStatusPollTimer) {
+    clearTimeout(orderStatusPollTimer);
+    orderStatusPollTimer = null;
+  }
+  if (!publicId) return;
+
+  const maxDuration = 15 * 60 * 1000; // سقف ۱۵ دقیقه
+  const startTime = Date.now();
+
+  async function poll() {
+    if (!document.getElementById('receipt-status-badge')) return;
+    if (Date.now() - startTime > maxDuration) return;
+    if (document.visibilityState !== 'visible') {
+      orderStatusPollTimer = setTimeout(poll, 6000);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(publicId)}/status`);
+      if (res.ok) {
+        const d = await res.json();
+        const badge = document.getElementById('receipt-status-badge');
+        const hint = document.getElementById('receipt-status-hint');
+        if (d.status === 'confirmed') {
+          if (badge) {
+            badge.className = 'receipt-status-badge confirmed';
+            badge.textContent = 'تایید شد، در حال آماده‌سازی ✓';
+          }
+          if (hint) {
+            hint.textContent = 'سفارش شما تایید شد و در حال آماده‌سازی است. نوش جان!';
+          }
+          return;
+        } else if (d.status === 'rejected') {
+          if (badge) {
+            badge.className = 'receipt-status-badge rejected';
+            badge.textContent = 'متأسفانه رد شد ✕';
+          }
+          if (hint) {
+            hint.textContent = 'متأسفانه رد شد، لطفاً با پرسنل صحبت کنید.';
+          }
+          return;
+        }
+      }
+    } catch {}
+    orderStatusPollTimer = setTimeout(poll, 6000);
+  }
+
+  orderStatusPollTimer = setTimeout(poll, 5000);
+}
 
 // ============ BACK TO TOP BUTTON ============
 const backToTopBtn = document.getElementById('backToTopBtn');

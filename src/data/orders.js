@@ -1,16 +1,54 @@
 // همه‌ی عملیات سفارش‌ها روی D1 (env.DB)
 import { editMessageText } from "../telegram/api.js";
+import { TEHRAN_OFFSET_MS } from "../lib/time.js";
 
-export async function createOrder(env, { tableNumber, items, total, requestId = null, ipHash = null }) {
+export async function createOrder(env, { tableNumber, items, total, requestId = null, ipHash = null, publicId = null }) {
+  const pId = publicId || crypto.randomUUID();
   const res = await env.DB
-    .prepare("INSERT INTO orders (table_number, items, total, request_id, ip_hash) VALUES (?, ?, ?, ?, ?)")
-    .bind(tableNumber, JSON.stringify(items), total, requestId, ipHash)
+    .prepare("INSERT INTO orders (table_number, items, total, request_id, ip_hash, public_id) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(tableNumber, JSON.stringify(items), total, requestId, ipHash, pId)
     .run();
-  return res.meta.last_row_id;
+  return { orderId: res.meta.last_row_id, publicId: pId };
 }
 
 export async function getOrder(env, id) {
   return env.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(id).first();
+}
+
+export async function getOrderStatusByPublicId(env, publicId) {
+  if (!publicId || typeof publicId !== "string") return null;
+  const row = await env.DB
+    .prepare("SELECT status FROM orders WHERE public_id = ?")
+    .bind(publicId)
+    .first();
+  return row ? { status: row.status } : null;
+}
+
+// سفارش‌های pending با tg_notified = 0 که حداقل ۱ دقیقه و حداکثر ۲ ساعت از ثبت آن‌ها گذشته است
+export async function getPendingOrdersNeedingNotification(env, now = Date.now()) {
+  const minCreatedAt = new Date(now - 2 * 60 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
+  const maxCreatedAt = new Date(now - 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
+  const res = await env.DB
+    .prepare(
+      "SELECT id, table_number, items, total FROM orders WHERE status = 'pending' AND tg_notified = 0 AND created_at >= ? AND created_at <= ? ORDER BY id ASC"
+    )
+    .bind(minCreatedAt, maxCreatedAt)
+    .all();
+
+  return (res?.results || []).map((o) => {
+    let items;
+    try {
+      items = JSON.parse(o.items);
+    } catch {
+      items = [];
+    }
+    return {
+      orderId: o.id,
+      tableNumber: o.table_number,
+      items,
+      total: o.total,
+    };
+  });
 }
 
 // خلاصه سبک وضعیت سفارش‌ها برای پولینگ بهینه پنل ادمین
@@ -52,7 +90,7 @@ export async function listOrders(env, { status, limit = 50, beforeId } = {}) {
 
   const { results } = await query.all();
   return results.map((o) => {
-    let items = [];
+    let items;
     try {
       items = JSON.parse(o.items);
     } catch (e) {
@@ -87,7 +125,15 @@ export const rejectOrder = (env, id) => setOrderStatus(env, id, "rejected");
 // ساعت ایران حساب بشه، مرزهای روز/هفته/ماه رو تو زمان محلی ایران (+۳:۳۰) حساب می‌کنیم،
 // بعد برای مقایسه با created_at (که UTC ذخیره شده) دوباره به UTC برش می‌گردونیم.
 // شروع هفته هم شنبه‌ست (مطابق تقویم ایران).
-const TEHRAN_OFFSET_MS = 3.5 * 60 * 60 * 1000;
+
+export function jalaliDayOfMonth(ms) {
+  return Number(
+    new Intl.DateTimeFormat("en-US-u-ca-persian-nu-latn", {
+      timeZone: "Asia/Tehran",
+      day: "numeric",
+    }).format(ms)
+  );
+}
 
 export function tehranBoundaries(now = Date.now()) {
   const tehranNow = new Date(now + TEHRAN_OFFSET_MS);
@@ -95,7 +141,7 @@ export function tehranBoundaries(now = Date.now()) {
   const dayOfWeek = startOfDay.getUTCDay(); // 0=یکشنبه ... 6=شنبه
   const daysSinceSaturday = (dayOfWeek + 1) % 7;
   const startOfWeek = new Date(startOfDay.getTime() - daysSinceSaturday * 86400000);
-  const startOfMonth = new Date(Date.UTC(tehranNow.getUTCFullYear(), tehranNow.getUTCMonth(), 1));
+  const startOfMonth = new Date(startOfDay.getTime() - (jalaliDayOfMonth(now) - 1) * 86400000);
 
   const toUtcSql = (d) => new Date(d.getTime() - TEHRAN_OFFSET_MS).toISOString().slice(0, 19).replace("T", " ");
   return { startOfDay: toUtcSql(startOfDay), startOfWeek: toUtcSql(startOfWeek), startOfMonth: toUtcSql(startOfMonth) };

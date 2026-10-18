@@ -127,3 +127,29 @@ test("SITE_URL (اگه ست باشه) بر دامنه‌ی درخواست اول
   const sitemap = await worker.fetch(new Request("https://cafe-roshan.workers.dev/sitemap.xml"), env, { waitUntil() {} });
   assert.match(await sitemap.text(), /<loc>https:\/\/cafe\.example\.ir\/<\/loc>/);
 });
+
+test("worker.scheduled: triggers retry and bot_state cleanup without throwing", async () => {
+  const executed = [];
+  const env = {
+    DB: {
+      prepare: (sql) => ({
+        bind: (...args) => ({
+          all: async () => {
+            executed.push({ sql, args });
+            return { results: [] };
+          },
+          first: async () => null,
+          run: async () => {
+            executed.push({ sql, args });
+            return { meta: { changes: 0 } };
+          },
+        }),
+      }),
+    },
+  };
+
+  await worker.scheduled({}, env, { waitUntil() {} });
+  assert.ok(executed.some((e) => /orders/.test(e.sql)));
+  assert.ok(executed.some((e) => /bot_state/.test(e.sql)));
+});
+

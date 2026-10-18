@@ -69,7 +69,10 @@ npm run dev
 | `TELEGRAM_BOT_TOKEN` | Secret | توکن ربات تلگرام کافه دریافتی از BotFather. |
 | `ADMIN_IDS` | Secret / Var | لیست آیدی‌های عددی تلگرام مدیران (جداشده با کاما، مثلاً `1234567,8901234`). |
 | `WEBHOOK_SECRET` | Secret | رشته تصادفی و امن برای اعتبارسنجی وب‌هوک‌های دریافتی از تلگرام. |
+| `TABLE_SIGNING_SECRET` | Secret | اختیاری. کلید محرمانه جهت امضای شماره میز در کدهای QR (`/?t=X&sig=...`) با HMAC-SHA256 برای جلوگیری از ثبت سفارش‌های جعلی خارج از کافه. در صورت خالی بودن، بررسی امضا غیرفعال است. |
+| `IP_HASH_SECRET` | Secret | اختیاری. کلید محرمانه جهت هش کردن IP مشتریان با HMAC-SHA256 (جلوگیری از حملات rainbow table/brute-force روی آدرس‌های IPv4). در صورت تنظیم نشدن از کلید پیش‌فرض استفاده می‌شود. |
 | `ENFORCE_ORDER_HOURS` | Variable | اختیاری. اگر `"0"` باشد، ساعت کاری برای ثبت سفارش چک نمی‌شود (مثلاً برای تست شبانه). پیش‌فرض: فعال. |
+| `SITE_URL` | Variable | اختیاری. آدرس پایه سایت (مثلاً `https://cafe-roshan.ir`) جهت تولید لینک‌های `sitemap.xml`، `robots.txt` و تگ‌های canonical. در صورت خالی بودن از Host هدر درخواست استفاده می‌شود. |
 
 ---
 
@@ -86,6 +89,8 @@ npm run dev
 - `0008_orders_summary_index.sql`: ایندکس ترکیبی برای خلاصه‌سازی سفارش‌های در انتظار
 - `0009_orders_table_pending_index.sql`: ایندکس بهینه‌سازی بررسی سقف سفارش در انتظار هر میز
 - `0010_bot_state.sql`: جدول نگهداری سشن‌های چندمرحله‌ای ربات تلگرام، پیام‌های قبلی و قفل ورود ادمین با پشتیبانی از TTL/انقضا
+- `0011_normalize_image_paths.sql`: یکسان‌سازی مسیر تصاویر به فرمت `/images/<filename>`
+- `0012_add_order_public_id.sql`: افزودن شناسه عمومی تصادفی (`public_id`) به سفارش‌ها برای استعلام عمومی وضعیت سفارش
 
 ### اعمال مایگریشن‌ها بر روی سرور Cloudflare D1:
 ```bash
@@ -134,3 +139,29 @@ npm run deploy
 ## ۹. محدودیت‌های شناخته‌شده (Known Limitations)
 
 - **عدم کارکرد Cache API روی `*.workers.dev`**: در سرویس Cloudflare Workers، رابط `caches.default` (کش لبه) روی دامنه‌های رایگان `*.workers.dev` غیرفعال است و پاسخ‌ها کش نمی‌شوند. به همین دلیل هر بار درخواست تصویر به یک خواندن از KV (KV Read) تبدیل می‌شود که سهمیه پلن رایگان را مصرف می‌کند. برای حل این مشکل، اتصال **دامنه اختصاصی (Custom Domain)** یا استفاده از **Cloudflare R2** برای ذخیره‌سازی تصاویر پیشنهاد می‌شود.
+
+---
+
+## ۱۰. چک‌لیست بعد از دیپلوی (Post-Deployment Checklist)
+
+پس از هر دیپلوی، دسترسی مسیرهای کلیدی را با دستورات curl زیر بررسی کنید تا از هدایت صحیح آن‌ها به Worker (از طریق `run_worker_first`) اطمینان حاصل شود:
+
+```bash
+# ۱. وب‌هوک تلگرام (باید توسط ورکر هندل شود، نه صفحه ۴۰۴ استاتیک)
+curl -sI -X POST https://<domain>/tg-webhook | grep -i "HTTP/"
+
+# ۲. اندپوینت ثبت و پیگیری سفارش‌ها
+curl -sI -X POST https://<domain>/api/orders | grep -i "HTTP/"
+
+# ۳. اندپوینت API ادمین (درخواست بدون توکن باید ۴۰۱ ورکر بدهد)
+curl -sI https://<domain>/admin/api/me | grep -i "HTTP/"
+
+# ۴. هندلر تصاویر
+curl -sI https://<domain>/images/placeholder.jpg | grep -i "HTTP/"
+
+# ۵. داده‌های پویا، robots و sitemap
+curl -sI https://<domain>/data/products.json | grep -i "HTTP/"
+curl -sI https://<domain>/data/site.json | grep -i "HTTP/"
+curl -sI https://<domain>/robots.txt | grep -i "HTTP/"
+curl -sI https://<domain>/sitemap.xml | grep -i "HTTP/"
+```

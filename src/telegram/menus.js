@@ -1,5 +1,6 @@
 import { getProducts, productsInCategory, findProduct, findCategory } from "../data/products.js";
 import { getSiteConfig } from "../data/site.js";
+import { getBotState, setBotState } from "../data/botState.js";
 import { sendMessage, sendMessageWithPanel, pinMessage, sendRaw } from "./api.js";
 import { formatToman, escapeHtml } from "./format.js";
 
@@ -14,12 +15,12 @@ const GUIDE_TEXT =
   "این پیام پین شده، هر وقت لازم شد از بالای چت بازش کن.";
 
 async function ensureGuidePinned(env, chatId) {
-  const already = await env.PRODUCTS_KV.get(`guidepinned:${chatId}`);
+  const already = await getBotState(env, `guidepinned:${chatId}`);
   if (already) return;
   const res = await sendRaw(env, { chat_id: chatId, text: GUIDE_TEXT, parse_mode: "HTML" });
   if (res.ok && res.result?.message_id) {
     await pinMessage(env, chatId, res.result.message_id);
-    await env.PRODUCTS_KV.put(`guidepinned:${chatId}`, String(res.result.message_id));
+    await setBotState(env, `guidepinned:${chatId}`, String(res.result.message_id));
   }
 }
 

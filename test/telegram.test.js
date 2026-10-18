@@ -219,10 +219,41 @@ test("handleUpdate: /start پاک کردن سشن و نمایش منوی اصل�
     // سشن باید پاک شده باشه
     assert.equal(botState.has("session:111"), false, "سشن بعد از /start باید پاک بشه");
 
+    // پین راهنما در D1 bot_state ذخیره شده باشه، نه KV
+    assert.equal(botState.has("guidepinned:111"), true, "guidepinned باید در bot_state (D1) ثبت شده باشه");
+    assert.equal(env.PRODUCTS_KV.get("guidepinned:111") instanceof Promise, true);
+    assert.equal(await env.PRODUCTS_KV.get("guidepinned:111"), null, "guidepinned نباید در KV ثبت بشه");
+
     // حداقل یه پیام (deleteMessage + sendMessage) فرستاده شده باشه
     assert.ok(tgCalls.length >= 2, "باید پیام ربات حذف و منو فرستاده بشه");
     const sendCalls = tgCalls.filter((c) => c.method === "sendMessage");
     assert.ok(sendCalls.length >= 1, "حداقل یه sendMessage باید وجود داشته باشه");
+  } finally {
+    restore();
+  }
+});
+
+test("handleUpdate: /start@botname و /start payload شناسایی می‌شوند", async () => {
+  const { env, tgCalls, botState, restore } = makeTgEnv();
+  try {
+    botState.set("session:111", { value: JSON.stringify({ step: "edit_price" }), expires_at: null });
+    await handleUpdate({
+      message: {
+        message_id: 10, chat: { id: 111 }, from: { id: 111 },
+        text: "/start@cafe_roshan_bot",
+      },
+    }, env);
+    assert.equal(botState.has("session:111"), false, "سشن بعد از /start@botname باید پاک بشه");
+    assert.ok(tgCalls.some((c) => c.method === "sendMessage"));
+
+    botState.set("session:111", { value: JSON.stringify({ step: "edit_price" }), expires_at: null });
+    await handleUpdate({
+      message: {
+        message_id: 11, chat: { id: 111 }, from: { id: 111 },
+        text: "/start table_5",
+      },
+    }, env);
+    assert.equal(botState.has("session:111"), false, "سشن بعد از /start payload باید پاک بشه");
   } finally {
     restore();
   }
@@ -913,7 +944,7 @@ test("handleImageStep: edit_product_image عکس محصول رو آپلود و �
     await handleImageStep(env, 111, msg, session);
     const p = products.get("p1");
     assert.ok(p.image, "محصول باید عکس داشته باشه");
-    assert.match(p.image, /^images\/products\/p1_\d+\.jpg$/);
+    assert.match(p.image, /^\/images\/p1_\d+\.jpg$/);
     assert.equal(botState.has("session:111"), false);
   } finally {
     restore();
@@ -929,7 +960,7 @@ test("handleImageStep: edit_category_image عکس دسته رو آپلود و ذ
     await handleImageStep(env, 111, msg, session);
     const cat = categories.get("cat1");
     assert.ok(cat.image, "دسته باید عکس داشته باشه");
-    assert.match(cat.image, /^images\/categories\/cat_cat1_\d+\.jpg$/);
+    assert.match(cat.image, /^\/images\/cat_cat1_\d+\.jpg$/);
     assert.equal(botState.has("session:111"), false);
   } finally {
     restore();
@@ -946,6 +977,7 @@ test("handleImageStep: new_category_image دسته جدید رو با عکس م�
     assert.ok(categories.has("cat-new-1"), "دسته جدید باید ساخته شده باشه");
     assert.equal(categories.get("cat-new-1").label, "نوشیدنی گرم");
     assert.ok(categories.get("cat-new-1").image, "عکس دسته باید ست شده باشه");
+    assert.match(categories.get("cat-new-1").image, /^\/images\/cat_cat-new-1_\d+\.jpg$/);
     assert.equal(botState.has("session:111"), false);
   } finally {
     restore();
@@ -971,7 +1003,7 @@ test("handleImageStep: new_product_image محصول جدید رو با عکس ذ
     assert.equal(p.name, "کاپوچینو");
     assert.equal(p.note, "کف شیر غلیظ");
     assert.equal(p.price, 110000);
-    assert.ok(p.image, "عکس محصول باید ست شده باشه");
+    assert.equal(p.image, "/images/p-new-1.jpg");
     assert.equal(botState.has("session:111"), false);
   } finally {
     restore();

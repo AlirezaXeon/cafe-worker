@@ -4,7 +4,6 @@ import {
   signToken,
   verifyToken,
   base64urlEncode,
-  base64urlDecode,
   base64urlDecodeToString,
   requireAdmin,
 } from "../src/middleware/adminAuth.js";
