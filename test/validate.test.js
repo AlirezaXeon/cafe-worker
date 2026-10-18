@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validatePrice, validatePercent, validateDiscount } from "../src/lib/validate.js";
+import { validatePrice, validatePercent, validateDiscount, validateTableCount } from "../src/lib/validate.js";
 import { roundPrice, resolvePrice, previewCategoryPercent, applyCategoryPercent } from "../src/data/products.js";
 import { MIN_PRICE, MAX_PRICE, MIN_PERCENT, MAX_PERCENT } from "../src/config.js";
 
@@ -161,4 +161,23 @@ test("validators accept Persian digits, separators and unicode minus", () => {
   assert.equal(validatePercent("۲۰").percent, 20);
   assert.equal(validateDiscount("۱۵٪").discount, 15);
   assert.equal(validatePrice("۱e۳").valid, false);
+});
+
+test("validateTableCount: validates table count inputs", () => {
+  // معتبر: 25، '۲۵'، '٢٥'
+  assert.deepEqual(validateTableCount(25), { valid: true, count: 25 });
+  assert.deepEqual(validateTableCount("۲۵"), { valid: true, count: 25 });
+  assert.deepEqual(validateTableCount("٢٥"), { valid: true, count: 25 });
+  assert.deepEqual(validateTableCount(1), { valid: true, count: 1 });
+  assert.deepEqual(validateTableCount(100), { valid: true, count: 100 });
+
+  // نامعتبر: 0، 101، 'abc'، '1e3'، '2.5'، ''
+  assert.equal(validateTableCount(0).valid, false);
+  assert.equal(validateTableCount(101).valid, false);
+  assert.equal(validateTableCount("abc").valid, false);
+  assert.equal(validateTableCount("1e3").valid, false);
+  assert.equal(validateTableCount("2.5").valid, false);
+  assert.equal(validateTableCount("").valid, false);
+  assert.equal(validateTableCount(null).valid, false);
+  assert.equal(validateTableCount(undefined).valid, false);
 });

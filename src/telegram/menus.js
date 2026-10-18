@@ -1,8 +1,9 @@
 import { getProducts, productsInCategory, findProduct, findCategory } from "../data/products.js";
 import { getSiteConfig } from "../data/site.js";
 import { getBotState, setBotState } from "../data/botState.js";
-import { sendMessage, sendMessageWithPanel, pinMessage, sendRaw } from "./api.js";
-import { formatToman, escapeHtml } from "./format.js";
+import { setSession } from "../data/session.js";
+import { sendMessage, sendMessageWithPanel, pinMessage, sendRaw, askQuestion } from "./api.js";
+import { formatToman, escapeHtml, toFa } from "./format.js";
 
 // راهنمای ساده و همیشه در دسترس؛ برخلاف بقیه‌ی پیام‌ها با پیام بعدی پاک نمی‌شه، چون
 // پین می‌شه و از چرخه‌ی sendAndTrack خارجه. فقط یه‌بار (برای هر چت) فرستاده و پین می‌شه.
@@ -11,7 +12,8 @@ const GUIDE_TEXT =
   "برای تغییر قیمت یا عکس هر محصول:\n" +
   "📦 محصولات ← دسته موردنظر ← محصول موردنظر\n\n" +
   "🖼 تصاویر سایت ← لوگو یا عکس بالای سایت\n" +
-  "💰 تغییر قیمت دسته‌جمعی ← تخفیف/افزایش قیمت یه دسته کامل\n\n" +
+  "💰 تغییر قیمت دسته‌جمعی ← تخفیف/افزایش قیمت یه دسته کامل\n" +
+  "🪑 تعداد میزها ← تغییر تعداد میزهای کافه\n\n" +
   "این پیام پین شده، هر وقت لازم شد از بالای چت بازش کن.";
 
 async function ensureGuidePinned(env, chatId) {
@@ -122,4 +124,13 @@ export async function sendCategoriesMenu(env, chatId) {
   rows.push([{ text: "➕ افزودن دسته جدید", callback_data: "newcat" }]);
   rows.push([{ text: "🔙 بازگشت", callback_data: "menu:home" }]);
   await sendMessage(env, chatId, "🏷 <b>دسته‌بندی‌ها</b>", rows);
+}
+
+export async function sendTableCountPrompt(env, chatId) {
+  const cfg = await getSiteConfig(env);
+  await setSession(env, chatId, { step: "edit_table_count" });
+  return askQuestion(
+    env, chatId,
+    `🪑 الان ${toFa(cfg.tableCount)} میز فعال است.\nتعداد جدید میزها رو بفرست (عدد ${toFa(1)} تا ${toFa(100)}):`
+  );
 }

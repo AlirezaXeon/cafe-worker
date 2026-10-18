@@ -1,4 +1,4 @@
-import { MIN_PRICE, MAX_PRICE, MIN_PERCENT, MAX_PERCENT } from "../config.js";
+import { MIN_PRICE, MAX_PRICE, MIN_PERCENT, MAX_PERCENT, MIN_TABLE_COUNT, MAX_TABLE_COUNT } from "../config.js";
 
 // تبدیل ارقام فارسی/عربی، جداکننده‌ها و علامت منفی یونیکد به معادل ASCII
 // (ادمین تلگرام معمولاً با کیبورد فارسی عدد می‌نویسه)
@@ -87,4 +87,18 @@ export function validateDiscount(input) {
     return { valid: false, error: "درصد تخفیف باید بین ۰ تا ۹۹ باشد" };
   }
   return { valid: true, discount: val };
+}
+
+// اعتبارسنجی تعداد میزها (۱ تا ۱۰۰)
+export function validateTableCount(input) {
+  if (input === null || input === undefined || input === "") {
+    return { valid: false, error: "تعداد میز نمی‌تواند خالی باشد" };
+  }
+  const str = normalizeNumeric(input).replace(/[,\s]/g, "");
+  if (!/^\d+$/.test(str)) return { valid: false, error: "تعداد میز باید یک عدد صحیح باشد" };
+  const n = Number(str);
+  if (n < MIN_TABLE_COUNT || n > MAX_TABLE_COUNT) {
+    return { valid: false, error: "تعداد میز باید بین ۱ تا ۱۰۰ باشد" };
+  }
+  return { valid: true, count: n };
 }

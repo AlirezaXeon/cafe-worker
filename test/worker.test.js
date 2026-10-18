@@ -153,3 +153,44 @@ test("worker.scheduled: triggers retry and bot_state cleanup without throwing", 
   assert.ok(executed.some((e) => /bot_state/.test(e.sql)));
 });
 
+test("GET '/' stripping conditional headers: prevents stale 304 after price changes", async () => {
+  let receivedHeaders = null;
+  const env = {
+    // env بدون DB است تا تست کند به خاطر catchهای bootPromise خطا نمی‌دهد
+    ASSETS: {
+      async fetch(req) {
+        receivedHeaders = req.headers;
+        if (req.headers.has("if-none-match")) {
+          return new Response(null, { status: 304 });
+        }
+        return new Response("<!DOCTYPE html><html><head></head><body><h1>Cafe Roshan</h1></body></html>", {
+          status: 200,
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "etag": '"static-index-etag-123"',
+            "last-modified": "Sun, 18 Oct 2026 12:00:00 GMT",
+          },
+        });
+      },
+    },
+  };
+
+  const req = new Request("https://example.com/", {
+    method: "GET",
+    headers: {
+      "if-none-match": '"static-index-etag-123"',
+      "if-modified-since": "Sun, 18 Oct 2026 12:00:00 GMT",
+    },
+  });
+
+  const response = await worker.fetch(req, env, { waitUntil() {} });
+
+  assert.equal(receivedHeaders.has("if-none-match"), false);
+  assert.equal(receivedHeaders.has("if-modified-since"), false);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.has("etag"), false);
+  assert.equal(response.headers.has("last-modified"), false);
+  assert.equal(response.headers.get("cache-control"), "no-cache");
+});
+
+

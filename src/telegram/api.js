@@ -104,6 +104,7 @@ export const sendMessage = (env, chatId, text, keyboard) =>
 const MAIN_PANEL_BUTTONS = [
   ["📦 محصولات", "🏷 دسته‌بندی‌ها"],
   ["💰 تغییر قیمت دسته‌جمعی", "🖼 تصاویر سایت"],
+  ["🪑 تعداد میزها"],
 ];
 
 const mainPanelKeyboard = () => ({

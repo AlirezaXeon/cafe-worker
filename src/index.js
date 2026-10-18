@@ -146,6 +146,7 @@ function safeInlineJson(value) {
 // (سمت سرور) می‌ذاره تا دانلود عکس همون لحظه‌ی اول شروع بشه.
 // base: آدرس پایه‌ی سایت (بدون اسلش آخر) برای canonical / og:url / og:image
 function injectSiteAssets(response, cfg, base, products, env) {
+  if (typeof HTMLRewriter === 'undefined') return response;
   const rewriter = new HTMLRewriter();
 
   // canonical و og:url با دامنه‌ی واقعی (نه مقدار هاردکد داخل index.html)
@@ -369,7 +370,15 @@ export default {
           loadProductsData(env).catch((err) => { console.error('[boot:products]', err); return null; }),
         ])
       : null;
-    const assetResponse = await env.ASSETS.fetch(request);
+
+    let assetRequest = request;
+    if (isHome) {
+      const h = new Headers(request.headers);
+      h.delete('If-None-Match');
+      h.delete('If-Modified-Since');
+      assetRequest = new Request(request, { headers: h });
+    }
+    const assetResponse = await env.ASSETS.fetch(assetRequest);
 
     const contentType = assetResponse.headers.get('content-type') || '';
     if (contentType.includes('text/html') || contentType.includes('javascript') || contentType.includes('text/css')) {
@@ -379,6 +388,8 @@ export default {
         const [cfg, products] = await bootPromise;
         // اگه دیتا نیومد، صفحه همون‌طور که هست می‌ره و script.js خودش fetch می‌کنه
         response = injectSiteAssets(response, cfg, siteBase(env, url), products, env);
+        response.headers.delete('ETag');
+        response.headers.delete('Last-Modified');
       }
       response.headers.set('Cache-Control', 'no-cache');
       return response;

@@ -16,7 +16,7 @@ import {
   deleteCategory,
   toggleProductAvailability,
 } from '../data/products.js';
-import { MAX_UPLOAD_BYTES } from '../config.js';
+import { MAX_UPLOAD_BYTES, MIN_TABLE_COUNT, MAX_TABLE_COUNT } from '../config.js';
 import { listOrders, resolveOrder, getSalesStats, getOrdersSummary } from '../data/orders.js';
 import { validatePrice, validateDiscount } from '../lib/validate.js';
 import { validateImage } from '../lib/images.js';
@@ -249,7 +249,7 @@ export async function handleAdminAPI(request, env) {
     try {
       const b = await request.json().catch(() => ({}));
       const count = Number(b.tableCount);
-      if (!Number.isInteger(count) || count < 1 || count > 100) {
+      if (!Number.isInteger(count) || count < MIN_TABLE_COUNT || count > MAX_TABLE_COUNT) {
         return json(request, { error: 'تعداد میز باید یک عدد صحیح بین ۱ تا ۱۰۰ باشد' }, 400);
       }
       await setSiteSetting(env, 'tableCount', count);

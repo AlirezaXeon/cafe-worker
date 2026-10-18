@@ -4,6 +4,7 @@ import { handleUpdate } from "../src/telegram.js";
 import { handleCallback } from "../src/telegram/callbacks.js";
 import { handleTextStep } from "../src/telegram/steps.js";
 import { handleImageStep } from "../src/telegram/images.js";
+import { getSession } from "../src/data/session.js";
 
 // ── Mock environment factory ───────────────────────────────────────────────────
 // مشابه الگوی admin.test.js ولی با اضافه‌هایی برای تلگرام: tg calls, KV list, orders
@@ -72,6 +73,9 @@ function makeTgEnv(overrides = {}) {
             }
             if (/SELECT COUNT\(\*\) AS c FROM products WHERE category = \?/.test(sql)) {
               return { c: Array.from(products.values()).filter((p) => p.category === args[0]).length };
+            }
+            if (/SELECT COUNT\(\*\) AS c FROM site_settings/.test(sql)) {
+              return { c: siteSettings.size };
             }
             if (/SELECT value, expires_at FROM bot_state/.test(sql)) {
               const r = botState.get(args[0]);
@@ -808,6 +812,51 @@ test("handleTextStep: new_product_price قیمت نامعتبر رو رد و د�
   }
 });
 
+test("handleTextStep: edit_table_count تعداد معتبر رو ذخیره میکنه", async () => {
+  const { env, siteSettings, tgCalls, botState, restore } = makeTgEnv();
+  const session = { step: "edit_table_count" };
+
+  try {
+    await handleTextStep(env, 111, "۲۵", session);
+    assert.equal(siteSettings.get("tableCount"), "25");
+    assert.equal(botState.has("session:111"), false, "سشن بعد از اتمام باید پاک شود");
+    const sends = tgCalls.filter((c) => c.method === "sendMessage");
+    assert.ok(sends.some((c) => c.payload.text.includes("تعداد میزها روی ۲۵ تنظیم شد")));
+  } finally {
+    restore();
+  }
+});
+
+test("handleTextStep: edit_table_count ورودی نامعتبر یا خارج از بازه رو رد میکنه و دوباره میپرسه", async () => {
+  const { env, siteSettings, tgCalls, restore } = makeTgEnv();
+  const session = { step: "edit_table_count" };
+
+  try {
+    // ۱. ورودی نامعتبر غیرعددی
+    await handleTextStep(env, 111, "abc", session);
+    assert.equal(siteSettings.has("tableCount"), false);
+    let sends = tgCalls.filter((c) => c.method === "sendMessage");
+    let last = sends[sends.length - 1];
+    assert.ok(last.payload.text.includes("تعداد میز باید یک عدد صحیح باشد"));
+
+    // ۲. عدد کمتر از ۱
+    await handleTextStep(env, 111, "۰", session);
+    assert.equal(siteSettings.has("tableCount"), false);
+    sends = tgCalls.filter((c) => c.method === "sendMessage");
+    last = sends[sends.length - 1];
+    assert.ok(last.payload.text.includes("تعداد میز باید بین ۱ تا ۱۰۰ باشد"));
+
+    // ۳. عدد بیشتر از ۱۰۰
+    await handleTextStep(env, 111, "101", session);
+    assert.equal(siteSettings.has("tableCount"), false);
+    sends = tgCalls.filter((c) => c.method === "sendMessage");
+    last = sends[sends.length - 1];
+    assert.ok(last.payload.text.includes("تعداد میز باید بین ۱ تا ۱۰۰ باشد"));
+  } finally {
+    restore();
+  }
+});
+
 test("handleTextStep: بدون سشن معتبر به منوی اصلی برمیگرده", async () => {
   const { env, tgCalls, botState, restore } = makeTgEnv();
   const session = { step: "nonexistent_step" };
@@ -1172,6 +1221,28 @@ test("handleUpdate: دکمه‌ی «🖼 تصاویر سایت» منوی تصا
     const buttons = last.payload.reply_markup?.inline_keyboard?.flat() || [];
     assert.ok(buttons.some((b) => b.callback_data === "siteimg:logo"), "دکمه‌ی لوگو باید باشه");
     assert.ok(buttons.some((b) => b.callback_data === "siteimg:cover"), "دکمه‌ی کاور باید باشه");
+  } finally {
+    restore();
+  }
+});
+
+test("handleUpdate: دکمه‌ی «🪑 تعداد میزها» سشن edit_table_count را ست میکند و پیامی با تعداد فعلی میفرستد", async () => {
+  const { env, tgCalls, restore } = makeTgEnv();
+  try {
+    await handleUpdate({
+      message: {
+        message_id: 14, chat: { id: 111 }, from: { id: 111 },
+        text: "🪑 تعداد میزها",
+      },
+    }, env);
+    const session = await getSession(env, 111);
+    assert.deepEqual(session, { step: "edit_table_count" });
+    const sends = tgCalls.filter((c) => c.method === "sendMessage");
+    const last = sends[sends.length - 1];
+    assert.ok(last.payload.text.includes("تعداد جدید میزها"), "باید پرامپت تعداد میز ارسال شود");
+    assert.ok(last.payload.text.includes("۲۰"), "باید تعداد پیش‌فرض ۲۰ در پیام باشد");
+    const buttons = last.payload.reply_markup?.inline_keyboard?.flat() || [];
+    assert.ok(buttons.some((b) => b.callback_data === "cancel"), "دکمه بازگشت/انصراف باید باشد");
   } finally {
     restore();
   }

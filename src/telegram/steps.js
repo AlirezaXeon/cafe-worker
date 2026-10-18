@@ -8,10 +8,11 @@ import {
   newCategoryId,
 } from "../data/products.js";
 import { setSession, clearSession } from "../data/session.js";
+import { setSiteSetting } from "../data/site.js";
 import { sendMessage, askQuestion } from "./api.js";
 import { toFa, formatToman, escapeHtml } from "./format.js";
 import { sendMainMenu, sendCategoriesMenu, sendProductDetail, sendProductList } from "./menus.js";
-import { validatePrice, validatePercent, validateDiscount } from "../lib/validate.js";
+import { validatePrice, validatePercent, validateDiscount, validateTableCount } from "../lib/validate.js";
 
 // ---------- پیام‌های متنی در میانه‌ی یه مرحله ----------
 
@@ -71,6 +72,17 @@ export async function handleTextStep(env, chatId, text, session) {
     await clearSession(env, chatId);
     await sendMessage(env, chatId, "✅ تخفیف اعمال شد.");
     return sendProductDetail(env, chatId, session.productId);
+  }
+
+  if (session.step === "edit_table_count") {
+    const check = validateTableCount(trimmed);
+    if (!check.valid) {
+      return askQuestion(env, chatId, `${escapeHtml(check.error)}\nیه عدد بین ${toFa(1)} تا ${toFa(100)} بفرست:`);
+    }
+    await setSiteSetting(env, "tableCount", check.count);
+    await clearSession(env, chatId);
+    await sendMessage(env, chatId, `✅ تعداد میزها روی ${toFa(check.count)} تنظیم شد.`);
+    return sendMainMenu(env, chatId);
   }
 
   if (session.step === "new_category_label") {
