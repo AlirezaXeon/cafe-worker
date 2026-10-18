@@ -232,7 +232,7 @@ let preloadActive = 0;
 
 function mediumUrlFor(imgSrc) {
   if (!imgSrc) return null;
-  return /^https?:\/\//i.test(imgSrc) ? imgSrc : `images/med/${imgSrc.split('/').pop()}`;
+  return `images/med/${imgSrc.split('/').pop()}`;
 }
 
 function canBackgroundPreload() {
@@ -363,12 +363,11 @@ function populateModalContent(product, card) {
   const alive = () => token === modalImgToken;
 
   if (imgSrc) {
-    const isLocal = !/^https?:\/\//i.test(imgSrc);
     const fname = imgSrc.split('/').pop();
     const medUrl = mediumUrlFor(imgSrc);
     const cardEl = card || (grid && grid.querySelector(`.product-card[data-id="${product.id}"]`));
     const cardImg = cardEl && cardEl.querySelector('.product-image img');
-    const thumbUrl = (cardImg && (cardImg.currentSrc || cardImg.getAttribute('src'))) || (isLocal ? `images/thumb/${fname}` : null);
+    const thumbUrl = (cardImg && (cardImg.currentSrc || cardImg.getAttribute('src'))) || `images/thumb/${fname}`;
     const absFull = new URL(imgSrc, location.href).href;
 
     const mk = (cls, src) => {
@@ -951,7 +950,7 @@ sortModal.querySelectorAll('.sort-option').forEach(btn => {
 // چند مگابایت باشه) نیست؛ به‌جاش نسخه‌ی کوچیک‌شده‌ی سرور (/images/thumb/...) رو می‌گیریم.
 // عکس با کیفیت و سایز اصلی فقط وقتی کارت کلیک بشه و مودال باز بشه لود میشه (openModal).
 function productThumbSrc(src) {
-  if (!src || /^https?:\/\//i.test(src)) return src; // لینک خارجی رو دست‌نخورده می‌ذاریم
+  if (!src) return src;
   const filename = src.split('/').pop();
   return `images/thumb/${filename}`;
 }

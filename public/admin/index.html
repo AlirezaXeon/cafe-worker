@@ -1559,7 +1559,7 @@
       openCatModal();
     }
 
-    const imgSrc = (p) => p ? (/^https?:\/\//i.test(p) ? p : '/' + String(p).replace(/^\/+/, '')) : '';
+    const imgSrc = (p) => p ? '/' + String(p).replace(/^\/+/, '') : '';
 
     // ── Products ──────────────────────────────────────────────────────────────
     async function renderProducts(m) {

@@ -190,7 +190,7 @@ function injectSiteAssets(response, cfg, base, products, env) {
     });
   }
   if (cfg && cfg.logo) {
-    const logoHref = /^https?:\/\//i.test(cfg.logo) ? cfg.logo : '/' + String(cfg.logo).replace(/^\//, '');
+    const logoHref = '/' + String(cfg.logo).replace(/^\//, '');
     rewriter.on('head', {
       element(el) {
         el.append(`<link rel="preload" as="image" href="${logoHref}" fetchpriority="high">`, { html: true });
