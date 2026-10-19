@@ -783,6 +783,19 @@ async function renderTableQr(m) {
   await loadTableQr();
 }
 
+function generateQrSvg(text) {
+  if (typeof qrcode !== 'function') return '';
+  try {
+    const qr = qrcode(0, 'M');
+    qr.addData(text);
+    qr.make();
+    return qr.createSvgTag({ cellSize: 3, margin: 4, scalable: true });
+  } catch (err) {
+    console.error('Failed to generate QR code SVG:', err);
+    return '';
+  }
+}
+
 async function loadTableQr() {
   const el = document.getElementById('table-qr-wrap');
   if (!el) return;
@@ -790,10 +803,10 @@ async function loadTableQr() {
     const data = await api('/table-qr-links');
     const origin = window.location.origin;
     let html = `
-      <div class="no-print" style="margin-bottom:1rem;font-size:0.9rem;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
+      <div class="no-print" style="margin-bottom:1rem;font-size:0.9rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
         <span>تعداد کل میزها: <strong>${data.tableCount}</strong></span>
         <span>وضعیت امضای ضدجعل: 
-          <strong style="color:${data.signingEnabled ? 'var(--green)' : 'var(--amber)'}">
+          <strong style="color:${data.signingEnabled ? 'var(--success)' : 'var(--accent)'}">
             ${data.signingEnabled ? 'فعال ✓ (لینک‌ها دارای امضا هستند)' : 'غیرفعال (لینک‌ها بدون امضا هستند)'}
           </strong>
         </span>
@@ -803,12 +816,16 @@ async function loadTableQr() {
     `;
     data.links.forEach(l => {
       const fullUrl = `${origin}${l.url}`;
+      const qrSvg = generateQrSvg(fullUrl);
       html += `
         <div class="print-card" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;align-items:center;text-align:center;">
           <div style="font-weight:bold;font-size:1.15rem;">☕ کافه روشن</div>
-          <div style="font-size:1.3rem;font-weight:bold;color:var(--primary);">میز شماره ${l.table}</div>
-          <div style="font-size:0.8rem;color:var(--text-muted);">برای ثبت سفارش، بارکد را اسکن کنید یا لینک را باز کنید:</div>
-          <div style="font-family:monospace;direction:ltr;font-size:0.72rem;word-break:break-all;background:rgba(0,0,0,0.15);padding:0.4rem;border-radius:4px;width:100%;">${esc(fullUrl)}</div>
+          <div style="font-size:1.3rem;font-weight:bold;color:var(--accent-dark);">میز شماره ${l.table}</div>
+          <div class="qr-svg-wrap" style="width:140px;height:140px;display:flex;align-items:center;justify-content:center;margin:0.25rem auto;">
+            ${qrSvg}
+          </div>
+          <div style="font-size:0.8rem;color:var(--muted);">برای ثبت سفارش، بارکد را اسکن کنید یا لینک را باز کنید:</div>
+          <div style="font-family:monospace;direction:ltr;font-size:0.72rem;word-break:break-all;background:rgba(0,0,0,0.06);padding:0.4rem;border-radius:4px;width:100%;">${esc(fullUrl)}</div>
           <button class="btn btn-ghost btn-sm no-print" data-action="copy-table-url" data-url="${esc(fullUrl)}">📋 کپی لینک</button>
         </div>
       `;
