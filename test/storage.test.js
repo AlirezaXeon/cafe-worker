@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { toggleProductAvailability } from "../src/data/products.js";
 import { getSiteConfig, setSiteSetting } from "../src/data/site.js";
+import { clearMemo, SITE_CACHE_KEY } from "../src/data/cache.js";
 
 test("toggleProductAvailability toggles available atomically using RETURNING", async () => {
   let currentAvailable = 1;
@@ -134,4 +135,47 @@ test("seedFromKvIfEmpty: KV دارای logo و cover است؛ فقط logo عوض
   assert.equal(cfg.logo, "/images/new-logo.png");
   assert.equal(cfg.cover, "/images/old-cover.png");
 });
+
+test("getSiteConfig throws on transient D1 error (e.g. connection failed) to prevent deleting active assets", async () => {
+  clearMemo(SITE_CACHE_KEY);
+  const env = {
+    DB: {
+      prepare: () => ({
+        all: async () => {
+          throw new Error("D1_ERROR: connection failed");
+        },
+      }),
+    },
+    PRODUCTS_KV: {
+      get: async () => JSON.stringify({ logo: "/images/kv-logo.png" }),
+    },
+  };
+
+  await assert.rejects(
+    async () => {
+      await getSiteConfig(env);
+    },
+    /D1_ERROR: connection failed/
+  );
+});
+
+test("getSiteConfig falls back to KV when error is 'no such table'", async () => {
+  clearMemo(SITE_CACHE_KEY);
+  const env = {
+    DB: {
+      prepare: () => ({
+        all: async () => {
+          throw new Error("D1_ERROR: no such table: site_settings");
+        },
+      }),
+    },
+    PRODUCTS_KV: {
+      get: async (k) => (k === "site:config" ? JSON.stringify({ logo: "/images/legacy-kv-logo.png" }) : null),
+    },
+  };
+
+  const cfg = await getSiteConfig(env);
+  assert.equal(cfg.logo, "/images/legacy-kv-logo.png");
+});
+
 

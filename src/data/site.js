@@ -32,7 +32,11 @@ async function readSiteConfig(env) {
         }
         return config;
       }
-    } catch {
+    } catch (err) {
+      if (!/no such table/i.test(String(err?.message || err))) {
+        console.error("[site:readSiteConfig]", err);
+        throw err;
+      }
       // در صورت نبودن جدول هنوز، به مرحله بعد (فالبک KV) می‌رویم
     }
   }

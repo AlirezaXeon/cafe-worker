@@ -30,8 +30,9 @@ function makeEnv(overrides = {}) {
       delete: async (k) => kv.delete(k),
     },
     DB: {
-      prepare: (sql) => ({
-        bind: (...args) => ({
+      prepare: (sql) => {
+        const createStmt = (args = []) => ({
+          bind: (...newArgs) => createStmt(newArgs),
           all: async () => {
             if (/SELECT.*FROM categories/.test(sql)) {
               return { results: Array.from(categories.values()) };
@@ -121,8 +122,9 @@ function makeEnv(overrides = {}) {
             }
             return { meta: { changes: 1 } };
           },
-        }),
-      }),
+        });
+        return createStmt();
+      },
     },
   };
   return { env, products, categories, siteSettings, botState };
