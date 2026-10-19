@@ -5,12 +5,22 @@ import { getBotState, setBotState } from "../data/botState.js";
 // ---------- ارتباط خام با API تلگرام ----------
 
 export async function tg(env, method, payload) {
-  const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return res.json();
+  let data;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000),
+    });
+    data = await res.json().catch(() => ({ ok: false, description: `non-JSON response (HTTP ${res.status})` }));
+  } catch (err) {
+    data = { ok: false, description: `request failed: ${err?.name || "error"}` };
+  }
+  if (!data.ok && method !== "deleteMessage") {
+    console.error(`[tg:${method}]`, data.error_code, data.description);
+  }
+  return data;
 }
 
 // ---------- تمیز نگه داشتن چت (پاک کردن پیام‌های قبلی) ----------
@@ -56,7 +66,12 @@ export async function downloadTelegramFile(env, fileId) {
   }
 
   const downloadUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`;
-  const imgRes = await fetch(downloadUrl);
+  let imgRes;
+  try {
+    imgRes = await fetch(downloadUrl, { signal: AbortSignal.timeout(15000) });
+  } catch {
+    return { error: "خطا در دانلود فایل از سرور تلگرام" };
+  }
   if (!imgRes.ok) return { error: "خطا در دانلود فایل از سرور تلگرام" };
 
   const buffer = await imgRes.arrayBuffer();

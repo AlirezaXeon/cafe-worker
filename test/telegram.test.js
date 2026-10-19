@@ -5,6 +5,7 @@ import { handleCallback } from "../src/telegram/callbacks.js";
 import { handleTextStep } from "../src/telegram/steps.js";
 import { handleImageStep } from "../src/telegram/images.js";
 import { getSession } from "../src/data/session.js";
+import { tg } from "../src/telegram/api.js";
 
 // ── Mock environment factory ───────────────────────────────────────────────────
 // مشابه الگوی admin.test.js ولی با اضافه‌هایی برای تلگرام: tg calls, KV list, orders
@@ -1281,3 +1282,55 @@ test("handleUpdate: callback_query از ادمین معتبر answerCallback م�
     restore();
   }
 });
+
+test("tg: logs console.error when response is ok: false and method is not deleteMessage", async () => {
+  const origFetch = globalThis.fetch;
+  const origError = console.error;
+  const errors = [];
+  console.error = (...args) => errors.push(args);
+
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: false, error_code: 400, description: "Bad Request: message too long" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+    const res = await tg({ TELEGRAM_BOT_TOKEN: "mock_token" }, "sendMessage", { chat_id: 123, text: "hi" });
+    assert.equal(res.ok, false);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0][0], "[tg:sendMessage]");
+    assert.equal(errors[0][1], 400);
+    assert.equal(errors[0][2], "Bad Request: message too long");
+  } finally {
+    globalThis.fetch = origFetch;
+    console.error = origError;
+  }
+});
+
+test("tg: suppresses logging for deleteMessage failures and handles fetch exceptions safely", async () => {
+  const origFetch = globalThis.fetch;
+  const origError = console.error;
+  const errors = [];
+  console.error = (...args) => errors.push(args);
+
+  try {
+    // 1. deleteMessage ok:false should NOT log error
+    globalThis.fetch = async () => new Response(JSON.stringify({ ok: false, error_code: 400, description: "message to delete not found" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+    const delRes = await tg({ TELEGRAM_BOT_TOKEN: "mock_token" }, "deleteMessage", { chat_id: 123, message_id: 456 });
+    assert.equal(delRes.ok, false);
+    assert.equal(errors.length, 0, "نباید برای deleteMessage خطایی لاگ شود");
+
+    // 2. Fetch throwing network exception should return { ok: false } without throwing
+    globalThis.fetch = async () => { throw new TypeError("Failed to fetch"); };
+    const errRes = await tg({ TELEGRAM_BOT_TOKEN: "mock_token" }, "sendMessage", { chat_id: 123 });
+    assert.equal(errRes.ok, false);
+    assert.ok(errRes.description.includes("request failed"));
+  } finally {
+    globalThis.fetch = origFetch;
+    console.error = origError;
+  }
+});
+
