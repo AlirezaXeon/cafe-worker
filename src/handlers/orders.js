@@ -112,6 +112,23 @@ export async function notifyAdmins(env, { orderId, tableNumber, items, total, cr
     const adminIds = getAdminIds(env);
     if (adminIds.length === 0) return;
 
+    let prev = [];
+    if (env.DB) {
+      try {
+        const orderRow = await env.DB.prepare("SELECT tg_messages FROM orders WHERE id = ?").bind(orderId).first();
+        if (orderRow?.tg_messages) {
+          const parsed = JSON.parse(orderRow.tg_messages);
+          if (Array.isArray(parsed.entries)) prev = parsed.entries;
+        }
+      } catch (err) {
+        console.error("[orders:notify:read_prev]", err);
+      }
+    }
+
+    const done = new Set(prev.map((e) => String(e.chatId)));
+    const targets = adminIds.filter((id) => !done.has(String(id)));
+    if (targets.length === 0) return;
+
     const text = formatOrderMessage({ orderId, tableNumber, items, total, createdAt: createdAt || created_at });
     const keyboard = [[
       { text: "✅ تایید سفارش", callback_data: `order:confirm:${orderId}` },
@@ -120,23 +137,25 @@ export async function notifyAdmins(env, { orderId, tableNumber, items, total, cr
 
     // allSettled: اگه برای یه ادمین ارسال شکست خورد، بقیه همچنان پیام می‌گیرن
     const results = await Promise.allSettled(
-      adminIds.map((chatId) =>
+      targets.map((chatId) =>
         sendRaw(env, { chat_id: chatId, text, parse_mode: "HTML", reply_markup: { inline_keyboard: keyboard } })
       )
     );
-    const entries = adminIds
+    const fresh = targets
       .map((chatId, i) => ({
         chatId,
         messageId: results[i].status === "fulfilled" ? results[i].value?.result?.message_id : undefined,
       }))
       .filter((e) => e.messageId);
 
+    const entries = [...prev, ...fresh];
     if (entries.length > 0) {
+      const allDone = entries.length >= adminIds.length ? 1 : 0;
       const tgPayload = JSON.stringify({ text, entries });
       try {
         await env.DB
-          .prepare("UPDATE orders SET tg_messages = ?, tg_notified = 1 WHERE id = ?")
-          .bind(tgPayload, orderId)
+          .prepare("UPDATE orders SET tg_messages = ?, tg_notified = ? WHERE id = ?")
+          .bind(tgPayload, allDone, orderId)
           .run();
       } catch (err) {
         console.error("[orders:save_tg_messages]", err);

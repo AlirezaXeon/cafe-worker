@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { handleOrdersAPI, hashIp, formatOrderMessage } from "../src/handlers/orders.js";
+import { handleOrdersAPI, hashIp, formatOrderMessage, notifyAdmins } from "../src/handlers/orders.js";
 import { ORDER_RATE_LIMIT_MAX, TABLE_PENDING_ORDER_LIMIT_MAX, TABLE_PENDING_ORDER_PER_IP_MAX } from "../src/config.js";
 import { clearMemo, SITE_CACHE_KEY } from "../src/data/cache.js";
 import { tehranBoundaries, getSalesStats, getPendingOrdersNeedingNotification } from "../src/data/orders.js";
@@ -66,9 +66,23 @@ function makeEnv(opts = {}) {
               const count = orders.filter((o) => (o.status ?? "pending") === "pending" && o.table_number === tableNumber && o.created_at >= since).length;
               return { c: count };
             }
+            if (/SELECT tg_messages FROM orders WHERE id = \?/.test(sql)) {
+              const id = args[0];
+              const found = orders.find((o) => o.id === id);
+              return found ? { tg_messages: found.tg_messages || null } : null;
+            }
             return null;
           },
           run: async () => {
+            if (/UPDATE orders SET tg_messages = \?, tg_notified = \? WHERE id = \?/.test(sql)) {
+              const [tgPayload, tgNotified, id] = args;
+              const found = orders.find((o) => o.id === id);
+              if (found) {
+                found.tg_messages = tgPayload;
+                found.tg_notified = tgNotified;
+              }
+              return { meta: { changes: 1 } };
+            }
             if (/INSERT INTO orders/.test(sql)) {
               const [table_number, items, total, request_id, ip_hash, public_id] = args;
               const id = 42 + orders.length;
@@ -81,6 +95,8 @@ function makeEnv(opts = {}) {
                 ip_hash,
                 public_id: public_id || `mock-uuid-${id}`,
                 status: "pending",
+                tg_messages: null,
+                tg_notified: 0,
                 created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
               });
               return { meta: { last_row_id: id } };
@@ -645,6 +661,84 @@ test("formatOrderMessage: ساعت ثبت سفارش را بر اساس createdA
   assert.match(msg, /اسپرسو × 2/);
   assert.match(msg, /۱۳:۴۵/); // 10:15 UTC -> 13:45 Tehran
 });
+
+test("notifyAdmins: با ارسال ناموفق به یکی از ادمین‌ها، tg_notified صفر می‌ماند و در تلاش بعدی پیام تکراری فرستاده نمی‌شود", async () => {
+  const { env, rawOrders } = makeEnv();
+  env.ADMIN_IDS = "1001,1002";
+  rawOrders.push({
+    id: 99,
+    table_number: "4",
+    items: JSON.stringify([{ id: "p1", name: "قهوه", price: 50000, quantity: 1 }]),
+    total: 50000,
+    status: "pending",
+    tg_messages: null,
+    tg_notified: 0,
+    created_at: new Date().toISOString(),
+  });
+
+  const origFetch = globalThis.fetch;
+  const calls = [];
+  try {
+    // بار اول: ارسال به 1001 موفق (message_id: 111)، ارسال به 1002 ناموفق
+    globalThis.fetch = async (url, opts) => {
+      const payload = JSON.parse(opts.body);
+      calls.push({ chatId: payload.chat_id, method: url.split("/").pop() });
+      if (String(payload.chat_id) === "1001") {
+        return new Response(JSON.stringify({ ok: true, result: { message_id: 111 } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ ok: false, error_code: 500, description: "Network error" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    await notifyAdmins(env, {
+      orderId: 99,
+      tableNumber: "4",
+      items: [{ id: "p1", name: "قهوه", price: 50000, quantity: 1 }],
+      total: 50000,
+    });
+
+    const o = rawOrders.find((x) => x.id === 99);
+    assert.equal(o.tg_notified, 0, "وقتی همه ادمین‌ها دریافت نکرده‌اند tg_notified باید 0 بماند");
+    const parsed1 = JSON.parse(o.tg_messages);
+    assert.equal(parsed1.entries.length, 1);
+    assert.equal(String(parsed1.entries[0].chatId), "1001");
+    assert.equal(parsed1.entries[0].messageId, 111);
+
+    // بار دوم (Retry کران‌جاب): ارسال فقط برای 1002 انجام می‌شود و به 1001 پیام تکراری نمی‌رود
+    calls.length = 0;
+    globalThis.fetch = async (url, opts) => {
+      const payload = JSON.parse(opts.body);
+      calls.push({ chatId: payload.chat_id, method: url.split("/").pop() });
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 222 } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    await notifyAdmins(env, {
+      orderId: 99,
+      tableNumber: "4",
+      items: [{ id: "p1", name: "قهوه", price: 50000, quantity: 1 }],
+      total: 50000,
+    });
+
+    assert.equal(calls.length, 1, "در تلاش مجدد فقط باید به ادمین دوم ارسال شود");
+    assert.equal(String(calls[0].chatId), "1002");
+    assert.equal(o.tg_notified, 1, "پس از تحویل به همه ادمین‌ها tg_notified باید 1 شود");
+    const parsed2 = JSON.parse(o.tg_messages);
+    assert.equal(parsed2.entries.length, 2);
+    assert.equal(String(parsed2.entries[0].chatId), "1001");
+    assert.equal(String(parsed2.entries[1].chatId), "1002");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
 
 
 
