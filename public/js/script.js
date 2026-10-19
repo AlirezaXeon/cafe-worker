@@ -1,3 +1,57 @@
+// شنود خطای لود عکس‌ها بدون نیاز به هندلرهای اینلاین در HTML (سازگار با CSP سخت‌گیرانه)
+document.addEventListener('error', (e) => {
+  const el = e.target;
+  if (!el || el.tagName !== 'IMG') return;
+  if (el.id === 'splashLogoImg') {
+    if (typeof window.showSplashFallback === 'function') window.showSplashFallback();
+    return;
+  }
+  if (el.id === 'headerLogoImg') {
+    el.style.display = 'none';
+    const fb = document.getElementById('logoFallback');
+    if (fb) fb.style.display = 'flex';
+    return;
+  }
+  if (el.id === 'heroCoverImg') {
+    el.style.display = 'none';
+    const cov = el.closest('.hero-cover');
+    if (cov) cov.classList.add('no-cover');
+    return;
+  }
+  if (el.id === 'heroCoverLogo') {
+    el.style.display = 'none';
+    return;
+  }
+  if (el.hasAttribute('data-fallback')) {
+    const text = el.getAttribute('data-fallback');
+    const parent = el.parentElement;
+    el.remove();
+    if (parent) parent.textContent = text;
+    return;
+  }
+  if (el.classList.contains('product-card-img')) {
+    const parent = el.parentElement;
+    el.remove();
+    if (parent) {
+      parent.classList.add('img-ready');
+      const ph = parent.querySelector('.placeholder');
+      if (ph) ph.style.display = 'flex';
+    }
+    return;
+  }
+  if (el.classList.contains('cart-item-img')) {
+    if (el.parentElement) el.parentElement.style.display = 'none';
+  }
+}, true);
+
+document.addEventListener('load', (e) => {
+  const el = e.target;
+  if (!el || el.tagName !== 'IMG') return;
+  if (el.classList.contains('product-card-img')) {
+    if (el.parentElement) el.parentElement.classList.add('img-ready');
+  }
+}, true);
+
 // ============ SCROLL LOCK (مطمئن، مخصوص موبایل/سافاری) ============
 // فقط overflow:hidden رو body کافی نیست؛ تو سافاری موبایل صفحه‌ی پشت مودال بازم rubber-band
 // اسکرول می‌کنه و باعث بهم‌ریختگی می‌شه. این تابع body رو واقعاً fixed می‌کنه و بعد از بسته شدن
@@ -754,7 +808,7 @@ function renderTabs() {
   const catBtns = productsData.categories.map(c => {
     const img = getCategoryImage(c.id);
     const imgHtml = img
-      ? `<img src="${esc(productThumbSrc(img))}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}" onerror="const t=this.getAttribute('data-fallback'); this.remove(); this.parentElement.textContent=t;">`
+      ? `<img src="${esc(productThumbSrc(img))}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}">`
       : esc(c.label.charAt(0));
     return `<button class="cat-card" data-cat="${esc(c.id)}" role="tab" aria-selected="false">
       <span class="cat-card-img">${imgHtml}</span>
@@ -987,7 +1041,7 @@ function productCardHtml(p) {
         <rect x="1" y="1" width="98" height="98" rx="7" ry="7" pathLength="100"></rect>
       </svg>
       <div class="product-image">
-        ${imgSrc ? `<img src="${esc(thumbSrc)}" alt="${esc(p.name)}" loading="${lazy}" decoding="async" onload="this.parentElement.classList.add('img-ready')" onerror="this.remove(); this.parentElement.classList.add('img-ready'); this.parentElement.querySelector('.placeholder').style.display='flex';">` : ''}
+        ${imgSrc ? `<img src="${esc(thumbSrc)}" alt="${esc(p.name)}" class="product-card-img" loading="${lazy}" decoding="async">` : ''}
         <div class="placeholder" style="display:${imgSrc ? 'none' : 'flex'};">${esc(p.name.charAt(0))}</div>
       </div>
       <div class="product-info">
@@ -1425,7 +1479,7 @@ function renderCart() {
     <div class="cart-item" style="animation-delay: ${i * 45}ms">
       <div class="cart-item-thumb">
         ${item.image
-      ? `<img src="${esc(productThumbSrc(item.image))}" alt="${esc(item.name)}" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'">`
+      ? `<img src="${esc(productThumbSrc(item.image))}" alt="${esc(item.name)}" class="cart-item-img" loading="lazy" decoding="async">`
       : `<span class="cart-item-ph" aria-hidden="true">${esc(item.name.charAt(0))}</span>`}
       </div>
       <div class="cart-item-info">

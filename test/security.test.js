@@ -9,7 +9,10 @@ test("applySecurityHeaders sets standard security headers on general routes", ()
   assert.equal(headers.get("X-Content-Type-Options"), "nosniff");
   assert.equal(headers.get("Referrer-Policy"), "strict-origin-when-cross-origin");
   assert.equal(headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()");
-  assert.ok(headers.get("Content-Security-Policy")?.includes("default-src 'self'"));
+  const csp = headers.get("Content-Security-Policy");
+  assert.ok(csp?.includes("default-src 'self'"));
+  assert.ok(csp?.includes("script-src 'self'"));
+  assert.ok(!csp?.includes("script-src 'self' 'unsafe-inline'"), "script-src نباید unsafe-inline داشته باشد");
   assert.equal(headers.get("Content-Security-Policy-Report-Only"), null, "CSP باید enforce باشه نه report-only");
   assert.equal(headers.get("X-Frame-Options"), null);
 });
