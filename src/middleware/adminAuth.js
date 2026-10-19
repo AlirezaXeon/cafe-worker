@@ -1,6 +1,8 @@
 // src/middleware/adminAuth.js
 // احراز هویت توکن‌های ادمین با الگوریتم HMAC SHA-256 و فرمت استاندارد base64url
 
+import { getBotState } from "../data/botState.js";
+
 export function base64urlEncode(data) {
   const bytes = typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data);
   let binary = "";
@@ -133,6 +135,14 @@ export async function requireAdmin(request, env) {
 
   const payload = await verifyToken(token, env.JWT_SECRET, expectedVer);
   if (!payload) return null;
+
+  // بررسی ابطال توکن (blacklist بر اساس jti)
+  if (payload.jti && env?.DB) {
+    try {
+      const revoked = await getBotState(env, `revoked:${payload.jti}`);
+      if (revoked) return null;
+    } catch {}
+  }
 
   // محافظت CSRF برای متدهای تغییردهنده‌ی وضعیت در صورت احراز هویت با کوکی
   const method = request.method?.toUpperCase();

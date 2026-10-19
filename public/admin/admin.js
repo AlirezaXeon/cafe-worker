@@ -2,7 +2,6 @@ const BASE = '/admin/api';
 // سقف حجم ورودی (قبل از فشرده‌سازی) و سقف نهایی سرور (باید با MAX_UPLOAD_BYTES تو src/config.js یکی باشه)
 const MAX_INPUT_BYTES = 5 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
-let TOKEN = '';
 let editingProductId = null;
 let editingProductOriginalPrice = null;
 let editingProductPrice = null;
@@ -30,7 +29,6 @@ async function doLogin() {
     });
     const d = await r.json();
     if (!r.ok) { err.textContent = d.error; return; }
-    TOKEN = d.token || '';
     initApp();
   } catch { err.textContent = 'خطا در اتصال به سرور'; }
   finally { btn.innerHTML = 'ورود به پنل'; btn.disabled = false; }
@@ -44,7 +42,6 @@ async function doLogout() {
   try {
     await fetch(`${BASE}/logout`, { method: 'POST', credentials: 'same-origin' });
   } catch {}
-  TOKEN = '';
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-err').textContent = '';
@@ -58,7 +55,6 @@ async function api(path, opts = {}) {
     ...opts,
     credentials: 'same-origin',
     headers: {
-      ...(TOKEN ? { 'Authorization': `Bearer ${TOKEN}` } : {}),
       ...(!isFormData && opts.body ? { 'Content-Type': 'application/json' } : {}),
       ...(opts.headers || {})
     }
@@ -1063,12 +1059,11 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// اعتبارسنجی وضعیت ورود با کوکی امن HttpOnly یا توکن موجود
+// اعتبارسنجی وضعیت ورود با کوکی امن HttpOnly
 (async function checkInitialAuth() {
   try {
     const r = await fetch(`${BASE}/me`, {
       credentials: 'same-origin',
-      headers: TOKEN ? { 'Authorization': `Bearer ${TOKEN}` } : {}
     });
     if (r.ok) {
       initApp();

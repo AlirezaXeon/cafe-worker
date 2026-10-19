@@ -389,7 +389,8 @@ test("POST /admin/api/login clears failure counter on successful login", async (
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.ok, true);
-  assert.ok(data.token);
+  assert.equal(data.token, undefined);
+  assert.ok(res.headers.get("Set-Cookie")?.includes("admin_token="));
 
   assert.equal(botState.has(`loginfail:${testIp}`), false);
 });
@@ -412,7 +413,8 @@ test("POST /admin/api/login succeeds with correct password even when globalFail 
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.ok, true);
-  assert.ok(data.token);
+  assert.equal(data.token, undefined);
+  assert.ok(res.headers.get("Set-Cookie")?.includes("admin_token="));
 });
 
 test("POST /admin/api/login handles burst requests: allows at most 15 attempts, returns 429 for the rest", async () => {
@@ -849,6 +851,40 @@ test("PUT /admin/api/products/:id rejects original_price <= price with 400", asy
   const data = await res.json();
   assert.match(data.error, /بیشتر از قیمت با تخفیف/);
 });
+
+test("POST /admin/api/logout blacklists token jti and subsequent requests return 401", async () => {
+  const { env, botState } = makeEnv();
+  const token = await signToken({ sub: "admin", role: "admin" }, JWT_SECRET);
+
+  // 1. قبل از خروج: توکن معتبر است
+  const meReqBefore = new Request("https://x.test/admin/api/me", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const meResBefore = await handleAdminAPI(meReqBefore, env);
+  assert.equal(meResBefore.status, 200);
+
+  // 2. خروج از حساب
+  const logoutReq = new Request("https://x.test/admin/api/logout", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const logoutRes = await handleAdminAPI(logoutReq, env);
+  assert.equal(logoutRes.status, 200);
+  assert.ok(logoutRes.headers.get("Set-Cookie")?.includes("Max-Age=0"));
+
+  // بررسی ذخیره‌سازی ابطال در bot_state
+  const keys = Array.from(botState.keys());
+  const revokedKey = keys.find((k) => k.startsWith("revoked:"));
+  assert.ok(revokedKey, "کلید ابطال توکن باید در bot_state ذخیره شده باشد");
+
+  // 3. بعد از خروج: توکن باطل شده و 401 برمی‌گرداند
+  const meReqAfter = new Request("https://x.test/admin/api/me", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const meResAfter = await handleAdminAPI(meReqAfter, env);
+  assert.equal(meResAfter.status, 401);
+});
+
 
 
 

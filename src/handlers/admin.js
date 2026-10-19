@@ -22,7 +22,7 @@ import { validatePrice, validateDiscount } from '../lib/validate.js';
 import { validateImage } from '../lib/images.js';
 import { imagePath, imageFilename } from '../data/imagePaths.js';
 import { signTable } from '../lib/tableSig.js';
-import { deleteBotState, incrementBotState } from '../data/botState.js';
+import { deleteBotState, incrementBotState, setBotState } from '../data/botState.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -156,7 +156,7 @@ export async function handleAdminAPI(request, env) {
         env.JWT_SECRET,
         env.TOKEN_VERSION || "1"
       );
-      return new Response(JSON.stringify({ ok: true, token }), {
+      return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
@@ -169,6 +169,14 @@ export async function handleAdminAPI(request, env) {
 
   // ── Logout ────────────────────────────────────────────────────────────
   if (path === '/logout' && method === 'POST') {
+    try {
+      const currentAdmin = await requireAdmin(request, env);
+      if (currentAdmin?.jti) {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const ttl = Math.max(60, (currentAdmin.exp || (nowSec + 43200)) - nowSec);
+        await setBotState(env, `revoked:${currentAdmin.jti}`, '1', ttl);
+      }
+    } catch {}
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: {
