@@ -52,21 +52,53 @@ export { safeCompare };
 
 const IMAGE_PATH_RE = /^\/images\/[\w.-]+\.(jpg|jpeg|png|webp|gif)$/i;
 
+export function validateCategoryLabel(label) {
+  if (typeof label !== 'string') return { valid: false, error: 'نام دسته‌بندی اجباری است' };
+  const trimmed = label.trim();
+  if (!trimmed) return { valid: false, error: 'نام دسته‌بندی اجباری است' };
+  if (trimmed.length > 40) return { valid: false, error: 'نام دسته‌بندی نمی‌تواند بیشتر از ۴۰ نویسه باشد' };
+  return { valid: true, label: trimmed };
+}
+
 // اعتبارسنجی مشترک بین ساخت و ویرایش محصول
-function validateProductBody(b) {
+export function validateProductBody(b) {
   const name = typeof b?.name === 'string' ? b.name.trim() : '';
   if (!name) return { error: 'نام محصول اجباری است' };
   if (name.length > 80) return { error: 'نام محصول نمی‌تواند بیشتر از ۸۰ نویسه باشد' };
   const note = typeof b?.note === 'string' ? b.note.trim() : (b?.note ? String(b.note).trim() : '');
   if (note.length > 300) return { error: 'یادداشت محصول نمی‌تواند بیشتر از ۳۰۰ نویسه باشد' };
   if (!b?.category) return { error: 'دسته‌بندی اجباری است' };
+  const category = String(b.category).trim();
   const priceCheck = validatePrice(b.price);
   if (!priceCheck.valid) return { error: priceCheck.error };
   const discountCheck = validateDiscount(b.discount);
   if (!discountCheck.valid) return { error: discountCheck.error };
+
+  const rawOrigPrice = b.original_price !== undefined ? b.original_price : b.originalPrice;
+  let originalPrice = undefined;
+  if (rawOrigPrice !== undefined && rawOrigPrice !== null && rawOrigPrice !== '') {
+    const origCheck = validatePrice(rawOrigPrice);
+    if (!origCheck.valid) return { error: `قیمت اصلی نامعتبر است: ${origCheck.error}` };
+    if (origCheck.price <= priceCheck.price) {
+      return { error: 'قیمت اصلی باید بیشتر از قیمت با تخفیف باشد' };
+    }
+    originalPrice = origCheck.price;
+  } else if (rawOrigPrice === null) {
+    originalPrice = null;
+  }
+
   const image = b?.image ? String(b.image).trim() : null;
   if (image && !IMAGE_PATH_RE.test(image)) return { error: 'مسیر تصویر نامعتبر است' };
-  return { valid: true, price: priceCheck.price, discount: discountCheck.discount, image };
+  return {
+    valid: true,
+    name,
+    note,
+    category,
+    price: priceCheck.price,
+    discount: discountCheck.discount,
+    originalPrice,
+    image,
+  };
 }
 
 export async function handleAdminAPI(request, env) {
@@ -272,12 +304,13 @@ export async function handleAdminAPI(request, env) {
     }
     if (method === 'POST') {
       try {
-        const b = await request.json();
-        if (!b.label?.trim()) return json(request, { error: 'نام دسته‌بندی اجباری است' }, 400);
-        const image = b.image ? String(b.image).trim() : null;
+        const b = await request.json().catch(() => ({}));
+        const catCheck = validateCategoryLabel(b?.label);
+        if (!catCheck.valid) return json(request, { error: catCheck.error }, 400);
+        const image = b?.image ? String(b.image).trim() : null;
         if (image && !IMAGE_PATH_RE.test(image)) return json(request, { error: 'مسیر تصویر نامعتبر است' }, 400);
         const id = newCategoryId();
-        await addCategory(env, id, b.label.trim(), image);
+        await addCategory(env, id, catCheck.label, image);
         return json(request, { success: true, id }, 201);
       } catch (e) { return serverError(request, e, 'categories:post'); }
     }
@@ -307,15 +340,16 @@ export async function handleAdminAPI(request, env) {
 
     if (method === 'PUT') {
       try {
-        const b = await request.json();
-        if (!b.label?.trim()) return json(request, { error: 'نام دسته‌بندی اجباری است' }, 400);
-        const image = b.image ? String(b.image).trim() : null;
+        const b = await request.json().catch(() => ({}));
+        const catCheck = validateCategoryLabel(b?.label);
+        if (!catCheck.valid) return json(request, { error: catCheck.error }, 400);
+        const image = b?.image ? String(b.image).trim() : null;
         if (image && !IMAGE_PATH_RE.test(image)) return json(request, { error: 'مسیر تصویر نامعتبر است' }, 400);
         const old = await findCategory(env, id);
         if (!old) return json(request, { error: 'دسته‌بندی پیدا نشد' }, 404);
-        await updateCategory(env, id, b.label.trim(), image);
+        await updateCategory(env, id, catCheck.label, image);
         const oldFilename = imageFilename(old?.image);
-        const newFilename = imageFilename(b.image);
+        const newFilename = imageFilename(b?.image);
         if (oldFilename && oldFilename !== newFilename) {
           await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
         }
@@ -334,11 +368,11 @@ export async function handleAdminAPI(request, env) {
 
     if (method === 'POST') {
       try {
-        const b = await request.json();
+        const b = await request.json().catch(() => ({}));
         const check = validateProductBody(b);
         if (check.error) return json(request, { error: check.error }, 400);
 
-        const cat = await findCategory(env, b.category);
+        const cat = await findCategory(env, check.category);
         if (!cat) return json(request, { error: 'دسته‌بندی انتخاب‌شده وجود ندارد' }, 400);
 
         const id = newProductId();
@@ -346,9 +380,9 @@ export async function handleAdminAPI(request, env) {
         // price که از پنل میاد «قیمت پایه» است؛ محاسبه‌ی تخفیف تو لایه‌ی داده انجام میشه
         await addProduct(env, {
           id,
-          category: b.category,
-          name: b.name.trim(),
-          note: b.note || '',
+          category: check.category,
+          name: check.name,
+          note: check.note,
           price: check.price,
           discount: check.discount,
           image: check.image,
@@ -378,30 +412,29 @@ export async function handleAdminAPI(request, env) {
 
     if (method === 'PUT') {
       try {
-        const b = await request.json();
+        const b = await request.json().catch(() => ({}));
         const check = validateProductBody(b);
         if (check.error) return json(request, { error: check.error }, 400);
 
         const old = await findProduct(env, id);
         if (!old) return json(request, { error: 'محصول پیدا نشد' }, 404);
 
-        const cat = await findCategory(env, b.category);
+        const cat = await findCategory(env, check.category);
         if (!cat) return json(request, { error: 'دسته‌بندی انتخاب‌شده وجود ندارد' }, 400);
 
         const available = b.available === undefined ? (old.available ? 1 : 0) : (b.available ? 1 : 0);
-        const origPrice = b.original_price !== undefined ? b.original_price : b.originalPrice;
         await updateProduct(env, id, {
-          category: b.category,
-          name: b.name.trim(),
-          note: b.note || '',
+          category: check.category,
+          name: check.name,
+          note: check.note,
           price: check.price,
           discount: check.discount,
-          originalPrice: origPrice !== undefined ? (origPrice === null ? null : Number(origPrice)) : undefined,
+          originalPrice: check.originalPrice,
           image: check.image,
           available,
         });
         const oldFilename = imageFilename(old?.image);
-        const newFilename = imageFilename(b.image);
+        const newFilename = imageFilename(check.image);
         if (oldFilename && oldFilename !== newFilename) {
           await env.PRODUCTS_KV.delete(`image:${oldFilename}`);
         }

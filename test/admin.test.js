@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { handleAdminAPI } from "../src/handlers/admin.js";
+import { handleAdminAPI, validateCategoryLabel, validateProductBody } from "../src/handlers/admin.js";
 import { signToken } from "../src/middleware/adminAuth.js";
 import { listOrders, getOrdersSummary } from "../src/data/orders.js";
 
@@ -769,5 +769,86 @@ test("POST /admin/api/upload rejects string file field with 400", async () => {
   const data = await res.json();
   assert.match(data.error, /فایلی ارسال نشده یا نامعتبر است/);
 });
+
+test("validateCategoryLabel: validates string, trimming, length", () => {
+  assert.equal(validateCategoryLabel("").valid, false);
+  assert.equal(validateCategoryLabel("   ").valid, false);
+  assert.equal(validateCategoryLabel(123).valid, false);
+  assert.equal(validateCategoryLabel(null).valid, false);
+  assert.equal(validateCategoryLabel("a".repeat(41)).valid, false);
+  assert.match(validateCategoryLabel("a".repeat(41)).error, /۴۰/);
+
+  const ok = validateCategoryLabel("  قهوه دمی  ");
+  assert.equal(ok.valid, true);
+  assert.equal(ok.label, "قهوه دمی");
+});
+
+test("validateProductBody: trims note and validates original_price", () => {
+  const base = {
+    name: "لاته",
+    category: "cat1",
+    price: 85000,
+    discount: 0,
+    note: "   با شیر پرچرب   ",
+  };
+  const res1 = validateProductBody(base);
+  assert.equal(res1.valid, true);
+  assert.equal(res1.note, "با شیر پرچرب");
+
+  // original_price must be > price
+  const res2 = validateProductBody({ ...base, original_price: 80000 });
+  assert.equal(res2.valid, undefined);
+  assert.match(res2.error, /قیمت اصلی باید بیشتر از قیمت با تخفیف باشد/);
+
+  const res3 = validateProductBody({ ...base, original_price: 85000 });
+  assert.equal(res3.valid, undefined);
+  assert.match(res3.error, /قیمت اصلی باید بیشتر از قیمت با تخفیف باشد/);
+
+  const res4 = validateProductBody({ ...base, original_price: 100000 });
+  assert.equal(res4.valid, true);
+  assert.equal(res4.originalPrice, 100000);
+});
+
+test("POST /admin/api/categories rejects invalid label with 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+
+  for (const label of ["", "   ", "a".repeat(41)]) {
+    const req = new Request("https://x.test/admin/api/categories", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ label }),
+    });
+    const res = await handleAdminAPI(req, env);
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.ok(data.error);
+  }
+});
+
+test("PUT /admin/api/products/:id rejects original_price <= price with 400", async () => {
+  const products = new Map([
+    ["p1", { id: "p1", category: "cat1", name: "لاته", note: "", price: 85000, original_price: null, available: 1 }],
+  ]);
+  const { env } = makeEnv({ products });
+  const headers = await authHeaders();
+
+  const req = new Request("https://x.test/admin/api/products/p1", {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      category: "cat1",
+      name: "لاته",
+      price: 85000,
+      discount: 0,
+      original_price: 80000,
+    }),
+  });
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.match(data.error, /بیشتر از قیمت با تخفیف/);
+});
+
 
 
