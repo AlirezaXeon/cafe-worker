@@ -805,7 +805,12 @@ function renderTabs() {
     <span class="cat-card-label">همه</span>
   </button>`;
 
-  const catBtns = productsData.categories.map(c => {
+  // فقط دسته‌بندی‌هایی که حداقل یک محصول دارند در تب‌های ناوبری نمایش داده می‌شوند
+  const activeCategories = (productsData?.categories || []).filter(c =>
+    (productsData?.products || []).some(p => p.category === c.id)
+  );
+
+  const catBtns = activeCategories.map(c => {
     const img = getCategoryImage(c.id);
     const imgHtml = img
       ? `<img src="${esc(productThumbSrc(img))}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}">`
