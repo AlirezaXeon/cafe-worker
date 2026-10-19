@@ -22,7 +22,7 @@ import { validatePrice, validateDiscount } from '../lib/validate.js';
 import { validateImage } from '../lib/images.js';
 import { imagePath, imageFilename } from '../data/imagePaths.js';
 import { signTable } from '../lib/tableSig.js';
-import { getBotState, deleteBotState, incrementBotState } from '../data/botState.js';
+import { deleteBotState, incrementBotState } from '../data/botState.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -101,41 +101,24 @@ export async function handleAdminAPI(request, env) {
   if (path === '/login' && method === 'POST') {
     try {
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-
       const lockKey = `loginfail:${ip}`;
-      const globalLockKey = `loginfail:global`;
-      const [failCountRaw, globalFailRaw] = await Promise.all([
-        getBotState(env, lockKey),
-        getBotState(env, globalLockKey),
-      ]);
-      const failCount = failCountRaw ? Number(failCountRaw) : 0;
-      const globalFail = globalFailRaw ? Number(globalFailRaw) : 0;
-      // آستانه ۱۵ تلاش ناموفق برای IP جاری (قفل کامل سراسری به دلیل پتانسیل DoS حذف شده است)
-      if (failCount >= 15) {
+      const attempts = await incrementBotState(env, lockKey, 900);
+      if (attempts > 15) {
         return json(request, { error: 'تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه دیگر امتحان کنید.' }, 429);
       }
 
-      // تأخیر تصاعدی بر اساس تلاش‌های ناموفق IP یا سراسری (سقف ۲ ثانیه) برای کند کردن حملات بدون قفل سراسری
-      const ipDelay = failCount >= 5 ? (failCount - 4) * 200 : 0;
-      const globalDelay = globalFail >= 10 ? Math.floor((globalFail - 9) * 50) : 0;
-      const delayMs = Math.min(2000, Math.max(ipDelay, globalDelay));
+      const delayMs = attempts > 5 ? Math.min(2000, (attempts - 5) * 200) : 0;
       if (delayMs > 0) {
         await new Promise((r) => setTimeout(r, delayMs));
       }
 
       const { password } = await request.json().catch(() => ({}));
       if (!password || !safeCompare(password, env.ADMIN_PASSWORD)) {
-        await Promise.all([
-          incrementBotState(env, lockKey, 900),
-          incrementBotState(env, globalLockKey, 900),
-        ]);
         return json(request, { error: 'رمز عبور اشتباه است' }, 401);
       }
 
-      // ورود موفق؛ شمارنده‌ی تلاش ناموفق فقط در صورت وجود پاک می‌شود تا رایت بیهوده انجام نشود
-      if (failCount > 0) {
-        await deleteBotState(env, lockKey);
-      }
+      // ورود موفق؛ شمارنده‌ی تلاش ناموفق برای این IP پاک می‌شود
+      await deleteBotState(env, lockKey);
       const token = await signToken(
         { role: 'admin' },
         env.JWT_SECRET,

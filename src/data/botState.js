@@ -27,18 +27,18 @@ export async function incrementBotState(env, key, ttlSec = 900) {
   const now = Date.now();
   const expiresAt = ttlSec ? now + ttlSec * 1000 : null;
   try {
-    await env.DB
+    const row = await env.DB
       .prepare(`
         INSERT INTO bot_state (key, value, expires_at) VALUES (?1, '1', ?2)
         ON CONFLICT(key) DO UPDATE SET
           value = CASE WHEN bot_state.expires_at IS NOT NULL AND bot_state.expires_at <= ?3
                        THEN '1' ELSE CAST(CAST(bot_state.value AS INTEGER) + 1 AS TEXT) END,
           expires_at = excluded.expires_at
+        RETURNING value
       `)
       .bind(key, expiresAt, now)
-      .run();
-    const val = await getBotState(env, key, now);
-    return Number(val) || 1;
+      .first();
+    return Number(row?.value) || 1;
   } catch {
     const currentVal = await getBotState(env, key, now);
     const next = currentVal ? Number(currentVal) + 1 : 1;

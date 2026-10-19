@@ -70,6 +70,20 @@ function makeEnv(overrides = {}) {
               const r = botState.get(args[0]);
               return r ? { ...r } : null;
             }
+            if (/INSERT INTO bot_state.*RETURNING value/s.test(sql)) {
+              const [key, expires_at, now] = args;
+              const existing = botState.get(key);
+              let nextVal = 1;
+              if (existing) {
+                if (existing.expires_at != null && existing.expires_at <= now) {
+                  nextVal = 1;
+                } else {
+                  nextVal = (Number(existing.value) || 0) + 1;
+                }
+              }
+              botState.set(key, { value: String(nextVal), expires_at });
+              return { value: String(nextVal) };
+            }
             return null;
           },
           run: async () => {
@@ -397,6 +411,29 @@ test("POST /admin/api/login succeeds with correct password even when globalFail 
   const data = await res.json();
   assert.equal(data.ok, true);
   assert.ok(data.token);
+});
+
+test("POST /admin/api/login handles burst requests: allows at most 15 attempts, returns 429 for the rest", async () => {
+  const { env } = makeEnv();
+  const testIp = "192.168.1.120";
+
+  const makeReq = () =>
+    new Request("https://x.test/admin/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "CF-Connecting-IP": testIp,
+      },
+      body: JSON.stringify({ password: "wrong-password" }),
+    });
+
+  // 30 parallel requests
+  const responses = await Promise.all(Array.from({ length: 30 }, () => handleAdminAPI(makeReq(), env)));
+  const status401 = responses.filter((r) => r.status === 401).length;
+  const status429 = responses.filter((r) => r.status === 429).length;
+
+  assert.equal(status401, 15, "باید دقیقاً ۱۵ تلاش نخست به مقایسه رمز برسند و ۴۰۱ بگیرند");
+  assert.equal(status429, 15, "باید ۱۵ تلاش بعدی فوراً ۴۲۹ بگیرند");
 });
 
 test("POST /admin/api/upload rejects PNG bytes named .webp with 400", async () => {
