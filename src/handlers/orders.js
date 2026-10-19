@@ -9,6 +9,7 @@ import {
   ORDER_RATE_LIMIT_MAX,
   ORDER_RATE_LIMIT_WINDOW_SEC,
   TABLE_PENDING_ORDER_LIMIT_MAX,
+  TABLE_PENDING_ORDER_PER_IP_MAX,
   TABLE_PENDING_ORDER_WINDOW_SEC,
   OPENING_HOURS,
 } from "../config.js";
@@ -216,6 +217,8 @@ export async function handleOrdersAPI(request, env, ctx) {
     if (!valid) {
       return json({ error: "امضای میز نامعتبر است. لطفاً کد QR روی میز را اسکن کنید." }, 403);
     }
+  } else {
+    console.warn("[orders:config] TABLE_SIGNING_SECRET تنظیم نشده است؛ احراز اصالت فیزیکی میزها غیرفعال است.");
   }
 
   // جلوگیری از سفارش تکراری: اول در D1 بررسی می‌کنیم (requestId یا idempotencyKey قدیمی)
@@ -285,6 +288,15 @@ export async function handleOrdersAPI(request, env, ctx) {
       .first();
     if ((tablePendingRow?.c ?? 0) >= TABLE_PENDING_ORDER_LIMIT_MAX) {
       return json({ error: "تعداد سفارش‌های در انتظار بررسی برای این میز بیش از حد مجاز است. لطفاً منتظر بمانید." }, 429);
+    }
+    if (ipHash) {
+      const ipPendingRow = await env.DB
+        .prepare("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending' AND table_number = ? AND ip_hash = ? AND created_at >= ?")
+        .bind(tableNumber, ipHash, tableWindowStart)
+        .first();
+      if ((ipPendingRow?.c ?? 0) >= TABLE_PENDING_ORDER_PER_IP_MAX) {
+        return json({ error: "تعداد سفارش‌های در انتظار شما برای این میز بیش از حد مجاز است." }, 429);
+      }
     }
   } catch (err) {
     console.error("[orders:table_pending:check]", err);

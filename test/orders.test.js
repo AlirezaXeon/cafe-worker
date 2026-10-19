@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { handleOrdersAPI, hashIp, formatOrderMessage } from "../src/handlers/orders.js";
-import { ORDER_RATE_LIMIT_MAX, TABLE_PENDING_ORDER_LIMIT_MAX } from "../src/config.js";
+import { ORDER_RATE_LIMIT_MAX, TABLE_PENDING_ORDER_LIMIT_MAX, TABLE_PENDING_ORDER_PER_IP_MAX } from "../src/config.js";
 import { clearMemo, SITE_CACHE_KEY } from "../src/data/cache.js";
 import { tehranBoundaries, getSalesStats, getPendingOrdersNeedingNotification } from "../src/data/orders.js";
 import { signTable } from "../src/lib/tableSig.js";
@@ -54,6 +54,11 @@ function makeEnv(opts = {}) {
               const [ipHash, since] = args;
               if (rateLimitCount !== null) return { c: rateLimitCount };
               const count = orders.filter((o) => o.ip_hash === ipHash && o.created_at >= since).length;
+              return { c: count };
+            }
+            if (/SELECT COUNT\(\*\).*FROM orders WHERE status = 'pending' AND table_number = \? AND ip_hash = \?/.test(sql)) {
+              const [tableNumber, ipHash, since] = args;
+              const count = orders.filter((o) => (o.status ?? "pending") === "pending" && o.table_number === tableNumber && o.ip_hash === ipHash && o.created_at >= since).length;
               return { c: count };
             }
             if (/SELECT COUNT\(\*\).*FROM orders WHERE status = 'pending' AND table_number/.test(sql)) {
@@ -210,27 +215,50 @@ test("هانی‌پات ضد ربات: اگر فیلد مخفی پر باشد، 
   assert.equal(inserts(), 0, "هیچ رکوردی نباید ثبت شده باشد");
 });
 
-test("سقف سفارش‌های در انتظار به ازای هر میز: سفارش چهارم روی همان میز رد و روی میز دیگر قبول می‌شود", async () => {
+test("سقف سفارش‌های در انتظار به ازای هر فرستنده و هر میز: سفارش چهارم یک IP روی همان میز رد و IP دیگر قبول می‌شود", async () => {
   const { env, inserts } = makeEnv();
+  const ip1 = { "cf-connecting-ip": "1.1.1.1" };
+  const ip2 = { "cf-connecting-ip": "2.2.2.2" };
 
-  // ۳ سفارش اول برای میز ۱ با موفقیت ثبت می‌شوند
-  for (let i = 1; i <= TABLE_PENDING_ORDER_LIMIT_MAX; i++) {
-    const res = await handleOrdersAPI(req(order({ table: "1", requestId: `req-table1-000${i}` })), env);
+  // ۳ سفارش اول برای میز ۱ با IP اول با موفقیت ثبت می‌شوند
+  for (let i = 1; i <= TABLE_PENDING_ORDER_PER_IP_MAX; i++) {
+    const res = await handleOrdersAPI(req(order({ table: "1", requestId: `req-table1-000${i}` }), ip1), env);
     assert.equal(res.status, 200);
   }
   assert.equal(inserts(), 3);
 
-  // سفارش چهارم برای همان میز ۱ رد می‌شود (۴۲۹)
-  const res4 = await handleOrdersAPI(req(order({ table: "1", requestId: "req-table1-0004" })), env);
+  // سفارش چهارم با همان IP برای همان میز ۱ رد می‌شود (۴۲۹)
+  const res4 = await handleOrdersAPI(req(order({ table: "1", requestId: "req-table1-0004" }), ip1), env);
   assert.equal(res4.status, 429);
   const data4 = await res4.json();
   assert.ok(data4.error.includes("بیش از حد مجاز"));
-  assert.equal(inserts(), 3, "سفارش چهارم نباید در دیتابیس ثبت شود");
+  assert.equal(inserts(), 3, "سفارش چهارم از همان IP نباید در دیتابیس ثبت شود");
+
+  // سفارش همان میز با IP دیگر (مشتری دیگر در همان میز) باید ثبت شود
+  const resIp2 = await handleOrdersAPI(req(order({ table: "1", requestId: "req-table1-ip2-0001" }), ip2), env);
+  assert.equal(resIp2.status, 200);
+  assert.equal(inserts(), 4, "سفارش با IP دیگر روی همان میز باید ثبت شود");
 
   // سفارش برای یک میز دیگر (میز ۲) باید با موفقیت ثبت شود
-  const resOther = await handleOrdersAPI(req(order({ table: "2", requestId: "req-table2-0001" })), env);
+  const resOther = await handleOrdersAPI(req(order({ table: "2", requestId: "req-table2-0001" }), ip1), env);
   assert.equal(resOther.status, 200);
-  assert.equal(inserts(), 4, "سفارش میز دیگر باید ثبت شود");
+  assert.equal(inserts(), 5, "سفارش میز دیگر باید ثبت شود");
+
+  // سقف کل میز (TABLE_PENDING_ORDER_LIMIT_MAX): پر کردن ظرفیت میز با فرستنده‌های مجزا
+  const remainingSlots = TABLE_PENDING_ORDER_LIMIT_MAX - (TABLE_PENDING_ORDER_PER_IP_MAX + 1);
+  for (let i = 1; i <= remainingSlots; i++) {
+    const res = await handleOrdersAPI(req(order({ table: "1", requestId: `req-table1-ip${i}` }), { "cf-connecting-ip": `10.0.0.${i}` }), env);
+    assert.equal(res.status, 200);
+  }
+  // اکنون میز ۱ دقیقاً TABLE_PENDING_ORDER_LIMIT_MAX سفارش در انتظار دارد
+  assert.equal(inserts(), TABLE_PENDING_ORDER_LIMIT_MAX + 1); // روی میز ۱ + ۱ روی میز ۲
+
+  // سفارش یازدهم روی میز ۱ حتی با IP کاملاً جدید رد می‌شود
+  const resTotalLimit = await handleOrdersAPI(req(order({ table: "1", requestId: "req-table1-overflow" }), { "cf-connecting-ip": "10.0.0.99" }), env);
+  assert.equal(resTotalLimit.status, 429);
+  const dataTotal = await resTotalLimit.json();
+  assert.ok(dataTotal.error.includes("برای این میز بیش از حد مجاز است"));
+  assert.equal(inserts(), 11, "سفارش بیش از سقف کل میز نباید ثبت شود");
 });
 
 test("POST /api/orders rejects oversized requests (>16KB) with 413", async () => {
