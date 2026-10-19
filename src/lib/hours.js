@@ -2,6 +2,17 @@
 // ایران ساعت تابستانی نداره و همیشه +۳:۳۰ هست (همون روشی که tehranBoundaries تو src/data/orders.js استفاده میکنه)
 // توجه: این منطق در کلاینت (public/js/script.js) نیز جداگانه پیاده شده است و در صورت تغییر باید هر دو با هم هماهنگ شوند.
 import { TEHRAN_OFFSET_MS } from "./time.js";
+import { OPENING_HOURS } from "../config.js";
+
+export function buildOpeningHoursSpecification(openingHours = OPENING_HOURS) {
+  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  return (openingHours?.schedule || []).map((s) => ({
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: s.days.map((d) => dayNames[d]),
+    opens: s.open,
+    closes: s.close === "24:00" ? "23:59" : s.close,
+  }));
+}
 
 // "08:30" ← 510 (دقیقه از ابتدای روز)؛ "24:00" ← 1440
 export function toMinutes(hhmm) {

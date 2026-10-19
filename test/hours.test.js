@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { OPENING_HOURS } from "../src/config.js";
-import { toMinutes, tehranDayAndMinutes, getOpenStatus, nextOpening } from "../src/lib/hours.js";
+import { toMinutes, tehranDayAndMinutes, getOpenStatus, nextOpening, buildOpeningHoursSpecification } from "../src/lib/hours.js";
 
 // ساعت‌های تستی جدا از config.js، تا عوض کردن ساعت واقعی کافه تست‌ها رو خراب نکنه
 const HOURS = {
@@ -19,6 +19,23 @@ test("OPENING_HOURS واقعی: هر روز هفته دقیقاً تو یک رد
     assert.ok(toMinutes(s.open) < toMinutes(s.close), `${s.label}: close باید بعد از open باشه`);
     assert.ok(toMinutes(s.close) <= 24 * 60, `${s.label}: close نباید از ۲۴:۰۰ بیشتر باشه`);
   }
+});
+
+test("buildOpeningHoursSpecification: خروجی استاندارد schema.org تولید می‌کند و 24:00 را به 23:59 تبدیل می‌کند", () => {
+  const spec = buildOpeningHoursSpecification(HOURS);
+  assert.equal(spec.length, 2);
+  assert.deepEqual(spec[0], {
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"],
+    opens: "08:00",
+    closes: "23:00",
+  });
+  assert.deepEqual(spec[1], {
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: ["Thursday", "Friday"],
+    opens: "09:00",
+    closes: "23:59",
+  });
 });
 
 test("tehranDayAndMinutes: روز و دقیقه رو به وقت تهران حساب می‌کنه (حتی وقتی تاریخ UTC فرق داره)", () => {

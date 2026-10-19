@@ -9,6 +9,8 @@ import { getPendingOrdersNeedingNotification } from './data/orders.js';
 import { cleanupExpiredBotState } from './data/botState.js';
 import { withSecurityHeaders } from "./middleware/security.js";
 import { imageFilename } from "./data/imagePaths.js";
+import { OPENING_HOURS } from "./config.js";
+import { buildOpeningHoursSpecification } from "./lib/hours.js";
 
 const IMAGE_CONTENT_TYPES = {
   jpg: "image/jpeg", jpeg: "image/jpeg",
@@ -156,6 +158,60 @@ function injectSiteAssets(response, cfg, base, products, env) {
   rewriter.on('meta[property="og:url"]', {
     element(el) { el.setAttribute('content', `${base}/`); },
   });
+
+  // تولید داینامیک ساختار JSON-LD Schema از ساعات کاری و اطلاعات تماس
+  const openingHours = cfg?.hours || OPENING_HOURS;
+  const phone = env?.PHONE || cfg?.phone;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CafeOrCoffeeShop",
+    name: "کافه روشن",
+    servesCuisine: "قهوه، شیرینی، صبحانه",
+    ...(phone ? { telephone: phone } : {}),
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "خیابان ولیعصر، نرسیده به میدان ونک، پلاک ۱۲",
+      addressLocality: "تهران",
+      addressCountry: "IR",
+    },
+    openingHoursSpecification: buildOpeningHoursSpecification(openingHours),
+  };
+
+  rewriter.on('script[type="application/ld+json"]', {
+    element(el) {
+      el.setInnerContent(safeInlineJson(jsonLd), { html: true });
+    },
+  });
+
+  // لینک‌های شبکه‌های اجتماعی: در صورت تنظیم در env یا تنظیمات سایت مقداردهی می‌شوند، وگرنه حذف می‌شوند
+  const instagramUrl = env?.INSTAGRAM_URL || cfg?.instagram;
+  const telegramUrl = env?.TELEGRAM_URL || cfg?.telegram;
+
+  if (instagramUrl) {
+    rewriter.on('#socialInstagram', {
+      element(el) { el.setAttribute('href', instagramUrl); },
+    });
+  } else {
+    rewriter.on('#socialInstagram', {
+      element(el) { el.remove(); },
+    });
+  }
+
+  if (telegramUrl) {
+    rewriter.on('#socialTelegram', {
+      element(el) { el.setAttribute('href', telegramUrl); },
+    });
+  } else {
+    rewriter.on('#socialTelegram', {
+      element(el) { el.remove(); },
+    });
+  }
+
+  if (!instagramUrl && !telegramUrl) {
+    rewriter.on('#socialBlock', {
+      element(el) { el.remove(); },
+    });
+  }
 
   // دیتای سایت و محصولات رو مستقیم تو HTML می‌ذاریم تا مرورگر مجبور نباشه بعد از لود script.js
   // دو تا fetch جدا (site.json و products.json) بزنه؛ script.js اگه این رو ببینه fetch نمی‌کنه.
