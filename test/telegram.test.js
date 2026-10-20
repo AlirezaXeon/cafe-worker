@@ -1249,6 +1249,51 @@ test("handleUpdate: دکمه‌ی «🪑 تعداد میزها» سشن edit_tab
   }
 });
 
+test("handleUpdate: دکمه «🔐 امضای QR میزها» منو را نشان می‌دهد", async () => {
+  const { env, tgCalls, restore } = makeTgEnv();
+  try {
+    await handleUpdate({
+      message: {
+        message_id: 15, chat: { id: 111 }, from: { id: 111 },
+        text: "🔐 امضای QR میزها",
+      },
+    }, env);
+    const sends = tgCalls.filter((c) => c.method === "sendMessage");
+    const last = sends[sends.length - 1];
+    assert.ok(last.payload.text.includes("امضای QR میزها"));
+  } finally {
+    restore();
+  }
+});
+
+test("handleCallback: togglesig:off و togglesig:on مقدار requireTableSig را عوض می‌کند", async () => {
+  const { env, siteSettings, restore } = makeTgEnv();
+  env.TABLE_SIGNING_SECRET = "super-secret";
+  try {
+    await handleCallback(env, 111, "togglesig:off", null);
+    assert.equal(siteSettings.get("requireTableSig"), "0");
+
+    await handleCallback(env, 111, "togglesig:on", null);
+    assert.equal(siteSettings.get("requireTableSig"), "1");
+  } finally {
+    restore();
+  }
+});
+
+test("handleCallback: togglesig:on بدون سکرت روشن نمی‌کند", async () => {
+  const { env, siteSettings, tgCalls, restore } = makeTgEnv();
+  // env.TABLE_SIGNING_SECRET is not set
+  try {
+    await handleCallback(env, 111, "togglesig:on", null);
+    assert.equal(siteSettings.get("requireTableSig"), undefined);
+    const sends = tgCalls.filter((c) => c.method === "sendMessage");
+    const warnMsg = sends.find((s) => s.payload.text.includes("ابتدا باید سکرت TABLE_SIGNING_SECRET را در Cloudflare ست کنی"));
+    assert.ok(warnMsg, "باید پیام هشدار فرستاده شود");
+  } finally {
+    restore();
+  }
+});
+
 test("handleUpdate: پیام بدون سشن فعال به منوی اصلی برمیگرده", async () => {
   const { env, tgCalls, restore } = makeTgEnv();
   try {

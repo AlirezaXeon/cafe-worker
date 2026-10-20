@@ -543,6 +543,7 @@ test("GET /api/orders/:publicId/status برای شناسه ناموجود و id 
 });
 
 test("TABLE_SIGNING_SECRET: اگر ست باشد، سفارش بدون sig معتبر با ۴۰۳ رد می‌شود", async () => {
+  clearMemo(SITE_CACHE_KEY);
   const { env, inserts } = makeEnv();
   env.TABLE_SIGNING_SECRET = "super-table-secret";
 
@@ -572,9 +573,31 @@ test("TABLE_SIGNING_SECRET: اگر ست باشد، سفارش بدون sig مع�
 });
 
 test("TABLE_SIGNING_SECRET: اگر ست نباشد (backward compatible)، سفارش بدون sig ثبت می‌شود", async () => {
+  clearMemo(SITE_CACHE_KEY);
   const { env, inserts } = makeEnv();
   // env.TABLE_SIGNING_SECRET تعریف نشده است
   const res = await handleOrdersAPI(req(order({ table: "3" })), env);
+  assert.equal(res.status, 200);
+  assert.equal(inserts(), 1);
+});
+
+test("امضا خاموش (requireTableSig=0) و سکرت ست: سفارش بدون sig ثبت می‌شود", async () => {
+  clearMemo(SITE_CACHE_KEY);
+  const { env, inserts } = makeEnv({ siteSettings: [{ key: "requireTableSig", value: "0" }] });
+  env.TABLE_SIGNING_SECRET = "super-table-secret";
+
+  const res = await handleOrdersAPI(req(order({ table: "3" })), env);
+  assert.equal(res.status, 200);
+  assert.equal(inserts(), 1);
+});
+
+test("امضا خاموش: سفارش با sig معتبر هم ثبت می‌شود", async () => {
+  clearMemo(SITE_CACHE_KEY);
+  const { env, inserts } = makeEnv({ siteSettings: [{ key: "requireTableSig", value: "0" }] });
+  env.TABLE_SIGNING_SECRET = "super-table-secret";
+
+  const validSig = await signTable("3", env.TABLE_SIGNING_SECRET);
+  const res = await handleOrdersAPI(req(order({ table: "3", tableSig: validSig })), env);
   assert.equal(res.status, 200);
   assert.equal(inserts(), 1);
 });

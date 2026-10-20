@@ -178,4 +178,38 @@ test("getSiteConfig falls back to KV when error is 'no such table'", async () =>
   assert.equal(cfg.logo, "/images/legacy-kv-logo.png");
 });
 
+test("getSiteConfig: signingEnabled و signingSecretPresent در ترکیب‌های سکرت/تنظیم", async () => {
+  // ۱. سکرت دارد، تنظیم ندارد -> signingEnabled: true, signingSecretPresent: true
+  clearMemo(SITE_CACHE_KEY);
+  const d1_1 = new Map();
+  const env1 = { DB: makeSiteDb(d1_1), TABLE_SIGNING_SECRET: "secret123" };
+  const cfg1 = await getSiteConfig(env1);
+  assert.equal(cfg1.signingSecretPresent, true);
+  assert.equal(cfg1.signingEnabled, true);
+
+  // ۲. سکرت دارد، تنظیم '0' -> signingEnabled: false, signingSecretPresent: true
+  clearMemo(SITE_CACHE_KEY);
+  const d1_2 = new Map([["requireTableSig", "0"]]);
+  const env2 = { DB: makeSiteDb(d1_2), TABLE_SIGNING_SECRET: "secret123" };
+  const cfg2 = await getSiteConfig(env2);
+  assert.equal(cfg2.signingSecretPresent, true);
+  assert.equal(cfg2.signingEnabled, false);
+
+  // ۳. سکرت دارد، تنظیم '1' -> signingEnabled: true, signingSecretPresent: true
+  clearMemo(SITE_CACHE_KEY);
+  const d1_3 = new Map([["requireTableSig", "1"]]);
+  const env3 = { DB: makeSiteDb(d1_3), TABLE_SIGNING_SECRET: "secret123" };
+  const cfg3 = await getSiteConfig(env3);
+  assert.equal(cfg3.signingSecretPresent, true);
+  assert.equal(cfg3.signingEnabled, true);
+
+  // ۴. سکرت ندارد، تنظیم '1' -> signingEnabled: false, signingSecretPresent: false
+  clearMemo(SITE_CACHE_KEY);
+  const d1_4 = new Map([["requireTableSig", "1"]]);
+  const env4 = { DB: makeSiteDb(d1_4) };
+  const cfg4 = await getSiteConfig(env4);
+  assert.equal(cfg4.signingSecretPresent, false);
+  assert.equal(cfg4.signingEnabled, false);
+});
+
 

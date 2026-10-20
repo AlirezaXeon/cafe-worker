@@ -14,7 +14,8 @@ import { findOrphanImageKeys, deleteOrphanImages } from "../data/maintenance.js"
 import { resolveOrder } from "../data/orders.js";
 import { imageFilename } from "../data/imagePaths.js";
 import { sendMessage, askQuestion } from "./api.js";
-import { toFa, escapeHtml } from "./format.js";
+import { toFa } from "./format.js";
+import { setSiteSetting } from "../data/site.js";
 import {
   sendMainMenu,
   sendSiteImagesMenu,
@@ -22,6 +23,7 @@ import {
   sendProductList,
   sendProductDetail,
   sendCategoriesMenu,
+  sendSigningMenu,
 } from "./menus.js";
 
 // ---------- دکمه‌ها (callback_query) ----------
@@ -51,6 +53,15 @@ export async function handleCallback(env, chatId, data, cq) {
   if (data === "menu:products") return sendCategoryPicker(env, chatId, "browse");
   if (data === "menu:categories") return sendCategoriesMenu(env, chatId);
   if (data === "menu:siteimages") return sendSiteImagesMenu(env, chatId);
+
+  if (action === "togglesig") {
+    if (a === "on" && !env.TABLE_SIGNING_SECRET) {
+      await sendMessage(env, chatId, "⚠️ ابتدا باید سکرت TABLE_SIGNING_SECRET را در Cloudflare ست کنی.");
+      return sendSigningMenu(env, chatId);
+    }
+    await setSiteSetting(env, "requireTableSig", a === "on" ? "1" : "0");
+    return sendSigningMenu(env, chatId);
+  }
 
   if (data === "siteimg:logo") {
     await setSession(env, chatId, { step: "edit_site_logo" });

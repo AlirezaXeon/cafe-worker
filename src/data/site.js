@@ -94,10 +94,14 @@ export async function seedFromKvIfEmpty(env) {
 // ساعت کاری از config.js میاد (نه دیتابیس) و تو خروجی قرار میگیره؛ اینطوری سایت (via /data/site.json و bootData)
 // دقیقاً از همون مقداری استفاده میکنه که سرور برای قبول/رد سفارش
 export async function getSiteConfig(env) {
+  const cfg = await readSiteConfig(env);
+  const signingSecretPresent = Boolean(env?.TABLE_SIGNING_SECRET);
+  const signingEnabled = signingSecretPresent && String(cfg.requireTableSig ?? "1") !== "0";
   return {
-    ...(await readSiteConfig(env)),
+    ...cfg,
     hours: OPENING_HOURS,
-    signingEnabled: Boolean(env?.TABLE_SIGNING_SECRET),
+    signingEnabled,
+    signingSecretPresent,
   };
 }
 

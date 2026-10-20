@@ -1,6 +1,6 @@
 import { getSession, clearSession } from "./data/session.js";
 import { deleteMessageSafe, answerCallback, getAdminIds } from "./telegram/api.js";
-import { sendMainMenu, sendCategoryPicker, sendCategoriesMenu, sendSiteImagesMenu, sendTableCountPrompt } from "./telegram/menus.js";
+import { sendMainMenu, sendCategoryPicker, sendCategoriesMenu, sendSiteImagesMenu, sendTableCountPrompt, sendSigningMenu } from "./telegram/menus.js";
 import { handleCallback } from "./telegram/callbacks.js";
 import { handleTextStep } from "./telegram/steps.js";
 import { handleImageStep } from "./telegram/images.js";
@@ -43,6 +43,10 @@ export async function handleUpdate(update, env) {
     if (msg.text === "🪑 تعداد میزها") {
       await clearSession(env, chatId);
       return sendTableCountPrompt(env, chatId);
+    }
+    if (msg.text === "🔐 امضای QR میزها") {
+      await clearSession(env, chatId);
+      return sendSigningMenu(env, chatId);
     }
 
     // ── لغو متنی — کاربر می‌تونه در هر مرحله‌ای تایپ کنه تا انصراف بده ──

@@ -222,21 +222,24 @@ export async function handleOrdersAPI(request, env, ctx) {
   const tableRaw = String(body?.table ?? "").trim();
   if (!tableRaw) return json({ error: "شماره میز را وارد کنید" }, 400);
   const tableNum = /^\d{1,3}$/.test(tableRaw) ? Number(tableRaw) : NaN;
-  const siteCfg = await memo(SITE_CACHE_KEY, () => getSiteConfig(env)).catch(() => ({ tableCount: 20 }));
+  const siteCfg = await memo(SITE_CACHE_KEY, () => getSiteConfig(env)).catch(() => ({
+    tableCount: 20,
+    signingEnabled: Boolean(env.TABLE_SIGNING_SECRET),
+  }));
   const tableCount = siteCfg.tableCount ?? 20;
   if (!Number.isInteger(tableNum) || tableNum < 1 || tableNum > tableCount) {
     return json({ error: "شماره میز نامعتبر است" }, 400);
   }
   const tableNumber = String(tableNum);
 
-  // در صورت فعال بودن TABLE_SIGNING_SECRET، امضای معتبر میز برای ثبت سفارش الزامی است
-  if (env.TABLE_SIGNING_SECRET) {
+  // در صورت فعال بودن الزام امضای میز، امضای معتبر میز برای ثبت سفارش الزامی است
+  if (siteCfg.signingEnabled) {
     const tableSig = typeof body?.tableSig === "string" ? body.tableSig : "";
     const valid = await verifyTableSig(tableNumber, tableSig, env.TABLE_SIGNING_SECRET);
     if (!valid) {
       return json({ error: "امضای میز نامعتبر است. لطفاً کد QR روی میز را اسکن کنید." }, 403);
     }
-  } else {
+  } else if (!env.TABLE_SIGNING_SECRET) {
     console.warn("[orders:config] TABLE_SIGNING_SECRET تنظیم نشده است؛ احراز اصالت فیزیکی میزها غیرفعال است.");
   }
 

@@ -627,6 +627,7 @@ test("POST /admin/api/site/cover accepts valid JPEG and updates cover in site se
   const data1 = await res1.json();
   assert.equal(data1.ok, true);
   assert.equal(data1.signingEnabled, false);
+  assert.equal(data1.signingSecretPresent, false);
   assert.equal(data1.links.length, 20);
   assert.equal(data1.links[0].table, 1);
   assert.equal(data1.links[0].url, "/?t=1");
@@ -641,9 +642,28 @@ test("POST /admin/api/site/cover accepts valid JPEG and updates cover in site se
   const data2 = await res2.json();
   assert.equal(data2.ok, true);
   assert.equal(data2.signingEnabled, true);
+  assert.equal(data2.signingSecretPresent, true);
   assert.equal(data2.links.length, 20);
   assert.equal(data2.links[0].table, 1);
   assert.match(data2.links[0].url, /^\/\?t=1&sig=[a-f0-9]{64}$/);
+});
+
+test("GET /admin/api/table-qr-links when requireTableSig=0 and secret set: links have signatures but signingEnabled=false", async () => {
+  const { env, siteSettings } = makeEnv();
+  const headers = await authHeaders();
+  siteSettings.set("requireTableSig", "0");
+  env.TABLE_SIGNING_SECRET = "super-secret-key";
+
+  const res = await handleAdminAPI(new Request("https://x.test/admin/api/table-qr-links", {
+    method: "GET",
+    headers,
+  }), env);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.ok, true);
+  assert.equal(data.signingEnabled, false);
+  assert.equal(data.signingSecretPresent, true);
+  assert.match(data.links[0].url, /^\/\?t=1&sig=[a-f0-9]{64}$/);
 });
 
 test("POST /admin/api/products with price='۱۵۰۰۰۰' saves price=150000", async () => {
@@ -749,6 +769,72 @@ test("PUT /admin/api/site/table-count rejects invalid table count with 400", asy
     assert.equal(res.status, 400);
     const data = await res.json();
     assert.match(data.error, /۱ تا ۱۰۰/);
+  }
+});
+
+test("PUT /admin/api/site/signing without secret and enabled=true returns 400", async () => {
+  const { env, siteSettings } = makeEnv();
+  const headers = await authHeaders();
+  // env.TABLE_SIGNING_SECRET is not set
+
+  const req = new Request("https://x.test/admin/api/site/signing", {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ enabled: true }),
+  });
+  const res = await handleAdminAPI(req, env);
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.match(data.error, /TABLE_SIGNING_SECRET/);
+  assert.equal(siteSettings.get("requireTableSig"), undefined);
+});
+
+test("PUT /admin/api/site/signing with secret saves requireTableSig as '1' and '0'", async () => {
+  const { env, siteSettings } = makeEnv();
+  const headers = await authHeaders();
+  env.TABLE_SIGNING_SECRET = "super-secret-key";
+
+  // Disable signing
+  const reqOff = new Request("https://x.test/admin/api/site/signing", {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ enabled: false }),
+  });
+  const resOff = await handleAdminAPI(reqOff, env);
+  assert.equal(resOff.status, 200);
+  const dataOff = await resOff.json();
+  assert.equal(dataOff.success, true);
+  assert.equal(dataOff.signingEnabled, false);
+  assert.equal(siteSettings.get("requireTableSig"), "0");
+
+  // Enable signing
+  const reqOn = new Request("https://x.test/admin/api/site/signing", {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ enabled: true }),
+  });
+  const resOn = await handleAdminAPI(reqOn, env);
+  assert.equal(resOn.status, 200);
+  const dataOn = await resOn.json();
+  assert.equal(dataOn.success, true);
+  assert.equal(dataOn.signingEnabled, true);
+  assert.equal(siteSettings.get("requireTableSig"), "1");
+});
+
+test("PUT /admin/api/site/signing rejects non-boolean enabled with 400", async () => {
+  const { env } = makeEnv();
+  const headers = await authHeaders();
+
+  for (const bad of ["yes", 1, null, "true", {}]) {
+    const req = new Request("https://x.test/admin/api/site/signing", {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ enabled: bad }),
+    });
+    const res = await handleAdminAPI(req, env);
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.match(data.error, /true یا false/);
   }
 });
 

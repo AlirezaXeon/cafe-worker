@@ -803,7 +803,7 @@ async function loadTableQr() {
         <span>تعداد کل میزها: <strong>${data.tableCount}</strong></span>
         <span>وضعیت امضای ضدجعل: 
           <strong style="color:${data.signingEnabled ? 'var(--success)' : 'var(--accent)'}">
-            ${data.signingEnabled ? 'فعال ✓ (لینک‌ها دارای امضا هستند)' : 'غیرفعال (لینک‌ها بدون امضا هستند)'}
+            ${!data.signingSecretPresent ? 'غیرفعال (سکرت ست نشده)' : data.signingEnabled ? 'فعال ✓ (الزامی برای ثبت سفارش)' : 'خاموش (لینک‌ها دارای امضا هستند ولی اسکن الزامی نیست)'}
           </strong>
         </span>
       </div>
@@ -878,6 +878,20 @@ async function loadSiteImages() {
           <button class="btn btn-primary btn-sm" data-action="save-table-count">ذخیره تعداد میزها</button>
         </div>
       </div>
+      <div class="card" style="margin-top:1.5rem">
+        <div class="card-header"><h2>🔐 الزام اسکن QR برای ثبت سفارش</h2></div>
+        <div style="padding:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+          <button class="toggle ${cfg.signingEnabled ? 'on' : ''}" data-action="toggle-signing"
+            data-enabled="${cfg.signingEnabled ? '1' : '0'}" ${cfg.signingSecretPresent ? '' : 'disabled'}></button>
+          <span class="hint">${
+            !cfg.signingSecretPresent
+              ? 'سکرت TABLE_SIGNING_SECRET ست نشده؛ ابتدا آن را در Cloudflare ست کنید.'
+              : cfg.signingEnabled
+                ? 'روشن: فقط با اسکن QR میز می‌توان سفارش داد.'
+                : 'خاموش: هر کسی با آدرس سایت می‌تواند برای هر میزی سفارش بدهد.'
+          }</span>
+        </div>
+      </div>
     `;
   } catch (e) {
     if (e.message !== 'unauthorized') el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری</div>';
@@ -898,6 +912,18 @@ async function saveTableCount() {
     toast('تعداد میزها با موفقیت به‌روزرسانی شد ✓');
   } catch (e) {
     if (e.message !== 'unauthorized') toast(e.message || 'خطا در ذخیره تعداد میزها', true);
+  }
+}
+
+async function toggleSigning(currentlyOn) {
+  const next = !currentlyOn;
+  if (!next && !confirm('با خاموش کردن، هر کسی با آدرس سایت می‌تواند از بیرون کافه برای هر میزی سفارش بدهد. مطمئنی؟')) return;
+  try {
+    await api('/site/signing', { method: 'PUT', body: JSON.stringify({ enabled: next }) });
+    toast(next ? 'الزام QR روشن شد ✓' : 'الزام QR خاموش شد');
+    loadSiteImages();
+  } catch (e) {
+    if (e.message !== 'unauthorized') toast(e.message || 'خطا در تغییر تنظیم', true);
   }
 }
 
@@ -1028,6 +1054,8 @@ document.addEventListener('click', (e) => {
     removeSiteImg(actionEl.dataset.kind);
   } else if (action === 'save-table-count') {
     saveTableCount();
+  } else if (action === 'toggle-signing') {
+    toggleSigning(actionEl.dataset.enabled === '1');
   }
 });
 

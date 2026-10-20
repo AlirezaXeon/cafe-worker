@@ -280,6 +280,21 @@ export async function handleAdminAPI(request, env) {
     } catch (e) { return serverError(request, e, 'site:table-count'); }
   }
 
+  // ── تنظیم الزام امضای QR ───────────────────────────────────────────
+  if (path === '/site/signing' && method === 'PUT') {
+    try {
+      const b = await request.json().catch(() => ({}));
+      if (typeof b.enabled !== 'boolean') {
+        return json(request, { error: 'مقدار enabled باید true یا false باشد' }, 400);
+      }
+      if (b.enabled && !env.TABLE_SIGNING_SECRET) {
+        return json(request, { error: 'ابتدا باید سکرت TABLE_SIGNING_SECRET را در Cloudflare ست کنید.' }, 400);
+      }
+      await setSiteSetting(env, 'requireTableSig', b.enabled ? '1' : '0');
+      return json(request, { success: true, signingEnabled: b.enabled });
+    } catch (e) { return serverError(request, e, 'site:signing'); }
+  }
+
   // ── فروش (فقط سفارش‌های تایید‌شده) ────────────────────────────────────
   if (path === '/sales-stats' && method === 'GET') {
     try {
@@ -299,7 +314,13 @@ export async function handleAdminAPI(request, env) {
         const query = sig ? `?t=${i}&sig=${sig}` : `?t=${i}`;
         links.push({ table: i, sig, query, url: `/?t=${i}${sig ? `&sig=${sig}` : ''}` });
       }
-      return json(request, { ok: true, tableCount, signingEnabled: Boolean(secret), links });
+      return json(request, {
+        ok: true,
+        tableCount,
+        signingEnabled: siteCfg.signingEnabled,
+        signingSecretPresent: Boolean(secret),
+        links,
+      });
     } catch (e) { return serverError(request, e, 'table-qr-links'); }
   }
 

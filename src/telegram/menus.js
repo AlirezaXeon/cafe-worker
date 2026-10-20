@@ -13,7 +13,8 @@ const GUIDE_TEXT =
   "📦 محصولات ← دسته موردنظر ← محصول موردنظر\n\n" +
   "🖼 تصاویر سایت ← لوگو یا عکس بالای سایت\n" +
   "💰 تغییر قیمت دسته‌جمعی ← تخفیف/افزایش قیمت یه دسته کامل\n" +
-  "🪑 تعداد میزها ← تغییر تعداد میزهای کافه\n\n" +
+  "🪑 تعداد میزها ← تغییر تعداد میزهای کافه\n" +
+  "🔐 امضای QR میزها ← روشن/خاموش کردن الزام اسکن QR\n\n" +
   "این پیام پین شده، هر وقت لازم شد از بالای چت بازش کن.";
 
 async function ensureGuidePinned(env, chatId) {
@@ -133,4 +134,21 @@ export async function sendTableCountPrompt(env, chatId) {
     env, chatId,
     `🪑 الان ${toFa(cfg.tableCount)} میز فعال است.\nتعداد جدید میزها رو بفرست (عدد ${toFa(1)} تا ${toFa(100)}):`
   );
+}
+
+export async function sendSigningMenu(env, chatId) {
+  const cfg = await getSiteConfig(env);
+  const rows = [];
+  let text;
+  if (!cfg.signingSecretPresent) {
+    text = "🔐 <b>امضای QR میزها</b>\n\nسکرت TABLE_SIGNING_SECRET ست نشده؛ ابتدا باید آن را در Cloudflare ست کنی.";
+  } else if (cfg.signingEnabled) {
+    text = "🔐 <b>امضای QR میزها</b>\n\nوضعیت: 🟢 روشن\nفقط با اسکن QR میز می‌توان سفارش داد.";
+    rows.push([{ text: "🔓 خاموش کن", callback_data: "togglesig:off" }]);
+  } else {
+    text = "🔐 <b>امضای QR میزها</b>\n\nوضعیت: 🔴 خاموش\n⚠️ هر کسی با آدرس سایت می‌تواند برای هر میزی سفارش بدهد.";
+    rows.push([{ text: "🔒 روشن کن", callback_data: "togglesig:on" }]);
+  }
+  rows.push([{ text: "🔙 بازگشت", callback_data: "menu:home" }]);
+  await sendMessage(env, chatId, text, rows);
 }
