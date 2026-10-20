@@ -3789,3 +3789,30 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   flex-shrink: 0;
   display: inline-block;
 }
+
+/* ============ ظاهر شدن کارت‌های محصول هنگام اسکرول ============ */
+.product-card.reveal {
+  opacity: 0;
+  transform: translateY(28px) scale(0.97);
+  filter: blur(6px);
+  will-change: opacity, transform, filter;
+}
+
+.product-card.reveal.in {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition:
+    opacity 0.6s ease,
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.6s ease;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card.reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

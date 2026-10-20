@@ -342,6 +342,42 @@ function observeCardNeon() {
   cards.forEach(c => neonObserver.observe(c));
 }
 
+let revealObserver = null;
+function observeCardReveal() {
+  if (revealObserver) revealObserver.disconnect();
+  if (!('IntersectionObserver' in window) || prefersReducedMotion()) return;
+
+  const cards = document.querySelectorAll('.product-card');
+  revealObserver = new IntersectionObserver((entries) => {
+    const visible = entries
+      .filter((e) => e.isIntersecting)
+      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top
+                      || a.boundingClientRect.left - b.boundingClientRect.left);
+
+    visible.forEach((e, i) => {
+      const card = e.target;
+      card.style.setProperty('--reveal-delay', `${Math.min(i, 5) * 70}ms`);
+      card.classList.add('in');
+      revealObserver.unobserve(card);
+
+      const cleanup = () => {
+        card.classList.remove('reveal', 'in');
+        card.style.removeProperty('--reveal-delay');
+      };
+      card.addEventListener('transitionend', (ev) => {
+        if (ev.target === card && ev.propertyName === 'transform') cleanup();
+      }, { once: true });
+      setTimeout(cleanup, 1500);
+    });
+  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.08 });
+
+  cards.forEach((c) => {
+    if (c.getBoundingClientRect().top < window.innerHeight) return;
+    c.classList.add('reveal');
+    revealObserver.observe(c);
+  });
+}
+
 let cardPreloadObserver = null;
 function observeCardsForPreload() {
   if (!('IntersectionObserver' in window)) return;
@@ -1118,6 +1154,7 @@ function renderProducts() {
   });
 
   observeCardNeon();
+  observeCardReveal();
 
   // پیش‌لود پس‌زمینه فقط بعد از رفتن اسپلش شروع میشه تا با لود اولیه‌ی صفحه سر پهنای باند دعوا نکنه
   if (document.body.classList.contains('site-loaded')) observeCardsForPreload();
