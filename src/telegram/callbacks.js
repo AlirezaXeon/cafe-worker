@@ -14,7 +14,7 @@ import { findOrphanImageKeys, deleteOrphanImages } from "../data/maintenance.js"
 import { resolveOrder } from "../data/orders.js";
 import { imageFilename } from "../data/imagePaths.js";
 import { sendMessage, askQuestion } from "./api.js";
-import { toFa } from "./format.js";
+import { toFa, escapeHtml } from "./format.js";
 import { setSiteSetting } from "../data/site.js";
 import {
   sendMainMenu,

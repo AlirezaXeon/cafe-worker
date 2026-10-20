@@ -1099,6 +1099,28 @@ test("handleCallback: bulkconfirm قیمت‌ها رو اعمال و سشن رو
   }
 });
 
+test("handleCallback: bulkconfirm موقع تغییر قیمت محصول خطا می‌دهد و پیام فرستاده می‌شود", async () => {
+  const { env, products, botState, tgCalls, restore } = makeTgEnv();
+  // قیمت فعلی محصول p1 برابر 85000 است، اما در سشن oldPrice برابر 90000 ثبت شده
+  const sessionData = {
+    step: "bulk_confirm",
+    catId: "cat1",
+    percent: 20,
+    items: [{ id: "p1", oldPrice: 90000, newPrice: 108000 }],
+  };
+  botState.set("session:111", { value: JSON.stringify(sessionData), expires_at: null });
+
+  try {
+    await handleCallback(env, 111, "bulkconfirm", null);
+    assert.equal(products.get("p1").price, 85000, "قیمت نباید تغییر کند");
+    assert.equal(botState.has("session:111"), false, "سشن باید پاک شود");
+    const sends = tgCalls.filter((c) => c.method === "sendMessage");
+    assert.ok(sends.some((c) => c.payload.text.includes("تغییر کرده")));
+  } finally {
+    restore();
+  }
+});
+
 test("handleCallback: bulkcancel سشن رو پاک و پیام لغو میفرسته", async () => {
   const { env, botState, tgCalls, restore } = makeTgEnv();
   botState.set("session:111", {
