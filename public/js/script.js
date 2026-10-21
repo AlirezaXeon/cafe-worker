@@ -883,8 +883,10 @@ function stopAutoScroll() {
   document.documentElement.classList.remove('scrolling-fast');
 }
 
-// انیمیشن اسکرول با منحنی easeInOutCubic؛ مدت‌زمان متناسب با فاصله‌ست تا هم فاصله‌ی کم تند نشه
-// هم فاصله‌ی زیاد کش نیاد. اگه کاربر وسطش با ماوس/لمس/کیبورد دخالت کنه، همون لحظه قطع میشه.
+// انیمیشن اسکرول روان و مخملی با منحنی حرکتی هارمونیک سینوسی (easeInOutSine)؛
+// شروع فوق‌العاده نرم بدون تکان یا پرش ناگهانی، حرکت یکدست در میانه، و فرود بسیار ملایم.
+// مدت‌زمان متناسب با فاصله تا هم فاصله‌های کم با طمأنینه طی بشن و هم فاصله‌های زیاد معطل نکنن.
+// در صورت هرگونه لمس، اسکرول یا کیبورد توسط کاربر، انیمیشن فوراً قطع و کنترل به کاربر داده میشه.
 function smoothScrollToY(targetY, { hideHeaderAtEnd = false } = {}) {
   stopAutoScroll();
   const startY = window.scrollY;
@@ -895,8 +897,8 @@ function smoothScrollToY(targetY, { hideHeaderAtEnd = false } = {}) {
 
   const html = document.documentElement;
   const prevBehavior = html.style.scrollBehavior;
-  // CSS روی html مقدار scroll-behavior:smooth داره؛ اگه خاموشش نکنیم، هر فریم scrollTo خودش
-  // دوباره انیمیشن می‌خوره و حرکت لرزون میشه
+  // CSS روی html مقدار scroll-behavior:smooth داره؛ در حین اجرای انیمیشن JS آن را موقتاً auto می‌کنیم
+  // تا فریم‌های متوالی دچار تداخل و لرزش نشوند
   html.style.scrollBehavior = 'auto';
 
   if (prefersReducedMotion()) {
@@ -906,7 +908,8 @@ function smoothScrollToY(targetY, { hideHeaderAtEnd = false } = {}) {
     return;
   }
 
-  const duration = Math.min(1100, Math.max(500, Math.abs(dist) * 0.5));
+  // مدت‌زمان بر اساس فرمول نرم: حداقل ۵۵۰ میلی‌ثانیه برای حس لوکس و روان، حداکثر ۱۰۵۰ میلی‌ثانیه برای مسیرهای طولانی
+  const duration = Math.min(1050, Math.max(550, 480 + Math.sqrt(Math.abs(dist)) * 12));
   const t0 = performance.now();
   window.__menuAutoScrolling = true;
   html.classList.add('scrolling-fast');
@@ -925,11 +928,16 @@ function smoothScrollToY(targetY, { hideHeaderAtEnd = false } = {}) {
   removeScrollInterrupts = () => interrupts.forEach(ev => window.removeEventListener(ev, onInterrupt));
 
   function step(now) {
-    const p = Math.min((now - t0) / duration, 1);
-    const eased = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+    const elapsed = now - t0;
+    const p = Math.min(elapsed / duration, 1);
+    // easeInOutSine: حرکت هارمونیک بدون هیچ‌گونه پرش شتاب (شروع نرم، میانه یکنواخت، توقف ملایم)
+    const eased = 0.5 * (1 - Math.cos(Math.PI * p));
     window.scrollTo(0, startY + dist * eased);
-    if (p < 1) autoScrollRaf = requestAnimationFrame(step);
-    else finish(true);
+    if (p < 1) {
+      autoScrollRaf = requestAnimationFrame(step);
+    } else {
+      finish(true);
+    }
   }
   autoScrollRaf = requestAnimationFrame(step);
 }
@@ -962,8 +970,16 @@ function scrollToCategory(catId) {
   setActiveTab(catId); // فوراً هایلایت میشه، نه اینکه منتظر برسیم
 
   if (catId === 'all') {
-    const menu = document.getElementById('menu');
-    if (menu) smoothScrollToY(menu.getBoundingClientRect().top + window.scrollY);
+    const head = document.querySelector('.menu-section-head');
+    const bar = document.querySelector('.menu-controls');
+    if (head && bar) {
+      const gap = parseFloat(getComputedStyle(head).marginBottom) || 0;
+      const barNaturalTop = head.getBoundingClientRect().bottom + window.scrollY + gap;
+      smoothScrollToY(barNaturalTop, { hideHeaderAtEnd: true });
+    } else {
+      const menu = document.getElementById('menu');
+      if (menu) smoothScrollToY(menu.getBoundingClientRect().top + window.scrollY, { hideHeaderAtEnd: true });
+    }
     return;
   }
 
@@ -2127,11 +2143,20 @@ function initHeroScrollButton() {
   let lastIntro = '';
   let ticking = false;
 
+  let cachedHeroH = 0;
+  function measureHero() {
+    cachedHeroH = heroCover.offsetHeight || 0;
+  }
+  window.addEventListener('resize', measureHero);
+  window.addEventListener('load', measureHero);
+  window.addEventListener('siteloaded', measureHero);
+  measureHero();
+
   function update() {
     // وقتی اسکرول قفله (مودال/سبد/منو باز)، window.scrollY صفر میشه؛ بدون این چک هیرو و هدر
     // پشت مودال به حالت بالای صفحه برمی‌گشتن و صفحه «می‌پرید»
     if (document.body.classList.contains('nav-open')) { ticking = false; return; }
-    const h = heroCover.offsetHeight || 1;
+    const h = cachedHeroH || heroCover.offsetHeight || 1;
     // ۷۵٪ از ارتفاع عکس رو اسکرول کنیم، انیمیشن کامل شده
     const progress = Math.min(Math.max(window.scrollY / (h * 0.75), 0), 1);
     const val = progress.toFixed(3);

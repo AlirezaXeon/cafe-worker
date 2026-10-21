@@ -1152,7 +1152,6 @@ body.header-hidden .menu-controls {
   position: sticky;
   --header-h: 64px;
   top: var(--header-h);
-  transition: top 0.3s ease;
   z-index: 40;
   background: linear-gradient(to bottom, transparent 0, var(--bg) 18%, var(--bg) 75%, transparent 100%);
   padding: 14px 0 16px;
