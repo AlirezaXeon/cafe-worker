@@ -880,6 +880,7 @@ function stopAutoScroll() {
   if (autoScrollRaf) { cancelAnimationFrame(autoScrollRaf); autoScrollRaf = null; }
   if (removeScrollInterrupts) { removeScrollInterrupts(); removeScrollInterrupts = null; }
   window.__menuAutoScrolling = false;
+  document.documentElement.classList.remove('scrolling-fast');
 }
 
 // انیمیشن اسکرول با منحنی easeInOutCubic؛ مدت‌زمان متناسب با فاصله‌ست تا هم فاصله‌ی کم تند نشه
@@ -908,6 +909,7 @@ function smoothScrollToY(targetY, { hideHeaderAtEnd = false } = {}) {
   const duration = Math.min(1100, Math.max(500, Math.abs(dist) * 0.5));
   const t0 = performance.now();
   window.__menuAutoScrolling = true;
+  html.classList.add('scrolling-fast');
 
   const interrupts = ['wheel', 'touchstart', 'mousedown', 'keydown'];
   const onInterrupt = () => finish(false);
@@ -2064,24 +2066,6 @@ function renderHoursSection() {
   }
 }
 
-function updateHeroLiveStatus() {
-  const badge = document.getElementById('heroLiveBadge');
-  const text = document.getElementById('heroLiveStatusText');
-  if (!badge || !text) return;
-  const st = getOpenState();
-  if (!st || !st.slot) { badge.style.display = 'none'; return; }
-  badge.style.display = '';
-  if (st.open) {
-    badge.classList.remove('is-closed');
-    text.textContent = `هم‌اکنون باز است • سرویس‌دهی تا ${toFaDigits(st.slot.close)}`;
-  } else {
-    badge.classList.add('is-closed');
-    text.textContent = st.next
-      ? `هم‌اکنون بسته است • ${st.next.when} از ${toFaDigits(st.next.time)}`
-      : 'هم‌اکنون بسته است';
-  }
-}
-
 function updateTodayHours() {
   const el = document.getElementById('hoursToday');
   if (!el) return;
@@ -2108,7 +2092,6 @@ function applyOrderingState() {
 }
 
 function refreshOpenState() {
-  updateHeroLiveStatus();
   updateTodayHours();
   applyOrderingState();
 }
@@ -2140,6 +2123,8 @@ function initHeroScrollButton() {
   initHeroScrollButton();
   if (!heroCover) return;
 
+  const siteHeader = document.querySelector('.site-header');
+  let lastIntro = '';
   let ticking = false;
 
   function update() {
@@ -2149,7 +2134,12 @@ function initHeroScrollButton() {
     const h = heroCover.offsetHeight || 1;
     // ۷۵٪ از ارتفاع عکس رو اسکرول کنیم، انیمیشن کامل شده
     const progress = Math.min(Math.max(window.scrollY / (h * 0.75), 0), 1);
-    document.documentElement.style.setProperty('--intro-progress', progress.toFixed(3));
+    const val = progress.toFixed(3);
+    if (val !== lastIntro) {
+      lastIntro = val;
+      heroCover.style.setProperty('--intro-progress', val);
+      if (siteHeader) siteHeader.style.setProperty('--intro-progress', val);
+    }
     ticking = false;
   }
 
@@ -2182,10 +2172,16 @@ function initHeroScrollButton() {
 
   // وقتی کاربر وارد بخش منو/محصولات شد، هدر قفل میشه بالا (حتی با اسکرول به بالا برنمی‌گرده)
   // تا فضای بیشتری برای دیدن محصولات داشته باشیم؛ فقط با برگشتن به بالای هیرو دوباره ظاهر میشه.
-  function getMenuSectionTop() {
+  let cachedMenuTop = Infinity;
+  function measureMenuTop() {
     const menuSection = document.getElementById('menu');
-    return menuSection ? menuSection.offsetTop : Infinity;
+    cachedMenuTop = menuSection ? menuSection.offsetTop : Infinity;
   }
+  function getMenuSectionTop() { return cachedMenuTop; }
+  window.addEventListener('resize', measureMenuTop);
+  window.addEventListener('load', measureMenuTop);
+  window.addEventListener('siteloaded', measureMenuTop);
+  measureMenuTop();
 
   function update() {
     if (document.body.classList.contains('nav-open')) { ticking = false; return; }
