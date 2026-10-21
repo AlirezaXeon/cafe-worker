@@ -932,6 +932,7 @@ body.header-hidden .menu-controls {
 
 /* حرکت شناور و نرم لوگو؛ با خاصیت‌های translate/scale تا با transform اسکرول تداخل نکنه */
 @keyframes heroLogoFloat {
+
   0%,
   100% {
     translate: 0 0;
@@ -1799,12 +1800,15 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   }
 }
 
+/* direction:ltr تا علامت + و ٪ سمت درست عدد بشینن (مثلاً «۵+» نه «+۵») */
 .stat-num {
   font-family: var(--font-mono);
   font-size: 2rem;
   font-weight: 700;
   color: var(--accent);
   line-height: 1;
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .stat-label {
@@ -3635,23 +3639,64 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     max-height: 1.55em;
   }
 
+  /* ── درباره ما: کارت متن و آمار هم‌قد و هم‌تراز ── */
   .about-inner {
     grid-template-columns: 1.2fr 1fr;
+    align-items: stretch;
   }
 
   .about-stats {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, 1fr);
     gap: 16px;
   }
 
   .stat {
     flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 14px;
     text-align: right;
     padding: 20px 24px;
   }
 
+  /* عدد و برچسب روی یک خط وسط‌چین عمودی؛ بدون margin اضافه‌ی برچسب */
+  .stat-label {
+    margin-top: 0;
+    font-size: 0.95rem;
+  }
+
+  /* ── درباره ما / آدرس / ساعات کاری: کارت‌های هم‌قد، محتوا وسط‌چین عمودی ── */
+  .location-block {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .location-block>.section-num {
+    align-self: center;
+  }
+
+  .about-text {
+    justify-content: center;
+  }
+
+  /* به‌جای ستون‌های ثابت ۳تایی (که وقتی بلاک شبکه‌های اجتماعی نباشه یه ستون خالی می‌ذاشت)،
+     هر چند تا کارت که باشه کل عرض رو پر می‌کنن */
   .location-inner {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: stretch;
+  }
+
+  /* لیست ساعات کاری کل فضای کارت رو پر کنه و ردیف‌ها یکنواخت پخش بشن */
+  .hours-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .hours-list li {
+    padding: 18px 0;
   }
 
   .floating-cart {
@@ -3800,4 +3845,4 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
     transform: none;
     filter: none;
   }
-}
+}
