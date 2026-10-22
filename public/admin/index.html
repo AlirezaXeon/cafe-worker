@@ -1295,6 +1295,281 @@
         margin: 0 auto;
       }
     }
+
+    /* ── Bento Dashboard Design ────────────────────────────────────────── */
+    .bento-hero {
+      background: linear-gradient(135deg, #2b1d12 0%, #4a301d 55%, #8c5627 100%);
+      color: #fff;
+      border-radius: 22px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      box-shadow: 0 12px 32px rgba(43, 29, 18, 0.22);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bento-hero::after {
+      content: '☕';
+      position: absolute;
+      left: -15px;
+      bottom: -35px;
+      font-size: 9rem;
+      opacity: 0.07;
+      pointer-events: none;
+      transform: rotate(15deg);
+    }
+
+    .bento-hero-info h2 {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 0.3rem;
+    }
+
+    .bento-hero-date {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .hero-live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(6px);
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: 0.2s;
+    }
+
+    .hero-live-pill:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4cd137;
+      box-shadow: 0 0 0 0 rgba(76, 209, 55, 0.7);
+      animation: pulseBeat 1.8s infinite;
+    }
+
+    .pulse-dot.warn {
+      background: #ff6b6b;
+      box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+    }
+
+    @keyframes pulseBeat {
+      70% {
+        box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+      }
+    }
+
+    .bento-hero-actions {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      z-index: 1;
+    }
+
+    .btn-glass {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(6px);
+    }
+
+    .btn-glass:hover {
+      background: #fff;
+      color: #2b1d12;
+    }
+
+    /* ردیف میانی Bento */
+    .bento-top-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .revenue-spotlight {
+      background: linear-gradient(145deg, var(--surface) 0%, var(--accent-light) 100%);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+
+    .rev-today-lbl {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .rev-today-val {
+      font-size: 2.3rem;
+      font-weight: 900;
+      color: var(--accent-dark);
+      margin: 0.4rem 0 1.2rem;
+      letter-spacing: -0.5px;
+    }
+
+    body.dark .rev-today-val {
+      color: var(--accent);
+    }
+
+    .rev-sub-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+      padding-top: 1rem;
+      border-top: 1px dashed var(--border);
+    }
+
+    .rev-sub-item {
+      background: var(--surface);
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .rev-sub-item .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .rev-sub-item .val {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-top: 0.15rem;
+    }
+
+    /* کارت سلامت منو (Donut) */
+    .health-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .donut-wrap {
+      position: relative;
+      width: 115px;
+      height: 115px;
+      flex-shrink: 0;
+    }
+
+    .donut-wrap svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.1;
+    }
+
+    .donut-pct {
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: var(--text);
+    }
+
+    .donut-lbl {
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
+    .health-stats-list {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .health-stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0.75rem;
+      background: var(--surface-alt);
+      border-radius: 10px;
+      font-size: 0.84rem;
+    }
+
+    .health-stat-row strong {
+      font-size: 0.95rem;
+    }
+
+    /* ردیف پایینی Bento (آخرین سفارش‌ها + دسته‌بندی‌ها) */
+    .bento-bottom-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .mini-order-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    .mini-order-item:last-child {
+      border-bottom: none;
+    }
+
+    .mini-order-item:hover {
+      background: var(--surface-hover);
+    }
+
+    @media (max-width: 860px) {
+
+      .bento-top-grid,
+      .bento-bottom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 

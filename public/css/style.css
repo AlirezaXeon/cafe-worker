@@ -3,7 +3,7 @@
   --bg: #0B0D12;
   --bg-alt: #12141B;
   --ink: #EFEDE8;
-  --ink-soft: #8B8D96;
+  --ink-soft: #9EA1AB;
   --line: #23262F;
   --accent: #B4925A;
   --accent-soft: #1C1911;
@@ -1112,9 +1112,9 @@ body.header-hidden .menu-controls {
 }
 
 .section-meta-tag {
-  font-size: 0.75rem;
-  color: var(--ink-soft);
-  opacity: 0.8;
+  font-size: 0.78rem;
+  color: #B8B6AF;
+  font-weight: 500;
 }
 
 .section-head h2,
