@@ -166,27 +166,6 @@ function hideSplash() {
   setTimeout(() => splash.remove(), 250);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  let splashSeen = false;
-  try {
-    splashSeen = Boolean(sessionStorage.getItem('cafe-roshan-splash-seen'));
-  } catch {}
-
-  // اگر قبلاً اسپلش دیده شده، مکث کوتاه (۳۰۰ms) وگرنه ۲.۲ ثانیه برای ماندگاری اسپلش
-  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, splashSeen ? 300 : 2200));
-
-  const allLoaded = Promise.all([productsLoadedPromise, siteConfigPromise])
-    .then(() => waitForMenuImages(4000));
-
-  const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
-
-  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان سپری شده باشد
-  const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
-  Promise.race([readyPromise, hardCap]).then(hideSplash);
-});
-
-// شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
-setTimeout(hideSplash, 6500);
 
 // ============ PRODUCT MODAL ============
 const modal = document.getElementById('productModal');
@@ -777,7 +756,6 @@ function waitForFonts(timeoutMs) {
       document.fonts.load('400 16px Vazirmatn', fa),
       document.fonts.load('600 16px Vazirmatn', fa),
       document.fonts.load('700 16px Vazirmatn', fa),
-      document.fonts.load('900 16px Estedad', fa),
       document.fonts.load('italic 500 16px "Cormorant Garamond"', 'Roshan Cafe'),
     ]).catch(() => { });
   };
@@ -2604,3 +2582,26 @@ initModalSwipe();
 const productsLoadedPromise = loadProducts();
 const siteConfigPromise = loadSiteConfig();
 renderCart();
+
+// ============ SPLASH SCREEN LOGIC ============
+(function initSplashDismissal() {
+  let splashSeen = false;
+  try {
+    splashSeen = Boolean(sessionStorage.getItem('cafe-roshan-splash-seen'));
+  } catch {}
+
+  // حداقل زمان نمایش اسپلش (اولین بار ۲.۲ ثانیه، دفعات بعد ۳۰۰ms)
+  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, splashSeen ? 300 : 2200));
+
+  const allLoaded = Promise.allSettled([productsLoadedPromise, siteConfigPromise])
+    .then(() => waitForMenuImages(4000));
+
+  const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
+
+  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان سپری شده باشد
+  const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
+  Promise.race([readyPromise, hardCap]).catch(() => { }).then(hideSplash);
+})();
+
+// شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
+setTimeout(hideSplash, 6500);

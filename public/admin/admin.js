@@ -1,7 +1,7 @@
 const BASE = '/admin/api';
-// سقف حجم ورودی (قبل از فشرده‌سازی) و سقف نهایی سرور (باید با MAX_UPLOAD_BYTES تو src/config.js یکی باشه)
 const MAX_INPUT_BYTES = 5 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+
 let editingProductId = null;
 let editingProductOriginalPrice = null;
 let editingProductPrice = null;
@@ -11,6 +11,51 @@ let editingCatId = null;
 let allProducts = [];
 let allCategories = [];
 let searchQ = '';
+let filterCat = '';
+let filterAvail = '';
+let productViewMode = localStorage.getItem('admin_prod_view') || 'table'; // 'table' | 'grid'
+
+// ── Theme (Dark / Light) ──────────────────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('admin_theme');
+  if (saved === 'dark') {
+    document.body.classList.add('dark');
+  }
+  updateThemeBtn();
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('dark');
+  const isDark = document.body.classList.contains('dark');
+  localStorage.setItem('admin_theme', isDark ? 'dark' : 'light');
+  updateThemeBtn();
+}
+
+function updateThemeBtn() {
+  const btn = document.getElementById('theme-toggle-btn');
+  if (!btn) return;
+  btn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+}
+
+initTheme();
+
+// ── Lightbox (بزرگ‌نمایی تصاویر) ───────────────────────────────────────────
+function openLightbox(src, caption = '') {
+  if (!src) return;
+  const lb = document.getElementById('lightbox');
+  const img = document.getElementById('lightbox-img');
+  const cap = document.getElementById('lightbox-caption');
+  img.src = src;
+  cap.textContent = caption;
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('lightbox');
+  if (lb) lb.classList.remove('open');
+  document.body.style.overflow = '';
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 async function doLogin() {
@@ -41,7 +86,7 @@ async function doLogout() {
   stopAdminPolling();
   try {
     await fetch(`${BASE}/logout`, { method: 'POST', credentials: 'same-origin' });
-  } catch {}
+  } catch { }
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-err').textContent = '';
@@ -80,9 +125,9 @@ function initApp() {
   startAdminPolling();
 }
 
-// ── کنترلر پولینگ سبک و هوشمند سفارش‌ها (جلوگیری از هدررفت سهمیه D1) ───────────
-const ORDERS_POLL_MS = 30000; // هر ۳۰ ثانیه فقط درخواست خلاصه سبک ارسال می‌شود
-const MAX_BACKOFF_MS = 300000; // سقف ۵ دقیقه برای کاهش تلاش در صورت خطای شبکه/سرور
+// ── کنترلر پولینگ سفارش‌ها ────────────────────────────────────────────────
+const ORDERS_POLL_MS = 30000;
+const MAX_BACKOFF_MS = 300000;
 let adminPollTimer = null;
 let currentPollInterval = ORDERS_POLL_MS;
 let isPollingActive = false;
@@ -121,20 +166,17 @@ function scheduleNextPoll(delayMs) {
 async function executePollTick(forceImmediate = false) {
   if (!isPollingActive || !isLoggedIn) return;
   if (document.hidden && !forceImmediate) {
-    // اگر تب مرورگر پنهان است، درخواست ارسال نمی‌کنیم
     scheduleNextPoll(currentPollInterval);
     return;
   }
-
   if (isPollInProgress) {
     pendingPollRequested = true;
     return;
   }
-
   isPollInProgress = true;
   try {
     const summary = await api('/orders/summary');
-    currentPollInterval = ORDERS_POLL_MS; // بازنشانی فاصله به ۳۰ ثانیه بعد از دریافت موفق
+    currentPollInterval = ORDERS_POLL_MS;
 
     const pendingCount = Number(summary?.pending ?? 0);
     const latestId = Number(summary?.latestId ?? 0);
@@ -147,7 +189,6 @@ async function executePollTick(forceImmediate = false) {
 
     lastKnownSummary = { pending: pendingCount, latestId };
 
-    // فقط وقتی تب سفارش‌ها باز است و دیتای خلاصه تغییر کرده باشد، لیست دوباره خوانده می‌شود
     if (currentActiveTab === 'orders' && hasChanged && document.getElementById('order-list-wrap')) {
       const targetLimit = Math.min(Math.max(currentOrdersList.length, 50), 100);
       await loadOrders(false, targetLimit);
@@ -157,7 +198,6 @@ async function executePollTick(forceImmediate = false) {
       stopAdminPolling();
       return;
     }
-    // در صورت بروز خطا: افزایش فاصله زمانی به صورت تصاعدی تا حداکثر ۵ دقیقه
     currentPollInterval = Math.min(currentPollInterval * 2, MAX_BACKOFF_MS);
   } finally {
     isPollInProgress = false;
@@ -204,18 +244,16 @@ function renderOrders(m) {
   currentOrderFilter = '';
   m.innerHTML = `
     <div class="card">
-      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-        <h2>🧾 سفارش‌ها</h2>
-        <button class="btn btn-ghost btn-sm" data-action="refresh-orders" title="تازه سازی کامل لیست سفارش‌ها">
-          🔄 تازه‌سازی
-        </button>
+      <div class="card-header">
+        <h2>🧾 مدیریت سفارش‌ها</h2>
+        <button class="btn btn-ghost btn-sm" data-action="refresh-orders">🔄 تازه‌سازی</button>
       </div>
       <div class="card-toolbar">
-        <select class="search-input" style="max-width:180px" data-action="filter-orders">
-          <option value="">همه</option>
-          <option value="pending">در انتظار تایید</option>
-          <option value="confirmed">تایید شده</option>
-          <option value="rejected">رد شده</option>
+        <select class="search-input" style="max-width:220px" data-action="filter-orders">
+          <option value="">همه وضعیت‌ها</option>
+          <option value="pending">⏳ در انتظار تایید</option>
+          <option value="confirmed">✅ تایید شده</option>
+          <option value="rejected">❌ رد شده</option>
         </select>
       </div>
       <div id="order-list-wrap"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
@@ -310,7 +348,7 @@ async function loadOrders(append = false, customLimit = null) {
       </div>`;
     }).join('')}</div>
     ${hasMoreOrders ? `
-      <div style="text-align:center;margin-top:16px;">
+      <div style="text-align:center;padding-bottom:1.25rem;">
         <button class="btn btn-ghost" data-action="load-more-orders">بارگذاری بیشتر...</button>
       </div>
     ` : ''}`;
@@ -322,7 +360,7 @@ async function loadOrders(append = false, customLimit = null) {
 async function resolveOrderWeb(id, status) {
   try {
     await api(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    toast(status === 'confirmed' ? 'سفارش تایید شد' : 'سفارش رد شد');
+    toast(status === 'confirmed' ? 'سفارش تایید شد ✓' : 'سفارش رد شد');
     await loadOrders(false, Math.min(Math.max(currentOrdersList.length, 50), 100));
     pollOrdersNow();
   } catch (e) {
@@ -358,7 +396,7 @@ async function renderDashboard(m) {
       <div class="stat-card"><div class="stat-icon">🍽</div><div class="val" id="s-total">—</div><div class="lbl">کل محصولات</div></div>
       <div class="stat-card green"><div class="stat-icon">✅</div><div class="val" id="s-avail">—</div><div class="lbl">موجود</div></div>
       <div class="stat-card red"><div class="stat-icon">⛔️</div><div class="val" id="s-unavail">—</div><div class="lbl">ناموجود</div></div>
-      <div class="stat-card gray"><div class="stat-icon">📂</div><div class="val" id="s-cats">—</div><div class="lbl">دسته‌بندی</div></div>
+      <div class="stat-card gray"><div class="stat-icon">📂</div><div class="val" id="s-cats">—</div><div class="lbl">دسته‌بندی‌ها</div></div>
     </div>
     <div class="stats">
       <div class="stat-card"><div class="stat-icon">💰</div><div class="val" id="s-sales-today">—</div><div class="lbl">فروش امروز</div></div>
@@ -367,18 +405,21 @@ async function renderDashboard(m) {
     </div>
     <div class="quick-actions">
       <div class="quick-action" data-action="quick-add-prod">
-        <div class="qa-icon">➕</div><div class="qa-label">محصول جدید</div>
+        <div class="qa-icon">➕</div><div class="qa-label">افزودن محصول جدید</div>
       </div>
       <div class="quick-action" data-action="quick-add-cat">
         <div class="qa-icon">📂</div><div class="qa-label">دسته‌بندی جدید</div>
       </div>
+      <div class="quick-action" data-action="quick-go-qr">
+        <div class="qa-icon">📱</div><div class="qa-label">بارکد QR میزها</div>
+      </div>
       <a class="quick-action" href="/" target="_blank" rel="noopener">
-        <div class="qa-icon">🔗</div><div class="qa-label">مشاهده‌ی سایت</div>
+        <div class="qa-icon">🔗</div><div class="qa-label">مشاهده‌ی زنده منو</div>
       </a>
     </div>
     <div class="card">
-      <div class="card-header"><h2>📊 محصولات به تفکیک دسته‌بندی</h2></div>
-      <div id="cat-breakdown" style="padding:1.25rem"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
+      <div class="card-header"><h2>📊 تراکم محصولات در هر دسته‌بندی</h2></div>
+      <div id="cat-breakdown" style="padding:1.35rem"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
     </div>`;
   try {
     const [cats, prods, sales] = await Promise.all([api('/categories'), api('/products'), api('/sales-stats')]);
@@ -409,7 +450,6 @@ async function renderDashboard(m) {
   } catch (e) { if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار', true); }
 }
 
-// ترتیب دکمه‌های نوار: ۰=داشبورد، ۱=سفارش‌ها، ۲=محصولات، ۳=دسته‌بندی‌ها، ۴=تصاویر سایت
 async function quickAddProduct() {
   const btns = document.querySelectorAll('.nav-btn');
   btns.forEach(b => b.classList.remove('active')); if (btns[2]) btns[2].classList.add('active');
@@ -426,19 +466,38 @@ async function quickAddCategory() {
 
 const imgSrc = (p) => p ? '/' + String(p).replace(/^\/+/, '') : '';
 
-// ── Products ──────────────────────────────────────────────────────────────
+// ── Products (با فیلتر، تغییر نما و بزرگ‌نمایی عکس) ─────────────────────────
 async function renderProducts(m) {
   m.innerHTML = `
     <div class="card">
-      <div class="card-header"><h2>🍽 محصولات</h2>
-        <button class="btn btn-primary btn-sm" data-action="open-prod-modal">+ محصول جدید</button></div>
+      <div class="card-header">
+        <h2>🍽 مدیریت محصولات</h2>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm ${productViewMode === 'table' ? 'active' : ''}" data-action="set-prod-view" data-view="table" title="نمای جدولی">📋 جدول</button>
+          <button class="btn btn-ghost btn-sm ${productViewMode === 'grid' ? 'active' : ''}" data-action="set-prod-view" data-view="grid" title="نمای کارتی بزرگ">🗂 گالری کارت</button>
+          <button class="btn btn-primary btn-sm" data-action="open-prod-modal">+ محصول جدید</button>
+        </div>
+      </div>
       <div class="card-toolbar">
-        <input class="search-input" placeholder="🔍 جستجو..." data-action="search-products" />
+        <input class="search-input" placeholder="🔍 جستجوی نام یا دسته‌بندی..." value="${esc(searchQ)}" data-action="search-products" />
+        <select class="search-input" style="max-width:190px" id="prod-cat-filter" data-action="filter-prod-cat">
+          <option value="">همه دسته‌بندی‌ها</option>
+        </select>
+        <select class="search-input" style="max-width:160px" data-action="filter-prod-avail">
+          <option value="" ${filterAvail === '' ? 'selected' : ''}>همه وضعیت‌ها</option>
+          <option value="1" ${filterAvail === '1' ? 'selected' : ''}>✅ فقط موجود</option>
+          <option value="0" ${filterAvail === '0' ? 'selected' : ''}>⛔ فقط ناموجود</option>
+        </select>
       </div>
       <div class="table-wrap" id="prod-table"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
     </div>`;
   try {
     [allProducts, allCategories] = await Promise.all([api('/products'), api('/categories')]);
+    const catFilterEl = document.getElementById('prod-cat-filter');
+    if (catFilterEl) {
+      catFilterEl.innerHTML = '<option value="">همه دسته‌بندی‌ها</option>' +
+        allCategories.map(c => `<option value="${esc(c.id)}" ${filterCat === c.id ? 'selected' : ''}>${esc(c.label)}</option>`).join('');
+    }
     renderProductTable();
   } catch (e) {
     if (e.message !== 'unauthorized')
@@ -449,15 +508,58 @@ async function renderProducts(m) {
 function renderProductTable() {
   const t = document.getElementById('prod-table'); if (!t) return;
   const q = searchQ.toLowerCase();
-  const rows = q ? allProducts.filter(p => p.name.toLowerCase().includes(q) || catLabel(p.category).toLowerCase().includes(q)) : allProducts;
-  if (!rows.length) { t.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>محصولی یافت نشد</div>'; return; }
+  const rows = allProducts.filter(p => {
+    if (q && !p.name.toLowerCase().includes(q) && !catLabel(p.category).toLowerCase().includes(q)) return false;
+    if (filterCat && p.category !== filterCat) return false;
+    if (filterAvail !== '' && String(p.available ? 1 : 0) !== filterAvail) return false;
+    return true;
+  });
+
+  if (!rows.length) {
+    t.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>محصولی مطابق با فیلترها یافت نشد</div>';
+    return;
+  }
+
+  if (productViewMode === 'grid') {
+    t.innerHTML = `<div class="prod-grid">${rows.map(p => {
+      const fullImg = p.image ? imgSrc(p.image) : '';
+      return `
+      <div class="prod-card">
+        <div class="prod-card-img-wrap">
+          ${fullImg
+          ? `<img src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}">`
+          : `<div class="prod-card-placeholder">🍽</div>`}
+        </div>
+        <div class="prod-card-body">
+          <div class="prod-card-cat">${esc(catLabel(p.category))}</div>
+          <div class="prod-name">${esc(p.name)}</div>${p.note ? `<div class="prod-note">${esc(p.note)}</div>` : ''}
+          <div style="margin-top:auto;padding-top:0.5rem;">
+            ${p.original_price ? `<span class="price-orig">${Number(p.original_price).toLocaleString('fa-IR')} ت</span>` : ''}
+            <span class="price-main">${Number(p.price).toLocaleString('fa-IR')} ت</span>
+            ${p.original_price ? `<span class="disc-badge">٪${Math.round((1 - p.price / p.original_price) * 100)}</span>` : ''}
+          </div>
+        </div>
+        <div class="prod-card-foot">
+          <button class="toggle ${p.available ? 'on' : ''}" data-action="toggle-avail" data-prod-id="${p.id}" data-cur-avail="${p.available}" title="${p.available ? 'موجود' : 'ناموجود'}"></button>
+          <div class="actions">
+            <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${p.id}">ویرایش</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${p.id}">حذف</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+    return;
+  }
+
   t.innerHTML = `<table>
-    <thead><tr><th>تصویر</th><th>محصول</th><th>دسته</th><th>قیمت</th><th>موجودی</th><th>عملیات</th></tr></thead>
-    <tbody>${rows.map(p => `
+    <thead><tr><th>تصویر (کلیک=بزرگ‌نمایی)</th><th>محصول</th><th>دسته‌بندی</th><th>قیمت</th><th>موجودی</th><th>عملیات</th></tr></thead>
+    <tbody>${rows.map(p => {
+    const fullImg = p.image ? imgSrc(p.image) : '';
+    return `
       <tr>
-        <td>${p.image ? `<img class="img-preview" src="${esc(imgSrc(p.image))}" alt="">` : `<div class="img-placeholder">🍽</div>`}</td>
-        <td><div class="prod-name">${esc(p.name)}</div>${p.note ? `<div class="prod-note">${esc(p.note.slice(0, 55))}${p.note.length > 55 ? '…' : ''}</div>` : ''}</td>
-        <td><span style="background:var(--bg);padding:.18rem .55rem;border-radius:20px;font-size:.77rem">${esc(catLabel(p.category))}</span></td>
+        <td>${fullImg ? `<img class="img-preview" src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}">` : `<div class="img-placeholder">🍽</div>`}</td>
+        <td><div class="prod-name">${esc(p.name)}</div>${p.note ? `<div class="prod-note">${esc(p.note.slice(0, 65))}${p.note.length > 65 ? '…' : ''}</div>` : ''}</td>
+        <td><span style="background:var(--surface-alt);border:1px solid var(--border);padding:.22rem .65rem;border-radius:20px;font-size:.78rem;font-weight:600">${esc(catLabel(p.category))}</span></td>
         <td>
           ${p.original_price ? `<span class="price-orig">${Number(p.original_price).toLocaleString('fa-IR')} ت</span>` : ''}
           <span class="price-main">${Number(p.price).toLocaleString('fa-IR')} ت</span>
@@ -468,14 +570,13 @@ function renderProductTable() {
           <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${p.id}">ویرایش</button>
           <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${p.id}">حذف</button>
         </div></td>
-      </tr>`).join('')}
+      </tr>`;
+  }).join('')}
     </tbody></table>`;
 }
 
-async function toggleAvail(id, cur) {
+async function toggleAvail(id) {
   const p = allProducts.find(x => x.id == id); if (!p) return;
-  // فقط ستون available رو عوض می‌کنیم. قبلاً کل محصول با PUT فرستاده می‌شد و درصد تخفیف
-  // از روی قیمت‌ها بازسازی می‌شد؛ چون درصد گرد می‌شد، هر بار toggle قیمت اصلی چند تومن جابه‌جا می‌شد.
   try {
     const res = await api(`/products/${id}/availability`, { method: 'PATCH' });
     p.available = res.available; renderProductTable();
@@ -497,8 +598,7 @@ async function renderCategories(m) {
 async function loadCategories() {
   try {
     allCategories = await api('/categories');
-    const prodData = await api('/products');
-    allProducts = prodData;
+    allProducts = await api('/products');
     renderCategoryList();
   } catch (e) {
     if (e.message !== 'unauthorized')
@@ -511,8 +611,11 @@ function renderCategoryList() {
   if (!allCategories.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>دسته‌بندی ثبت نشده</div>'; return; }
   el.innerHTML = `<div class="cat-grid">${allCategories.map(c => {
     const count = allProducts.filter(p => p.category === c.id).length;
+    const fullImg = c.image ? imgSrc(c.image) : '';
     return `<div class="cat-item">
-      ${c.image ? `<img src="${esc(imgSrc(c.image))}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border)" alt="">` : '<span style="font-size:1.2rem">📂</span>'}
+      ${fullImg
+        ? `<img class="cat-thumb" src="${esc(fullImg)}" alt="${esc(c.label)}" data-action="zoom-image" data-caption="${esc(c.label)}">`
+        : '<div class="cat-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:default">📂</div>'}
       <div style="flex:1;min-width:0">
         <div class="cat-name" title="${esc(c.label)}">${esc(c.label)}</div>
         <div class="cat-count">${count} محصول</div>
@@ -560,7 +663,6 @@ async function saveCat() {
   } finally { btn.innerHTML = 'ذخیره'; btn.disabled = false; }
 }
 
-// اسم از روی ID پیدا میشه (نه از onclick)، تا اسمی که ' یا کاراکتر خاص داره دکمه رو خراب نکنه
 async function deleteCat(id) {
   const c = allCategories.find(x => x.id === id);
   if (!confirm(`حذف دسته‌بندی «${c ? c.label : ''}»؟`)) return;
@@ -572,8 +674,6 @@ async function deleteCat(id) {
 }
 
 // ── Image Upload ──────────────────────────────────────────────────────────
-// Workers توانایی resize/بومی تصویر نداره (بدون Cloudflare Images یا سرویس خارجی)،
-// پس قبل از آپلود، خود مرورگر عکس رو کوچیک و به WebP تبدیل می‌کنه — حجم نهایی خیلی کمتر میشه
 function resizeImageForUpload(file, maxWidth = 1200, quality = 0.82) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -594,13 +694,12 @@ function resizeImageForUpload(file, maxWidth = 1200, quality = 0.82) {
           'image/png': '.png',
         };
         const ext = mimeToExt[blob.type];
-        // اگر فرمت خروجی پشتیبانی نمی‌شد یا سایز ریسایز شده از فایل اصلی بزرگتر بود، همان فایل اصلی را بفرست
         if (!ext || blob.size >= file.size) return resolve(file);
         const baseName = file.name.replace(/\.[^.]+$/, '');
         resolve(new File([blob], `${baseName}${ext}`, { type: blob.type }));
       }, 'image/webp', quality);
     };
-    img.onerror = () => resolve(file); // اگه به هر دلیلی لود نشد، فایل اصلی رو بفرست
+    img.onerror = () => resolve(file);
     img.src = url;
   });
 }
@@ -617,7 +716,6 @@ async function handleImageSelect(input, context) {
   reader.readAsDataURL(file);
   statusEl.textContent = '⏳ در حال آپلود...';
   file = await resizeImageForUpload(file);
-  // بعد از فشرده‌سازی باید زیر سقف سرور باشه؛ اینجا چک می‌کنیم تا پیام خطا واضح باشه
   if (file.size > MAX_UPLOAD_BYTES) {
     toast('حجم عکس بعد از فشرده‌سازی هم بیشتر از 2MB است', true);
     statusEl.textContent = '❌ حجم زیاد';
@@ -659,10 +757,9 @@ function openProductModal(id) {
     document.getElementById('p-img').value = p.image || '';
     catSel.value = p.category || '';
 
-    // محاسبه تخفیف از original_price
     if (p.original_price && p.original_price > p.price) {
       const disc = Math.round((1 - p.price / p.original_price) * 100);
-      document.getElementById('p-price').value = p.original_price; // قیمت اصلی
+      document.getElementById('p-price').value = p.original_price;
       document.getElementById('p-discount').value = disc;
       editingProductInitialInputPrice = Number(p.original_price);
       editingProductInitialDiscount = disc;
@@ -677,7 +774,7 @@ function openProductModal(id) {
     if (p.image) {
       document.getElementById('prod-preview-img').src = imgSrc(p.image);
       document.getElementById('prod-upload-preview').style.display = 'block';
-      document.getElementById('prod-upload-status').textContent = '✅ تصویر فعلی';
+      document.getElementById('prod-upload-status').textContent = '✅ تصویر فعلی (برای بزرگ‌نمایی کلیک کنید)';
     }
     document.getElementById('p-avail').classList.toggle('on', !!p.available);
   } else {
@@ -693,9 +790,8 @@ function updateDiscPreview() {
   const disc = Number(document.getElementById('p-discount').value || 0);
   const prev = document.getElementById('disc-preview');
   if (price > 0 && disc > 0 && disc < 100) {
-    // بک‌اند به نزدیک‌ترین هزار تومن گرد می‌کنه؛ پیش‌نمایش هم همون‌طور
     const final = Math.round(price * (1 - disc / 100) / 1000) * 1000;
-    prev.textContent = `قیمت اصلی: ${price.toLocaleString('fa-IR')} ت  ←  قیمت با تخفیف: ${final.toLocaleString('fa-IR')} ت`;
+    prev.textContent = `قیمت اصلی: ${price.toLocaleString('fa-IR')} ت  ←  با تخفیف: ${final.toLocaleString('fa-IR')} ت`;
     prev.style.display = 'block';
   } else {
     prev.style.display = 'none';
@@ -725,8 +821,6 @@ async function saveProduct() {
     Number(price) === editingProductInitialInputPrice &&
     discVal === editingProductInitialDiscount;
 
-  // اگر قیمت و تخفیف دست‌نخورده باقی مانده باشند، قیمت اصلی و ذخیره‌شده را می‌فرستیم
-  // تا گرد کردن مجدد باعث جابه‌جایی جزئی قیمت نشود
   const body = {
     name, category: cat,
     price: isPriceUntouched ? editingProductPrice : Number(price),
@@ -755,7 +849,6 @@ async function saveProduct() {
   } finally { btn.innerHTML = 'ذخیره محصول'; btn.disabled = false; }
 }
 
-// اسم از روی ID پیدا میشه (نه از onclick)، تا اسمی که ' یا کاراکتر خاص داره دکمه رو خراب نکنه
 async function deleteProduct(id) {
   const p = allProducts.find(x => x.id == id);
   if (!confirm(`حذف «${p ? p.name : ''}»؟`)) return;
@@ -767,14 +860,16 @@ async function deleteProduct(id) {
   } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در حذف', true); }
 }
 
-// ── QR میزها ─────────────────────────────────────────────────────────────
+// ── QR میزها (با قابلیت دانلود تکی فقط خود بارکد به صورت PNG و SVG) ──────────
 async function renderTableQr(m) {
   m.innerHTML = `<div class="card">
-    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <div class="card-header">
       <h2>📱 لینک‌ها و کدهای QR میزها</h2>
-      <button class="btn btn-primary btn-sm no-print" data-action="print-table-qr">🖨 چاپ صفحه میزها</button>
+      <div class="actions no-print">
+        <button class="btn btn-primary btn-sm" data-action="print-table-qr">🖨 چاپ همه کارت‌ها</button>
+      </div>
     </div>
-    <div id="table-qr-wrap"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری لینک‌ها...</div></div>
+    <div id="table-qr-wrap" style="padding:1.25rem"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری لینک‌ها...</div></div>
   </div>`;
   await loadTableQr();
 }
@@ -785,11 +880,76 @@ function generateQrSvg(text) {
     const qr = qrcode(0, 'M');
     qr.addData(text);
     qr.make();
-    return qr.createSvgTag({ cellSize: 3, margin: 4, scalable: true });
+    return qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
   } catch (err) {
     console.error('Failed to generate QR code SVG:', err);
     return '';
   }
+}
+
+// دانلود تکی فقط مربع بارکد به صورت PNG با رزولوشن بالا (1000x1000) یا SVG وکتور
+function downloadBarcodeOnly(tableNo, format = 'png') {
+  const wrap = document.querySelector(`.qr-svg-wrap[data-table="${tableNo}"]`);
+  const svgEl = wrap ? wrap.querySelector('svg') : null;
+  if (!svgEl) {
+    toast('بارکد یافت نشد', true);
+    return;
+  }
+
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const size = 1000;
+  clone.setAttribute('width', size);
+  clone.setAttribute('height', size);
+
+  const svgData = new XMLSerializer().serializeToString(clone);
+  const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+
+  if (format === 'svg') {
+    const url = URL.createObjectURL(svgBlob);
+    triggerDownload(url, `table-${tableNo}-qr.svg`);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast(`فایل SVG بارکد میز ${tableNo} دانلود شد ✓`);
+    return;
+  }
+
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(img, 0, 0, size, size);
+    URL.revokeObjectURL(url);
+
+    canvas.toBlob((pngBlob) => {
+      if (!pngBlob) {
+        toast('خطا در ساخت تصویر بارکد', true);
+        return;
+      }
+      const pngUrl = URL.createObjectURL(pngBlob);
+      triggerDownload(pngUrl, `table-${tableNo}-qr.png`);
+      setTimeout(() => URL.revokeObjectURL(pngUrl), 1500);
+      toast(`تصویر بارکد میز ${tableNo} دانلود شد ✓`);
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    toast('خطا در پردازش بارکد', true);
+  };
+  img.src = url;
+}
+
+function triggerDownload(href, filename) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 async function loadTableQr() {
@@ -799,30 +959,35 @@ async function loadTableQr() {
     const data = await api('/table-qr-links');
     const origin = window.location.origin;
     let html = `
-      <div class="no-print" style="margin-bottom:1rem;font-size:0.9rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
-        <span>تعداد کل میزها: <strong>${data.tableCount}</strong></span>
-        <span>وضعیت امضای ضدجعل: 
+      <div class="no-print" style="margin-bottom:1.25rem;padding:0.85rem 1.1rem;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.88rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:1.25rem;align-items:center;">
+        <span>🪑 تعداد کل میزها: <strong style="color:var(--text)">${data.tableCount}</strong></span>
+        <span>🔐 وضعیت امضای ضدجعل: 
           <strong style="color:${data.signingEnabled ? 'var(--success)' : 'var(--accent)'}">
             ${!data.signingSecretPresent ? 'غیرفعال (سکرت ست نشده)' : data.signingEnabled ? 'فعال ✓ (الزامی برای ثبت سفارش)' : 'خاموش (لینک‌ها دارای امضا هستند ولی اسکن الزامی نیست)'}
           </strong>
         </span>
+        <span style="margin-right:auto;font-size:0.8rem">💡 با دکمه‌های زیر هر کارت، می‌توانید <strong>فقط خود مربع بارکد</strong> را بدون نوشته‌های اطراف دانلود کنید.</span>
       </div>
       <div id="qr-print-sheet">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:1rem;">
+        <div class="qr-grid">
     `;
     data.links.forEach(l => {
       const fullUrl = `${origin}${l.url}`;
       const qrSvg = generateQrSvg(fullUrl);
       html += `
-        <div class="print-card" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:0.5rem;align-items:center;text-align:center;">
-          <div style="font-weight:bold;font-size:1.15rem;">☕ کافه روشن</div>
-          <div style="font-size:1.3rem;font-weight:bold;color:var(--accent-dark);">میز شماره ${l.table}</div>
-          <div class="qr-svg-wrap" style="width:140px;height:140px;display:flex;align-items:center;justify-content:center;margin:0.25rem auto;">
+        <div class="print-card qr-card">
+          <div style="font-weight:800;font-size:1.1rem;">☕ کافه روشن</div>
+          <div style="font-size:1.25rem;font-weight:800;color:var(--accent);">میز شماره ${l.table}</div>
+          <div class="qr-svg-wrap" data-table="${l.table}">
             ${qrSvg}
           </div>
-          <div style="font-size:0.8rem;color:var(--muted);">برای ثبت سفارش، بارکد را اسکن کنید یا لینک را باز کنید:</div>
-          <div style="font-family:monospace;direction:ltr;font-size:0.72rem;word-break:break-all;background:rgba(0,0,0,0.06);padding:0.4rem;border-radius:4px;width:100%;">${esc(fullUrl)}</div>
-          <button class="btn btn-ghost btn-sm no-print" data-action="copy-table-url" data-url="${esc(fullUrl)}">📋 کپی لینک</button>
+          <div style="font-size:0.78rem;color:var(--muted);">برای ثبت سفارش، بارکد را اسکن کنید:</div>
+          <div style="font-family:monospace;direction:ltr;font-size:0.72rem;word-break:break-all;background:var(--surface);border:1px solid var(--border);padding:0.45rem;border-radius:6px;width:100%;">${esc(fullUrl)}</div>
+          <div class="qr-btn-group no-print">
+            <button class="btn btn-primary btn-sm" data-action="download-qr-only" data-table="${l.table}" data-format="png" title="دانلود فقط بارکد با کیفیت بالا PNG">⬇ بارکد PNG</button>
+            <button class="btn btn-ghost btn-sm" data-action="download-qr-only" data-table="${l.table}" data-format="svg" title="دانلود فایل وکتور فقط بارکد SVG">⬇ بارکد SVG</button>
+          </div>
+          <button class="btn btn-ghost btn-sm btn-block no-print" data-action="copy-table-url" data-url="${esc(fullUrl)}">📋 کپی لینک میز</button>
         </div>
       `;
     });
@@ -841,14 +1006,14 @@ function copyTableUrl(url) {
   });
 }
 
-// ── Site images & settings (لوگو + عکس بالای سایت + تعداد میزها) ───────────
-const SITE_IMG_LABELS = { logo: 'لوگو', cover: 'عکس بالای سایت' };
+// ── Site images & settings ────────────────────────────────────────────────
+const SITE_IMG_LABELS = { logo: 'لوگوی کافه', cover: 'تصویر کاور بالای منو' };
 
 async function renderSite(m) {
   m.innerHTML = `<div class="card">
-<div class="card-header"><h2>🖼 تصاویر و تنظیمات سایت</h2></div>
-<div id="site-imgs"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
-</div>`;
+    <div class="card-header"><h2>🖼 تصاویر و تنظیمات سایت</h2></div>
+    <div id="site-imgs" style="padding:1.25rem"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
+  </div>`;
   await loadSiteImages();
 }
 
@@ -857,39 +1022,40 @@ async function loadSiteImages() {
   try {
     const cfg = await api('/site');
     el.innerHTML = `
-      <div class="cat-grid">${['logo', 'cover'].map(kind => {
-        const src = imgSrc(cfg[kind]);
-        return `<div class="cat-item" style="flex-direction:column;align-items:stretch;gap:.7rem">
-      <div class="cat-name">${SITE_IMG_LABELS[kind]}</div>
-      ${src ? `<img src="${esc(src)}" alt="" style="max-height:110px;object-fit:contain;border-radius:8px;border:1px solid var(--border);background:#fff">`
-            : '<div class="hint">هنوز آپلود نشده</div>'}
-      <div class="upload-area" style="padding:.7rem">
-        <input type="file" accept="image/*" data-upload-site="${kind}" />
-        <p>انتخاب عکس جدید</p>
-      </div>
-      ${src ? `<button class="btn btn-danger btn-sm" data-action="remove-site-img" data-kind="${kind}">حذف</button>` : ''}
-    </div>`;
-      }).join('')}</div>
-      <div class="card" style="margin-top:1.5rem">
+      <div class="cat-grid" style="padding:0;margin-bottom:1.5rem">${['logo', 'cover'].map(kind => {
+      const src = imgSrc(cfg[kind]);
+      return `<div class="cat-item" style="flex-direction:column;align-items:stretch;gap:.85rem;padding:1.25rem">
+          <div class="cat-name" style="font-size:1rem">${SITE_IMG_LABELS[kind]}</div>${src
+          ? `<img src="${esc(src)}" alt="${SITE_IMG_LABELS[kind]}" data-action="zoom-image" data-caption="${SITE_IMG_LABELS[kind]}" style="height:160px;width:100%;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:zoom-in;padding:0.5rem">`
+          : '<div class="hint" style="height:160px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--border);border-radius:10px">هنوز تصویری آپلود نشده</div>'}
+          <div class="upload-area" style="padding:.85rem">
+            <input type="file" accept="image/*" data-upload-site="${kind}" />
+            <p>📤 انتخاب و آپلود تصویر جدید</p>
+          </div>
+          ${src ? `<button class="btn btn-danger btn-sm" data-action="remove-site-img" data-kind="${kind}">🗑 حذف تصویر</button>` : ''}
+        </div>`;
+    }).join('')}</div>
+
+      <div class="card">
         <div class="card-header"><h2>🪑 تنظیم تعداد میزها</h2></div>
-        <div style="padding:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-          <label for="table-count-input">تعداد میزهای فعال کافه:</label>
-          <input type="number" id="table-count-input" min="1" max="100" value="${cfg.tableCount || 20}" style="width:100px;padding:.5rem;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)" />
+        <div style="padding:1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+          <label for="table-count-input" style="font-weight:600">تعداد میزهای فعال کافه:</label>
+          <input type="number" id="table-count-input" min="1" max="100" value="${cfg.tableCount || 20}" style="width:110px;padding:.55rem .8rem;border-radius:8px;border:1.5px solid var(--border);background:var(--surface-alt);color:var(--text);font-weight:700" />
           <button class="btn btn-primary btn-sm" data-action="save-table-count">ذخیره تعداد میزها</button>
         </div>
       </div>
-      <div class="card" style="margin-top:1.5rem">
+
+      <div class="card" style="margin-bottom:0">
         <div class="card-header"><h2>🔐 الزام اسکن QR برای ثبت سفارش</h2></div>
-        <div style="padding:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <div style="padding:1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
           <button class="toggle ${cfg.signingEnabled ? 'on' : ''}" data-action="toggle-signing"
             data-enabled="${cfg.signingEnabled ? '1' : '0'}" ${cfg.signingSecretPresent ? '' : 'disabled'}></button>
-          <span class="hint">${
-            !cfg.signingSecretPresent
-              ? 'سکرت TABLE_SIGNING_SECRET ست نشده؛ ابتدا آن را در Cloudflare ست کنید.'
-              : cfg.signingEnabled
-                ? 'روشن: فقط با اسکن QR میز می‌توان سفارش داد.'
-                : 'خاموش: هر کسی با آدرس سایت می‌تواند برای هر میزی سفارش بدهد.'
-          }</span>
+          <span class="hint" style="font-size:0.86rem">${!cfg.signingSecretPresent
+        ? 'سکرت TABLE_SIGNING_SECRET ست نشده؛ ابتدا آن را در Cloudflare ست کنید.'
+        : cfg.signingEnabled
+          ? 'روشن: فقط مشتریانی که بارکد QR روی میز را اسکن کرده‌اند می‌توانند سفارش ثبت کنند.'
+          : 'خاموش: هر کسی با داشتن آدرس سایت می‌تواند برای هر میزی سفارش ثبت کند.'
+      }</span>
         </div>
       </div>
     `;
@@ -960,7 +1126,6 @@ function esc(s) {
     .replace(/'/g, '&#39;');
 }
 
-// آیدی دسته رو به اسمش تبدیل می‌کنه (اگه پیدا نشد، خود آیدی یا «—»)
 function catLabel(id) {
   const c = allCategories.find(x => x.id === id);
   return c ? c.label : (id || '—');
@@ -969,24 +1134,26 @@ function catLabel(id) {
 function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
 
-// شنود خطای لود عکس‌های پیش‌نمایش در پنل ادمین
 document.addEventListener('error', (e) => {
   const el = e.target;
-  if (el && el.tagName === 'IMG' && el.classList.contains('img-preview')) {
+  if (el && el.tagName === 'IMG' && (el.classList.contains('img-preview') || el.classList.contains('cat-thumb'))) {
     el.style.display = 'none';
   }
 }, true);
 
-// ── Document Event Listeners (بدون هندلرهای درون‌خطی در HTML) ────────────────
+// ── Document Event Listeners ──────────────────────────────────────────────
 document.addEventListener('click', (e) => {
-  const loginBtn = e.target.closest('#login-btn');
-  if (loginBtn) {
+  if (e.target.closest('#theme-toggle-btn')) {
+    toggleTheme();
+    return;
+  }
+
+  if (e.target.closest('#login-btn')) {
     doLogin();
     return;
   }
 
-  const logoutBtn = e.target.closest('#logout-btn');
-  if (logoutBtn) {
+  if (e.target.closest('#logout-btn')) {
     doLogout();
     return;
   }
@@ -1010,14 +1177,12 @@ document.addEventListener('click', (e) => {
     return;
   }
 
-  const saveProdBtn = e.target.closest('#save-prod-btn');
-  if (saveProdBtn) {
+  if (e.target.closest('#save-prod-btn')) {
     saveProduct();
     return;
   }
 
-  const saveCatBtn = e.target.closest('#save-cat-btn');
-  if (saveCatBtn) {
+  if (e.target.closest('#save-cat-btn')) {
     saveCat();
     return;
   }
@@ -1026,7 +1191,20 @@ document.addEventListener('click', (e) => {
   if (!actionEl) return;
   const action = actionEl.dataset.action;
 
-  if (action === 'refresh-orders') {
+  if (action === 'zoom-image') {
+    openLightbox(actionEl.getAttribute('src'), actionEl.dataset.caption || '');
+  } else if (action === 'close-lightbox') {
+    if (e.target.id === 'lightbox' || e.target.id === 'lightbox-close') {
+      closeLightbox();
+    }
+  } else if (action === 'set-prod-view') {
+    productViewMode = actionEl.dataset.view;
+    localStorage.setItem('admin_prod_view', productViewMode);
+    document.querySelectorAll('[data-action="set-prod-view"]').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === productViewMode);
+    });
+    renderProductTable();
+  } else if (action === 'refresh-orders') {
     manualRefreshOrders();
   } else if (action === 'load-more-orders') {
     loadOrders(true);
@@ -1036,18 +1214,25 @@ document.addEventListener('click', (e) => {
     quickAddProduct();
   } else if (action === 'quick-add-cat') {
     quickAddCategory();
+  } else if (action === 'quick-go-qr') {
+    const btns = document.querySelectorAll('.nav-btn');
+    btns.forEach(b => b.classList.remove('active'));
+    if (btns[4]) btns[4].classList.add('active');
+    renderTableQr(document.getElementById('main-content'));
   } else if (action === 'open-prod-modal') {
     openProductModal(actionEl.dataset.prodId || null);
   } else if (action === 'delete-prod') {
     deleteProduct(actionEl.dataset.prodId);
   } else if (action === 'toggle-avail') {
-    toggleAvail(actionEl.dataset.prodId, actionEl.dataset.curAvail === '1' || actionEl.dataset.curAvail === 'true');
+    toggleAvail(actionEl.dataset.prodId);
   } else if (action === 'open-cat-modal') {
     openCatModal(actionEl.dataset.catId || null);
   } else if (action === 'delete-cat') {
     deleteCat(actionEl.dataset.catId);
   } else if (action === 'print-table-qr') {
     window.print();
+  } else if (action === 'download-qr-only') {
+    downloadBarcodeOnly(actionEl.dataset.table, actionEl.dataset.format);
   } else if (action === 'copy-table-url') {
     copyTableUrl(actionEl.dataset.url);
   } else if (action === 'remove-site-img') {
@@ -1078,16 +1263,23 @@ document.addEventListener('change', (e) => {
   } else if (e.target.matches('[data-action="filter-orders"]')) {
     currentOrderFilter = e.target.value;
     loadOrders(false, 50);
+  } else if (e.target.matches('[data-action="filter-prod-cat"]')) {
+    filterCat = e.target.value;
+    renderProductTable();
+  } else if (e.target.matches('[data-action="filter-prod-avail"]')) {
+    filterAvail = e.target.value;
+    renderProductTable();
   }
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.target.id === 'pw' && e.key === 'Enter') {
     doLogin();
+  } else if (e.key === 'Escape') {
+    closeLightbox();
   }
 });
 
-// اعتبارسنجی وضعیت ورود با کوکی امن HttpOnly
 (async function checkInitialAuth() {
   try {
     const r = await fetch(`${BASE}/me`, {
@@ -1097,6 +1289,6 @@ document.addEventListener('keydown', (e) => {
       initApp();
       return;
     }
-  } catch {}
+  } catch { }
   doLogout();
 })();
