@@ -125,7 +125,7 @@ const MAIN_PANEL_BUTTONS = [
 const mainPanelKeyboard = () => ({
   keyboard: MAIN_PANEL_BUTTONS,
   resize_keyboard: true,
-  is_persistent: true,
+  is_persistent: false,
 });
 
 export const sendMessageWithPanel = (env, chatId, text) =>
