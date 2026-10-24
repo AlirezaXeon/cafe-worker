@@ -14,6 +14,8 @@ let searchQ = '';
 let filterCat = '';
 let filterAvail = '';
 let productViewMode = localStorage.getItem('admin_prod_view') || 'table'; // 'table' | 'grid'
+let catSearchQ = '';
+let opsClockTimer = null;
 
 // ── Theme (Dark / Light) ──────────────────────────────────────────────────
 function initTheme() {
@@ -84,6 +86,7 @@ let isLoggedIn = false;
 async function doLogout() {
   isLoggedIn = false;
   stopAdminPolling();
+  stopOpsClock();
   try {
     await fetch(`${BASE}/logout`, { method: 'POST', credentials: 'same-origin' });
   } catch { }
@@ -375,9 +378,42 @@ function toast(msg, isErr = false) {
   setTimeout(() => t.className = '', 3000);
 }
 
+// ── Clock & Live Ops Helpers ──────────────────────────────────────────────
+function updateOpsClock() {
+  const el = document.getElementById('ops-clock');
+  if (!el) return;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('fa-IR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'Asia/Tehran',
+  });
+  el.textContent = `ساعت: ${timeStr}`;
+}
+
+function startOpsClock() {
+  if (opsClockTimer) clearInterval(opsClockTimer);
+  updateOpsClock();
+  opsClockTimer = setInterval(updateOpsClock, 1000);
+}
+
+function stopOpsClock() {
+  if (opsClockTimer) {
+    clearInterval(opsClockTimer);
+    opsClockTimer = null;
+  }
+}
+
+function switchTab(tabName) {
+  const btn = document.querySelector(`.nav-btn[data-tab="${tabName}"]`);
+  showTab(tabName, btn);
+}
+
 // ── Tabs ──────────────────────────────────────────────────────────────────
 function showTab(tab, btn) {
   currentActiveTab = tab;
+  if (tab !== 'dashboard') stopOpsClock();
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const m = document.getElementById('main-content');
@@ -389,89 +425,342 @@ function showTab(tab, btn) {
   if (tab === 'site') renderSite(m);
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────
+// ── Dashboard (Idea 3: High-Density Operations & Barista Dashboard) ────────
 async function renderDashboard(m) {
   m.innerHTML = `
-    <div class="stats">
-      <div class="stat-card"><div class="stat-icon">🍽</div><div class="val" id="s-total">—</div><div class="lbl">کل محصولات</div></div>
-      <div class="stat-card green"><div class="stat-icon">✅</div><div class="val" id="s-avail">—</div><div class="lbl">موجود</div></div>
-      <div class="stat-card red"><div class="stat-icon">⛔️</div><div class="val" id="s-unavail">—</div><div class="lbl">ناموجود</div></div>
-      <div class="stat-card gray"><div class="stat-icon">📂</div><div class="val" id="s-cats">—</div><div class="lbl">دسته‌بندی‌ها</div></div>
+    <div class="ops-hero">
+      <div class="ops-hero-info">
+        <h2>داشبورد عملیات باریستا و سالن</h2>
+        <div class="ops-hero-meta">
+          <span class="ops-pill">🟢 سیستم آنلاین</span>
+          <span class="ops-pill" id="ops-clock">ساعت: --:--</span>
+          <span class="ops-pill" id="ops-pending-pill" data-action="quick-go-orders" style="cursor:pointer">
+            در حال بارگذاری وضعیت صف...
+          </span>
+        </div>
+      </div>
     </div>
-    <div class="stats">
-      <div class="stat-card"><div class="stat-icon">💰</div><div class="val" id="s-sales-today">—</div><div class="lbl">فروش امروز</div></div>
-      <div class="stat-card"><div class="stat-icon">📅</div><div class="val" id="s-sales-week">—</div><div class="lbl">فروش این هفته</div></div>
-      <div class="stat-card"><div class="stat-icon">🗓</div><div class="val" id="s-sales-month">—</div><div class="lbl">فروش این ماه</div></div>
+
+    <div class="ops-kpi-grid">
+      <div class="ops-kpi-card" data-kpi="sales">
+        <div class="ops-kpi-head">
+          <span class="ops-kpi-title">فروش تاییدشده امروز</span>
+          <span class="ops-kpi-icon">💰</span>
+        </div>
+        <div class="ops-kpi-val" id="kpi-sales-today">—</div>
+        <div class="ops-kpi-sub">
+          <span id="kpi-sales-week">هفته: —</span>
+          <span>•</span>
+          <span id="kpi-sales-month">ماه: —</span>
+        </div>
+      </div>
+
+      <div class="ops-kpi-card" data-kpi="orders" data-action="quick-go-orders" style="cursor:pointer" title="مشاهده سفارش‌ها">
+        <div class="ops-kpi-head">
+          <span class="ops-kpi-title">سفارش‌های در انتظار</span>
+          <span class="ops-kpi-icon">🧾</span>
+        </div>
+        <div class="ops-kpi-val" id="kpi-orders-val">—</div>
+        <div class="ops-kpi-sub" id="kpi-orders-sub">
+          <span>وضعیت صف سالن</span>
+          <span>مشاهده لیست ←</span>
+        </div>
+      </div>
+
+      <div class="ops-kpi-card" data-kpi="menu">
+        <div class="ops-kpi-head">
+          <span class="ops-kpi-title">موجودی اقلام بار</span>
+          <span class="ops-kpi-icon">☕</span>
+        </div>
+        <div class="ops-kpi-val" id="kpi-menu-val">—</div>
+        <div class="ops-kpi-sub" id="kpi-menu-sub">
+          <span>در دسته‌بندی‌ها</span>
+        </div>
+      </div>
+
+      <div class="ops-kpi-card" data-kpi="tables" data-action="quick-go-qr" style="cursor:pointer" title="مشاهده بارکدهای QR">
+        <div class="ops-kpi-head">
+          <span class="ops-kpi-title">میزها و بارکد سالن</span>
+          <span class="ops-kpi-icon">📱</span>
+        </div>
+        <div class="ops-kpi-val" id="kpi-tables-val">—</div>
+        <div class="ops-kpi-sub" id="kpi-tables-sub">
+          <span>امضای QR</span>
+          <span>دریافت بارکد ←</span>
+        </div>
+      </div>
     </div>
-    <div class="quick-actions">
-      <div class="quick-action" data-action="quick-add-prod">
-        <div class="qa-icon">➕</div><div class="qa-label">افزودن محصول جدید</div>
-      </div>
-      <div class="quick-action" data-action="quick-add-cat">
-        <div class="qa-icon">📂</div><div class="qa-label">دسته‌بندی جدید</div>
-      </div>
-      <div class="quick-action" data-action="quick-go-qr">
-        <div class="qa-icon">📱</div><div class="qa-label">بارکد QR میزها</div>
-      </div>
-      <a class="quick-action" href="/" target="_blank" rel="noopener">
-        <div class="qa-icon">🔗</div><div class="qa-label">مشاهده‌ی زنده منو</div>
+
+    <div class="ops-quick-row">
+      <button class="ops-quick-btn" data-action="quick-add-prod">
+        <span class="btn-icon">⚡</span>
+        <span>ثبت محصول جدید</span>
+      </button>
+      <button class="ops-quick-btn" data-action="quick-add-cat">
+        <span class="btn-icon">📂</span>
+        <span>دسته‌بندی جدید</span>
+      </button>
+      <button class="ops-quick-btn" data-action="quick-go-orders">
+        <span class="btn-icon">🧾</span>
+        <span id="quick-orders-label">صف سفارش‌ها</span>
+      </button>
+      <button class="ops-quick-btn" data-action="quick-go-qr">
+        <span class="btn-icon">📱</span>
+        <span>بارکد QR میزها</span>
+      </button>
+      <a class="ops-quick-btn" href="/" target="_blank" rel="noopener">
+        <span class="btn-icon">🌐</span>
+        <span>مشاهده منوی مشتری</span>
       </a>
     </div>
+
+    <div class="ops-workspace">
+      <div class="ops-panel">
+        <div class="ops-panel-header">
+          <h3>
+            <span>🪑 ماتریس زنده وضعیت میزها</span>
+          </h3>
+          <span class="ops-pill" id="ops-table-matrix-pill">—</span>
+        </div>
+        <div class="table-matrix-grid" id="ops-table-grid">
+          <div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری میزها...</div>
+        </div>
+      </div>
+
+      <div class="ops-panel">
+        <div class="ops-panel-header">
+          <h3>
+            <span>⚠️ اقلام ناموجود (تغییر وضعیت آنی)</span>
+          </h3>
+          <span class="ops-pill" id="ops-stock-pill">—</span>
+        </div>
+        <div class="stock-alert-list" id="ops-stock-list">
+          <div class="empty"><div class="empty-icon">⏳</div>در حال بررسی موجودی...</div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
-      <div class="card-header"><h2>📊 تراکم محصولات در هر دسته‌بندی</h2></div>
-      <div id="cat-breakdown" style="padding:1.35rem"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
+      <div class="card-header">
+        <h2>📊 تراکم و موجودی محصولات در هر دسته‌بندی</h2>
+        <span style="font-size:0.8rem;color:var(--muted)">کلیک روی هر دسته جهت فیلتر و مشاهده محصولات</span>
+      </div>
+      <div id="cat-breakdown" style="padding:1.2rem 1.35rem">
+        <div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div>
+      </div>
     </div>`;
+
+  startOpsClock();
+
   try {
-    const [cats, prods, sales] = await Promise.all([api('/categories'), api('/products'), api('/sales-stats')]);
-    allCategories = cats; allProducts = prods;
+    const [cats, prods, sales, siteCfg, pendingOrders] = await Promise.all([
+      api('/categories'),
+      api('/products'),
+      api('/sales-stats'),
+      api('/site').catch(() => ({ tableCount: 20, signingEnabled: false })),
+      api('/orders?status=pending&limit=100').catch(() => []),
+    ]);
+
+    allCategories = cats;
+    allProducts = prods;
+
     const total = allProducts.length;
     const avail = allProducts.filter(p => p.available).length;
-    document.getElementById('s-total').textContent = total;
-    document.getElementById('s-avail').textContent = avail;
-    document.getElementById('s-unavail').textContent = total - avail;
-    document.getElementById('s-cats').textContent = allCategories.length;
-    document.getElementById('s-sales-today').textContent = Number(sales.today).toLocaleString('fa-IR') + ' ت';
-    document.getElementById('s-sales-week').textContent = Number(sales.week).toLocaleString('fa-IR') + ' ت';
-    document.getElementById('s-sales-month').textContent = Number(sales.month).toLocaleString('fa-IR') + ' ت';
+    const unavail = total - avail;
+    const pendingList = Array.isArray(pendingOrders) ? pendingOrders : [];
+    const pendingCount = pendingList.length;
+    const tableCount = Number(siteCfg?.tableCount) || 20;
 
+    updatePendingBadge(pendingCount);
+
+    // Hero pending pill
+    const pendingPill = document.getElementById('ops-pending-pill');
+    if (pendingPill) {
+      if (pendingCount > 0) {
+        pendingPill.className = 'ops-pill alert';
+        pendingPill.innerHTML = `🔔 ${pendingCount} سفارش در انتظار بررسی`;
+      } else {
+        pendingPill.className = 'ops-pill';
+        pendingPill.innerHTML = '✓ تمامی سفارش‌ها پاسخ داده شدند';
+      }
+    }
+
+    // KPI 1: Sales
+    const sToday = document.getElementById('kpi-sales-today');
+    if (sToday) sToday.textContent = Number(sales?.today || 0).toLocaleString('fa-IR') + ' ت';
+    const sWeek = document.getElementById('kpi-sales-week');
+    if (sWeek) sWeek.textContent = 'هفته: ' + Number(sales?.week || 0).toLocaleString('fa-IR') + ' ت';
+    const sMonth = document.getElementById('kpi-sales-month');
+    if (sMonth) sMonth.textContent = 'ماه: ' + Number(sales?.month || 0).toLocaleString('fa-IR') + ' ت';
+
+    // KPI 2: Orders
+    const kOrdersVal = document.getElementById('kpi-orders-val');
+    if (kOrdersVal) {
+      kOrdersVal.textContent = pendingCount ? `${pendingCount} سفارش باز` : 'صف خلوت';
+      kOrdersVal.className = 'ops-kpi-val' + (pendingCount > 0 ? ' highlight-alert' : '');
+    }
+    const kOrdersSub = document.getElementById('kpi-orders-sub');
+    if (kOrdersSub) {
+      kOrdersSub.innerHTML = pendingCount > 0
+        ? '<span style="color:var(--danger);font-weight:700">اقدام سریع باریستا</span><span>مشاهده ←</span>'
+        : '<span>همه سفارش‌ها تایید/رد شده‌اند</span><span>مشاهده لیست ←</span>';
+    }
+
+    // KPI 3: Menu & Inventory
+    const kMenuVal = document.getElementById('kpi-menu-val');
+    if (kMenuVal) {
+      kMenuVal.innerHTML = `${avail} <span style="font-size:0.95rem;font-weight:600;color:var(--muted)">/ ${total} موجود</span>`;
+    }
+    const kMenuSub = document.getElementById('kpi-menu-sub');
+    if (kMenuSub) {
+      kMenuSub.innerHTML = unavail > 0
+        ? `<span style="color:var(--danger);font-weight:700">⚠️ ${unavail} قلم ناموجود</span><span>در ${allCategories.length} دسته</span>`
+        : `<span>✓ تمام ${total} قلم موجود</span><span>در ${allCategories.length} دسته</span>`;
+    }
+
+    // KPI 4: Tables
+    const kTablesVal = document.getElementById('kpi-tables-val');
+    if (kTablesVal) kTablesVal.textContent = `${tableCount} میز سالن`;
+    const kTablesSub = document.getElementById('kpi-tables-sub');
+    if (kTablesSub) {
+      kTablesSub.innerHTML = `<span>امضا: ${siteCfg?.signingEnabled ? '✅ فعال' : 'غیرفعال'}</span><span>دانلود QR ←</span>`;
+    }
+
+    // Quick row order button label
+    const quickOrdersLabel = document.getElementById('quick-orders-label');
+    if (quickOrdersLabel) {
+      quickOrdersLabel.textContent = pendingCount > 0 ? `صف سفارش‌ها (${pendingCount})` : 'صف سفارش‌ها';
+    }
+
+    // Workspace: Live Table Matrix Grid
+    const pendingTables = new Map();
+    pendingList.forEach(o => {
+      const tNum = Number(o.table_number);
+      if (!isNaN(tNum)) {
+        pendingTables.set(tNum, (pendingTables.get(tNum) || 0) + 1);
+      }
+    });
+
+    const tableGrid = document.getElementById('ops-table-grid');
+    const tableMatrixPill = document.getElementById('ops-table-matrix-pill');
+    if (tableMatrixPill) tableMatrixPill.textContent = `${tableCount} میز`;
+
+    if (tableGrid) {
+      const tilesHtml = [];
+      for (let i = 1; i <= tableCount; i++) {
+        const orderCount = pendingTables.get(i) || 0;
+        const hasPending = orderCount > 0;
+        tilesHtml.push(`
+          <div class="table-tile ${hasPending ? 'has-pending' : ''}"
+               data-action="ops-select-table"
+               data-table="${i}"
+               title="${hasPending ? `میز ${i} — ${orderCount} سفارش در انتظار` : `میز ${i} — بدون سفارش در انتظار`}">
+            <span class="table-tile-num">میز ${i}</span>
+            <span class="table-tile-status">${hasPending ? `🔔 ${orderCount}` : 'خالی'}</span>
+          </div>
+        `);
+      }
+      tableGrid.innerHTML = tilesHtml.join('');
+    }
+
+    // Workspace: Out-of-Stock Emergency Fast Toggle List
+    const stockList = document.getElementById('ops-stock-list');
+    const stockPill = document.getElementById('ops-stock-pill');
+    if (stockPill) {
+      stockPill.textContent = `${unavail} قلم`;
+      stockPill.className = 'ops-pill' + (unavail > 0 ? ' alert' : '');
+    }
+
+    if (stockList) {
+      const unavailList = allProducts.filter(p => !p.available);
+      if (!unavailList.length) {
+        stockList.innerHTML = `
+          <div class="stock-empty-good">
+            <div class="stock-empty-icon">☕✨</div>
+            <div>تمام محصولات بار و انبار موجود هستند!</div>
+            <div style="font-size:0.75rem;font-weight:normal;color:var(--muted)">هیچ محصول ناموجودی در منو ثبت نشده است.</div>
+          </div>`;
+      } else {
+        stockList.innerHTML = unavailList.map(p => {
+          const cat = allCategories.find(c => c.id === p.category);
+          const catLabelText = cat ? cat.label : 'بدون دسته';
+          return `
+            <div class="stock-alert-item">
+              <div style="min-width:0;flex:1">
+                <div class="stock-alert-name" title="${esc(p.name)}">${esc(p.name)}</div>
+                <div class="stock-alert-cat">${esc(catLabelText)} • ${Number(p.price).toLocaleString('fa-IR')} ت</div>
+              </div>
+              <button class="btn btn-primary btn-sm" data-action="ops-quick-avail" data-prod-id="${p.id}" title="تغییر وضعیت به موجود">
+                ✓ موجود شد
+              </button>
+            </div>`;
+        }).join('');
+      }
+    }
+
+    // Category Density Breakdown
     const breakdown = document.getElementById('cat-breakdown');
-    const counts = allCategories
-      .map(c => ({ label: c.label, count: allProducts.filter(p => p.category === c.id).length }))
-      .sort((a, b) => b.count - a.count);
-    const max = Math.max(1, ...counts.map(c => c.count));
-    breakdown.innerHTML = counts.length
-      ? counts.map(c => `
-        <div class="cat-breakdown-item">
-          <div class="cb-label" title="${esc(c.label)}">${esc(c.label)}</div>
-          <div class="cb-bar-track"><div class="cb-bar-fill" style="width:${(c.count / max) * 100}%"></div></div>
-          <div class="cb-count">${c.count}</div>
-        </div>`).join('')
-      : '<div class="empty"><div class="empty-icon">📭</div>هنوز دسته‌بندی‌ای ثبت نشده</div>';
-  } catch (e) { if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار', true); }
+    if (breakdown) {
+      const counts = allCategories
+        .map(c => {
+          const prodsInCat = allProducts.filter(p => p.category === c.id);
+          return {
+            id: c.id,
+            label: c.label,
+            count: prodsInCat.length,
+            avail: prodsInCat.filter(p => p.available).length
+          };
+        })
+        .sort((a, b) => b.count - a.count);
+
+      const max = Math.max(1, ...counts.map(c => c.count));
+      breakdown.innerHTML = counts.length
+        ? counts.map(c => `
+          <div class="cat-breakdown-item" data-action="view-cat-products" data-cat-id="${esc(c.id)}" style="cursor:pointer" title="مشاهده محصولات دسته «${esc(c.label)}»">
+            <div class="cb-label" title="${esc(c.label)}">${esc(c.label)}</div>
+            <div class="cb-bar-track"><div class="cb-bar-fill" style="width:${(c.count / max) * 100}%"></div></div>
+            <div class="cb-count">${c.count} (${c.avail} موجود)</div>
+          </div>`).join('')
+        : '<div class="empty"><div class="empty-icon">📭</div>هنوز دسته‌بندی‌ای ثبت نشده است</div>';
+    }
+  } catch (e) {
+    if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار داشبورد', true);
+  }
+}
+
+async function quickToggleAvail(id) {
+  try {
+    const res = await api(`/products/${id}/availability`, { method: 'PATCH' });
+    const p = allProducts.find(x => x.id == id);
+    if (p) p.available = res.available;
+    toast(res.available ? 'محصول موجود شد ✓' : 'محصول ناموجود شد');
+    renderDashboard(document.getElementById('main-content'));
+  } catch (e) {
+    if (e.message !== 'unauthorized') toast(e.message || 'خطا در تغییر وضعیت', true);
+  }
 }
 
 async function quickAddProduct() {
-  const btns = document.querySelectorAll('.nav-btn');
-  btns.forEach(b => b.classList.remove('active')); if (btns[2]) btns[2].classList.add('active');
-  await renderProducts(document.getElementById('main-content'));
+  switchTab('products');
   openProductModal();
 }
 
 async function quickAddCategory() {
-  const btns = document.querySelectorAll('.nav-btn');
-  btns.forEach(b => b.classList.remove('active')); if (btns[3]) btns[3].classList.add('active');
-  await renderCategories(document.getElementById('main-content'));
+  switchTab('categories');
   openCatModal();
 }
 
 const imgSrc = (p) => p ? '/' + String(p).replace(/^\/+/, '') : '';
 
-// ── Products (با فیلتر، تغییر نما و بزرگ‌نمایی عکس) ─────────────────────────
+// ── Products (با فیلتر، تغییر نما، آمار وضعیت و بزرگ‌نمایی عکس) ─────────────
 async function renderProducts(m) {
   m.innerHTML = `
     <div class="card">
       <div class="card-header">
-        <h2>🍽 مدیریت محصولات</h2>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+          <h2>🍽 مدیریت محصولات</h2>
+          <span class="cat-count-badge" id="prod-total-badge">در حال بارگذاری...</span>
+        </div>
         <div class="actions">
           <button class="btn btn-ghost btn-sm ${productViewMode === 'table' ? 'active' : ''}" data-action="set-prod-view" data-view="table" title="نمای جدولی">📋 جدول</button>
           <button class="btn btn-ghost btn-sm ${productViewMode === 'grid' ? 'active' : ''}" data-action="set-prod-view" data-view="grid" title="نمای کارتی بزرگ">🗂 گالری کارت</button>
@@ -479,18 +768,23 @@ async function renderProducts(m) {
         </div>
       </div>
       <div class="card-toolbar">
-        <input class="search-input" placeholder="🔍 جستجوی نام یا دسته‌بندی..." value="${esc(searchQ)}" data-action="search-products" />
+        <input class="search-input" placeholder="🔍 جستجوی نام یا توضیحات محصول..." value="${esc(searchQ)}" data-action="search-products" />
         <select class="search-input" style="max-width:190px" id="prod-cat-filter" data-action="filter-prod-cat">
           <option value="">همه دسته‌بندی‌ها</option>
         </select>
-        <select class="search-input" style="max-width:160px" data-action="filter-prod-avail">
+        <select class="search-input" style="max-width:170px" id="prod-avail-filter" data-action="filter-prod-avail">
           <option value="" ${filterAvail === '' ? 'selected' : ''}>همه وضعیت‌ها</option>
           <option value="1" ${filterAvail === '1' ? 'selected' : ''}>✅ فقط موجود</option>
           <option value="0" ${filterAvail === '0' ? 'selected' : ''}>⛔ فقط ناموجود</option>
+          <option value="disc" ${filterAvail === 'disc' ? 'selected' : ''}>🏷 فقط تخفیف‌دار</option>
         </select>
+      </div>
+      <div class="prod-stats-strip" id="prod-stats-strip">
+        <div class="prod-stat-chip active">در حال بارگذاری آمار...</div>
       </div>
       <div class="table-wrap" id="prod-table"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
     </div>`;
+
   try {
     [allProducts, allCategories] = await Promise.all([api('/products'), api('/categories')]);
     const catFilterEl = document.getElementById('prod-cat-filter');
@@ -501,49 +795,116 @@ async function renderProducts(m) {
     renderProductTable();
   } catch (e) {
     if (e.message !== 'unauthorized')
-      document.getElementById('prod-table').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری</div>';
+      document.getElementById('prod-table').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری محصولات</div>';
   }
 }
 
 function renderProductTable() {
   const t = document.getElementById('prod-table'); if (!t) return;
-  const q = searchQ.toLowerCase();
+  const q = searchQ.trim().toLowerCase();
+
+  const total = allProducts.length;
+  const availCount = allProducts.filter(p => p.available).length;
+  const unavailCount = total - availCount;
+  const discCount = allProducts.filter(p => p.original_price && p.original_price > p.price).length;
+
+  const totalBadge = document.getElementById('prod-total-badge');
+  if (totalBadge) totalBadge.textContent = `${total} محصول`;
+
+  const stripEl = document.getElementById('prod-stats-strip');
+  if (stripEl) {
+    const activeCat = allCategories.find(c => c.id === filterCat);
+    stripEl.innerHTML = `
+      <div class="prod-stat-chip ${filterAvail === '' ? 'active' : ''}" data-action="quick-filter-avail" data-avail="" title="نمایش همه محصولات">
+        📋 همه (${total})
+      </div>
+      <div class="prod-stat-chip green ${filterAvail === '1' ? 'active' : ''}" data-action="quick-filter-avail" data-avail="1" title="فیلتر محصولات موجود">
+        ✅ موجود (${availCount})
+      </div>
+      <div class="prod-stat-chip red ${filterAvail === '0' ? 'active' : ''}" data-action="quick-filter-avail" data-avail="0" title="فیلتر محصولات ناموجود">
+        ⛔ ناموجود (${unavailCount})
+      </div>
+      <div class="prod-stat-chip gold ${filterAvail === 'disc' ? 'active' : ''}" data-action="quick-filter-avail" data-avail="disc" title="فیلتر محصولات تخفیف‌دار">
+        🏷 دارای تخفیف (${discCount})
+      </div>
+      <div class="prod-active-filters">
+        ${activeCat ? `
+          <span class="prod-filter-pill">
+            <span>دسته: ${esc(activeCat.label)}</span>
+            <span class="remove-filter" data-action="clear-cat-filter" title="حذف فیلتر دسته">✕</span>
+          </span>` : ''}
+        ${q ? `
+          <span class="prod-filter-pill">
+            <span>جستجو: «${esc(searchQ)}»</span>
+            <span class="remove-filter" data-action="clear-search-filter" title="حذف جستجو">✕</span>
+          </span>` : ''}
+      </div>`;
+  }
+
   const rows = allProducts.filter(p => {
-    if (q && !p.name.toLowerCase().includes(q) && !catLabel(p.category).toLowerCase().includes(q)) return false;
+    if (q) {
+      const matchName = (p.name || '').toLowerCase().includes(q);
+      const matchCat = catLabel(p.category).toLowerCase().includes(q);
+      const matchNote = (p.note || '').toLowerCase().includes(q);
+      if (!matchName && !matchCat && !matchNote) return false;
+    }
     if (filterCat && p.category !== filterCat) return false;
-    if (filterAvail !== '' && String(p.available ? 1 : 0) !== filterAvail) return false;
+    if (filterAvail === '1' && !p.available) return false;
+    if (filterAvail === '0' && p.available) return false;
+    if (filterAvail === 'disc' && (!p.original_price || p.original_price <= p.price)) return false;
     return true;
   });
 
   if (!rows.length) {
-    t.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>محصولی مطابق با فیلترها یافت نشد</div>';
+    t.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🔍</div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:0.4rem">محصولی با این مشخصات یافت نشد</div>
+        <div style="font-size:0.82rem;color:var(--muted)">می‌توانید فیلترها را پاک کنید یا محصول جدیدی اضافه نمایید.</div>
+        ${(filterCat || filterAvail || q) ? `
+          <button class="btn btn-ghost btn-sm" data-action="clear-all-prod-filters" style="margin-top:1rem">
+            پاک کردن تمام فیلترها
+          </button>` : ''}
+      </div>`;
     return;
   }
 
   if (productViewMode === 'grid') {
     t.innerHTML = `<div class="prod-grid">${rows.map(p => {
       const fullImg = p.image ? imgSrc(p.image) : '';
+      const hasDisc = p.original_price && p.original_price > p.price;
+      const discPct = hasDisc ? Math.round((1 - p.price / p.original_price) * 100) : 0;
       return `
-      <div class="prod-card">
+      <div class="prod-card ${!p.available ? 'is-unavail' : ''}">
         <div class="prod-card-img-wrap">
+          <span class="prod-badge-floating ${p.available ? 'avail' : 'unavail'}">
+            ${p.available ? '🟢 موجود' : '⛔ ناموجود'}
+          </span>
+          ${hasDisc ? `<span class="prod-disc-floating">٪${discPct} تخفیف</span>` : ''}
           ${fullImg
-          ? `<img src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}">`
-          : `<div class="prod-card-placeholder">🍽</div>`}
+            ? `<img src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}" loading="lazy">`
+            : `<div class="prod-card-placeholder">☕</div>`}
         </div>
         <div class="prod-card-body">
-          <div class="prod-card-cat">${esc(catLabel(p.category))}</div>
-          <div class="prod-name">${esc(p.name)}</div>${p.note ? `<div class="prod-note">${esc(p.note)}</div>` : ''}
-          <div style="margin-top:auto;padding-top:0.5rem;">
-            ${p.original_price ? `<span class="price-orig">${Number(p.original_price).toLocaleString('fa-IR')} ت</span>` : ''}
-            <span class="price-main">${Number(p.price).toLocaleString('fa-IR')} ت</span>
-            ${p.original_price ? `<span class="disc-badge">٪${Math.round((1 - p.price / p.original_price) * 100)}</span>` : ''}
+          <div class="prod-card-cat">📂 ${esc(catLabel(p.category))}</div>
+          <div class="prod-name" title="${esc(p.name)}">${esc(p.name)}</div>
+          ${p.note ? `<div class="prod-note" title="${esc(p.note)}">${esc(p.note)}</div>` : ''}
+          <div style="margin-top:auto;padding-top:0.65rem;">
+            ${hasDisc ? `<span class="price-orig">${Number(p.original_price).toLocaleString('fa-IR')} ت</span>` : ''}
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span class="price-main">${Number(p.price).toLocaleString('fa-IR')} ت</span>
+              ${hasDisc ? `<span class="disc-badge">٪${discPct}</span>` : ''}
+            </div>
           </div>
         </div>
         <div class="prod-card-foot">
-          <button class="toggle ${p.available ? 'on' : ''}" data-action="toggle-avail" data-prod-id="${p.id}" data-cur-avail="${p.available}" title="${p.available ? 'موجود' : 'ناموجود'}"></button>
+          <div style="display:flex;align-items:center;gap:0.45rem">
+            <button class="toggle ${p.available ? 'on' : ''}" data-action="toggle-avail" data-prod-id="${p.id}" data-cur-avail="${p.available}" title="${p.available ? 'کلیک جهت تغییر به ناموجود' : 'کلیک جهت تغییر به موجود'}"></button>
+            <span style="font-size:0.75rem;font-weight:700;color:${p.available ? 'var(--success)' : 'var(--danger)'}">${p.available ? 'موجود' : 'ناموجود'}</span>
+          </div>
           <div class="actions">
-            <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${p.id}">ویرایش</button>
-            <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${p.id}">حذف</button>
+            <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${p.id}" title="ویرایش محصول">✏️ ویرایش</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${p.id}" title="حذف محصول">🗑</button>
           </div>
         </div>
       </div>`;
@@ -552,26 +913,60 @@ function renderProductTable() {
   }
 
   t.innerHTML = `<table>
-    <thead><tr><th>تصویر (کلیک=بزرگ‌نمایی)</th><th>محصول</th><th>دسته‌بندی</th><th>قیمت</th><th>موجودی</th><th>عملیات</th></tr></thead>
-    <tbody>${rows.map(p => {
-    const fullImg = p.image ? imgSrc(p.image) : '';
-    return `
+    <thead>
       <tr>
-        <td>${fullImg ? `<img class="img-preview" src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}">` : `<div class="img-placeholder">🍽</div>`}</td>
-        <td><div class="prod-name">${esc(p.name)}</div>${p.note ? `<div class="prod-note">${esc(p.note.slice(0, 65))}${p.note.length > 65 ? '…' : ''}</div>` : ''}</td>
-        <td><span style="background:var(--surface-alt);border:1px solid var(--border);padding:.22rem .65rem;border-radius:20px;font-size:.78rem;font-weight:600">${esc(catLabel(p.category))}</span></td>
+        <th style="width:78px">تصویر</th>
+        <th>محصول و توضیحات</th>
+        <th>دسته‌بندی</th>
+        <th>قیمت</th>
+        <th>وضعیت</th>
+        <th style="text-align:center">تغییر موجودی</th>
+        <th style="text-align:center">عملیات</th>
+      </tr>
+    </thead>
+    <tbody>${rows.map(p => {
+      const fullImg = p.image ? imgSrc(p.image) : '';
+      const hasDisc = p.original_price && p.original_price > p.price;
+      const discPct = hasDisc ? Math.round((1 - p.price / p.original_price) * 100) : 0;
+      return `
+      <tr class="${!p.available ? 'prod-row-unavail' : ''}">
         <td>
-          ${p.original_price ? `<span class="price-orig">${Number(p.original_price).toLocaleString('fa-IR')} ت</span>` : ''}
-          <span class="price-main">${Number(p.price).toLocaleString('fa-IR')} ت</span>
-          ${p.original_price ? `<span class="disc-badge">٪${Math.round((1 - p.price / p.original_price) * 100)} تخفیف</span>` : ''}
+          ${fullImg
+            ? `<img class="img-preview" src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}" loading="lazy">`
+            : `<div class="img-placeholder">☕</div>`}
         </td>
-        <td><button class="toggle ${p.available ? 'on' : ''}" data-action="toggle-avail" data-prod-id="${p.id}" data-cur-avail="${p.available}" title="${p.available ? 'موجود' : 'ناموجود'}"></button></td>
-        <td><div class="actions">
-          <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${p.id}">ویرایش</button>
-          <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${p.id}">حذف</button>
-        </div></td>
+        <td>
+          <div class="prod-name">${esc(p.name)}</div>
+          ${p.note ? `<div class="prod-note">${esc(p.note.slice(0, 75))}${p.note.length > 75 ? '…' : ''}</div>` : ''}
+        </td>
+        <td>
+          <span style="background:var(--surface-alt);border:1px solid var(--border);padding:.22rem .65rem;border-radius:20px;font-size:.78rem;font-weight:700;color:var(--text)">
+            📂 ${esc(catLabel(p.category))}
+          </span>
+        </td>
+        <td>
+          ${hasDisc ? `<div class="price-orig">${Number(p.original_price).toLocaleString('fa-IR')} ت</div>` : ''}
+          <div style="display:flex;align-items:center;gap:0.35rem">
+            <span class="price-main">${Number(p.price).toLocaleString('fa-IR')} ت</span>
+            ${hasDisc ? `<span class="disc-badge">٪${discPct} تخفیف</span>` : ''}
+          </div>
+        </td>
+        <td>
+          <span class="prod-status-pill ${p.available ? 'avail' : 'unavail'}">
+            ${p.available ? '🟢 موجود' : '⛔ ناموجود'}
+          </span>
+        </td>
+        <td style="text-align:center">
+          <button class="toggle ${p.available ? 'on' : ''}" data-action="toggle-avail" data-prod-id="${p.id}" data-cur-avail="${p.available}" title="${p.available ? 'کلیک جهت ناموجود کردن' : 'کلیک جهت موجود کردن'}"></button>
+        </td>
+        <td>
+          <div class="actions" style="justify-content:center">
+            <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${p.id}" title="ویرایش محصول">✏️ ویرایش</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${p.id}" title="حذف محصول">🗑</button>
+          </div>
+        </td>
       </tr>`;
-  }).join('')}
+    }).join('')}
     </tbody></table>`;
 }
 
@@ -584,12 +979,20 @@ async function toggleAvail(id) {
   } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در تغییر وضعیت', true); }
 }
 
-// ── Categories ────────────────────────────────────────────────────────────
+// ── Categories (نمای کارتی مدرن، جستجو، آمار موجودی و فیلتر سریع) ─────────
 async function renderCategories(m) {
   m.innerHTML = `
     <div class="card">
-      <div class="card-header"><h2>📂 دسته‌بندی‌ها</h2>
-        <button class="btn btn-primary btn-sm" data-action="open-cat-modal">+ دسته جدید</button></div>
+      <div class="card-header">
+        <div style="display:flex;align-items:center;gap:0.75rem">
+          <h2>📂 مدیریت دسته‌بندی‌ها</h2>
+          <span class="cat-count-badge" id="cat-total-badge">در حال بارگذاری...</span>
+        </div>
+        <button class="btn btn-primary btn-sm" data-action="open-cat-modal">+ دسته‌بندی جدید</button>
+      </div>
+      <div class="card-toolbar">
+        <input type="text" class="search-input" placeholder="🔍 جستجو در نام دسته‌بندی‌ها..." data-action="search-cats" value="${esc(catSearchQ)}" />
+      </div>
       <div id="cat-list"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
     </div>`;
   await loadCategories();
@@ -597,34 +1000,69 @@ async function renderCategories(m) {
 
 async function loadCategories() {
   try {
-    allCategories = await api('/categories');
-    allProducts = await api('/products');
+    [allCategories, allProducts] = await Promise.all([api('/categories'), api('/products')]);
     renderCategoryList();
   } catch (e) {
-    if (e.message !== 'unauthorized')
-      document.getElementById('cat-list').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا</div>';
+    if (e.message !== 'unauthorized') {
+      const el = document.getElementById('cat-list');
+      if (el) el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در دریافت اطلاعات دسته‌بندی‌ها</div>';
+    }
   }
 }
 
 function renderCategoryList() {
-  const el = document.getElementById('cat-list'); if (!el) return;
-  if (!allCategories.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>دسته‌بندی ثبت نشده</div>'; return; }
-  el.innerHTML = `<div class="cat-grid">${allCategories.map(c => {
-    const count = allProducts.filter(p => p.category === c.id).length;
+  const el = document.getElementById('cat-list');
+  if (!el) return;
+  const totalBadge = document.getElementById('cat-total-badge');
+  if (totalBadge) {
+    totalBadge.textContent = `${allCategories.length} دسته‌بندی`;
+  }
+  if (!allCategories.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>هنوز هیچ دسته‌بندی‌ای ثبت نشده است</div>';
+    return;
+  }
+
+  const q = catSearchQ.trim().toLowerCase();
+  const filtered = q
+    ? allCategories.filter(c => (c.label || '').toLowerCase().includes(q))
+    : allCategories;
+
+  if (!filtered.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>دسته‌بندی‌ای با عنوان «${esc(catSearchQ)}» یافت نشد</div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="cat-grid">${filtered.map(c => {
+    const prodsInCat = allProducts.filter(p => p.category === c.id);
+    const count = prodsInCat.length;
+    const availCount = prodsInCat.filter(p => p.available).length;
+    const unavailCount = count - availCount;
     const fullImg = c.image ? imgSrc(c.image) : '';
-    return `<div class="cat-item">
-      ${fullImg
-        ? `<img class="cat-thumb" src="${esc(fullImg)}" alt="${esc(c.label)}" data-action="zoom-image" data-caption="${esc(c.label)}">`
-        : '<div class="cat-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:default">📂</div>'}
-      <div style="flex:1;min-width:0">
-        <div class="cat-name" title="${esc(c.label)}">${esc(c.label)}</div>
-        <div class="cat-count">${count} محصول</div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-ghost btn-sm" data-action="open-cat-modal" data-cat-id="${c.id}">ویرایش</button>
-        <button class="btn btn-danger btn-sm" data-action="delete-cat" data-cat-id="${c.id}">×</button>
-      </div>
-    </div>`;
+
+    return `
+      <div class="cat-item">
+        <div class="cat-thumb-wrap">
+          ${fullImg
+            ? `<img class="cat-thumb" src="${esc(fullImg)}" alt="${esc(c.label)}" data-action="zoom-image" data-caption="${esc(c.label)}" loading="lazy">`
+            : '<div class="cat-thumb-placeholder">☕</div>'}
+        </div>
+        <div class="cat-item-body">
+          <div class="cat-item-header">
+            <div class="cat-name" title="${esc(c.label)}">${esc(c.label)}</div>
+            <span class="cat-count-badge">${count} محصول</span>
+          </div>
+          <div class="cat-item-meta">
+            <span>✅ ${availCount} موجود</span>
+            <span>•</span>
+            <span style="${unavailCount > 0 ? 'color:var(--danger);font-weight:700' : ''}">⛔ ${unavailCount} ناموجود</span>
+          </div>
+          <div class="cat-actions">
+            <button class="btn btn-ghost btn-sm" data-action="view-cat-products" data-cat-id="${esc(c.id)}" title="مشاهده محصولات این دسته‌بندی">🍽 محصولات</button>
+            <button class="btn btn-ghost btn-sm" data-action="open-cat-modal" data-cat-id="${esc(c.id)}" title="ویرایش">✏️ ویرایش</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-cat" data-cat-id="${esc(c.id)}" title="حذف دسته‌بندی">🗑</button>
+          </div>
+        </div>
+      </div>`;
   }).join('')}</div>`;
 }
 
@@ -780,6 +1218,7 @@ function openProductModal(id) {
   } else {
     ['p-name', 'p-price', 'p-discount', 'p-note', 'p-img'].forEach(i => document.getElementById(i).value = '');
     document.getElementById('p-avail').classList.add('on');
+    if (filterCat) catSel.value = filterCat;
   }
   syncAvailLabel();
   openModal('product-modal');
@@ -1204,6 +1643,32 @@ document.addEventListener('click', (e) => {
       b.classList.toggle('active', b.dataset.view === productViewMode);
     });
     renderProductTable();
+  } else if (action === 'quick-filter-avail') {
+    filterAvail = actionEl.dataset.avail ?? '';
+    const sel = document.getElementById('prod-avail-filter');
+    if (sel) sel.value = filterAvail;
+    renderProductTable();
+  } else if (action === 'clear-cat-filter') {
+    filterCat = '';
+    const sel = document.getElementById('prod-cat-filter');
+    if (sel) sel.value = '';
+    renderProductTable();
+  } else if (action === 'clear-search-filter') {
+    searchQ = '';
+    const input = document.querySelector('[data-action="search-products"]');
+    if (input) input.value = '';
+    renderProductTable();
+  } else if (action === 'clear-all-prod-filters') {
+    searchQ = '';
+    filterCat = '';
+    filterAvail = '';
+    const input = document.querySelector('[data-action="search-products"]');
+    if (input) input.value = '';
+    const catSel = document.getElementById('prod-cat-filter');
+    if (catSel) catSel.value = '';
+    const availSel = document.getElementById('prod-avail-filter');
+    if (availSel) availSel.value = '';
+    renderProductTable();
   } else if (action === 'refresh-orders') {
     manualRefreshOrders();
   } else if (action === 'load-more-orders') {
@@ -1214,11 +1679,19 @@ document.addEventListener('click', (e) => {
     quickAddProduct();
   } else if (action === 'quick-add-cat') {
     quickAddCategory();
+  } else if (action === 'quick-go-orders') {
+    switchTab('orders');
   } else if (action === 'quick-go-qr') {
-    const btns = document.querySelectorAll('.nav-btn');
-    btns.forEach(b => b.classList.remove('active'));
-    if (btns[4]) btns[4].classList.add('active');
-    renderTableQr(document.getElementById('main-content'));
+    switchTab('qr');
+  } else if (action === 'ops-select-table') {
+    const tNum = actionEl.dataset.table;
+    switchTab('orders');
+    toast(`مشاهده سفارش‌های میز ${tNum}`);
+  } else if (action === 'ops-quick-avail') {
+    quickToggleAvail(actionEl.dataset.prodId);
+  } else if (action === 'view-cat-products') {
+    filterCat = actionEl.dataset.catId || '';
+    switchTab('products');
   } else if (action === 'open-prod-modal') {
     openProductModal(actionEl.dataset.prodId || null);
   } else if (action === 'delete-prod') {
@@ -1250,6 +1723,9 @@ document.addEventListener('input', (e) => {
   } else if (e.target.matches('[data-action="search-products"]')) {
     searchQ = e.target.value;
     renderProductTable();
+  } else if (e.target.matches('[data-action="search-cats"]')) {
+    catSearchQ = e.target.value;
+    renderCategoryList();
   }
 });
 
