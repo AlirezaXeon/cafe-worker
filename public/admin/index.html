@@ -3,8 +3,14 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)" />
   <title>پنل مدیریت — کافه روشن</title>
+  <!-- فونت فارسی وزیرمتن (اختیاری) — اگر CDN در دسترس نیست این دو خط را حذف کنید تا فونت سیستم استفاده شود -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css" />
   <style>
     * {
       box-sizing: border-box;
@@ -13,6 +19,7 @@
     }
 
     :root {
+      color-scheme: light;
       --bg: #f4f1ea;
       --surface: #ffffff;
       --surface-hover: #fcfaf7;
@@ -35,6 +42,7 @@
     }
 
     body.dark {
+      color-scheme: dark;
       --bg: #121211;
       --surface: #1c1b19;
       --surface-hover: #252320;
@@ -54,13 +62,15 @@
     }
 
     body {
-      font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+      font-family: 'Vazirmatn', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       font-size: 14px;
       line-height: 1.65;
       transition: background 0.25s, color 0.25s;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     ::-webkit-scrollbar {
@@ -71,6 +81,66 @@
     ::-webkit-scrollbar-thumb {
       background: var(--border);
       border-radius: 4px;
+    }
+
+    /* ── بهبود: ایمنی سرریز — کلمات و متن‌های بلند از کارت‌ها بیرون نمی‌زنند ── */
+    img {
+      max-width: 100%;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    h1,
+    h2,
+    h3,
+    p,
+    label,
+    td,
+    .stat-card .val,
+    .rev-today-val,
+    .rev-sub-item .val,
+    .prod-name,
+    .prod-note,
+    .prod-card-cat,
+    .qa-label,
+    .cat-name,
+    .order-table-no,
+    .order-time,
+    .modal-header h3,
+    .card-header h2,
+    .bento-hero-info h2,
+    #toast {
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+
+    /* بهبود: فرزندهای flex/grid حق رشد بی‌نهایت ندارند (ریشه‌ی اصلی بیرون‌زدن متن از کارت‌ها) */
+    .quick-action,
+    .quick-action .qa-label,
+    .cat-item,
+    .stat-card,
+    .rev-sub-item,
+    .order-card,
+    .prod-card-body,
+    .card-header h2,
+    .prod-card-foot>*,
+    .order-card-head>*,
+    .order-card-foot>*,
+    .mini-order-item>*,
+    .health-stats-list {
+      min-width: 0;
+    }
+
+    /* بهبود: اعداد با عرض یکنواخت و مرتب */
+    .stat-card .val,
+    .rev-today-val,
+    .rev-sub-item .val,
+    .price-main,
+    .order-total {
+      font-variant-numeric: tabular-nums;
     }
 
     /* Login */
@@ -190,6 +260,14 @@
       border-color: var(--danger);
     }
 
+    /* بهبود: دکمه‌ها در فضای تنگ (کارت QR، کارت محصول و...) چندخطی شوند تا از کارت بیرون نزنند */
+    .qr-btn-group .btn,
+    .prod-card-foot .btn,
+    .mini-order-item .btn {
+      white-space: normal;
+      line-height: 1.35;
+    }
+
     /* Form */
     .field {
       margin-bottom: 1rem;
@@ -257,6 +335,14 @@
       min-height: 100vh;
     }
 
+    /* بهبود: هدر و منو در یک ظرف چسبان — با تغییر ارتفاع هدر (مثلاً در موبایل)،
+       منو دیگر روی محتوا نمی‌افتد و نیازی به مقدار ثابت 69px/61px نیست */
+    .app-top {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -264,9 +350,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 30;
+      gap: 0.75rem;
+      flex-wrap: wrap;
       backdrop-filter: blur(10px);
     }
 
@@ -308,9 +393,9 @@
       padding: 0.55rem 1.75rem;
       display: flex;
       gap: 0.4rem;
-      position: sticky;
-      top: 69px;
-      z-index: 25;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
     }
 
     .nav-btn {
@@ -327,6 +412,8 @@
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     .nav-btn.active {
@@ -349,7 +436,7 @@
     /* Stats */
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -411,9 +498,10 @@
       margin-bottom: 0.5rem;
     }
 
+    /* بهبود: گریدها با min(…, 100%) در موبایل از صفحه بیرون نمی‌زنند */
     .quick-actions {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
       gap: 0.85rem;
       margin-bottom: 1.75rem;
     }
@@ -462,8 +550,11 @@
       padding: 0.65rem 0;
     }
 
+    /* بهبود: عرض انعطاف‌پذیر به‌جای 130px ثابت تا در موبایل میله‌ی نمودار له نشود */
     .cat-breakdown-item .cb-label {
-      width: 130px;
+      width: auto;
+      min-width: 90px;
+      max-width: 45%;
       flex-shrink: 0;
       font-size: 0.86rem;
       font-weight: 600;
@@ -488,7 +579,8 @@
     }
 
     .cat-breakdown-item .cb-count {
-      width: 40px;
+      width: auto;
+      min-width: 34px;
       flex-shrink: 0;
       text-align: left;
       font-size: 0.82rem;
@@ -552,6 +644,7 @@
     /* Table */
     .table-wrap {
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     table {
@@ -624,6 +717,12 @@
       flex-wrap: wrap;
     }
 
+    /* بهبود: دکمه‌های عملیات جدول در فضای کم جمع‌وجورتر */
+    .actions .btn-sm {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.76rem;
+    }
+
     .empty {
       text-align: center;
       padding: 3.5rem 1.5rem;
@@ -636,9 +735,10 @@
     }
 
     /* Enlarged Images + Zoom */
+    /* بهبود: پیش‌نمایش‌های بزرگ‌تر (64px → 74px) */
     .img-preview {
-      width: 64px;
-      height: 64px;
+      width: 74px;
+      height: 74px;
       object-fit: cover;
       border-radius: 12px;
       border: 1.5px solid var(--border);
@@ -655,8 +755,8 @@
     }
 
     .img-placeholder {
-      width: 64px;
-      height: 64px;
+      width: 74px;
+      height: 74px;
       border-radius: 12px;
       background: var(--surface-alt);
       border: 1.5px dashed var(--border);
@@ -670,7 +770,7 @@
     /* Product Cards Grid View */
     .prod-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr));
       gap: 1.15rem;
       padding: 1.35rem;
     }
@@ -690,10 +790,12 @@
       box-shadow: var(--shadow);
     }
 
+    /* بهبود: نسبت تصویر واکنش‌گرا به‌جای ارتفاع ثابت 175px — تصویر بزرگ‌تر و بدون له‌شدگی */
     .prod-card-img-wrap {
       position: relative;
       width: 100%;
-      height: 175px;
+      aspect-ratio: 4 / 3;
+      height: auto;
       background: var(--surface-alt);
       border-bottom: 1px solid var(--border);
       overflow: hidden;
@@ -733,6 +835,17 @@
       font-size: 0.74rem;
       color: var(--accent);
       font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* بهبود: نام طولانی محصول حداکثر دو خط، سپس ادامه با … */
+    .prod-card-body .prod-name {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     .prod-card-foot {
@@ -823,15 +936,26 @@
       font-size: 0.88rem;
     }
 
+    /* بهبود: نام آیتم سفارش کوتاه شود، مبلغ همیشه سر جایش بماند */
     .order-item-row {
       display: flex;
       justify-content: space-between;
+      gap: 0.75rem;
       color: var(--muted);
     }
 
     .order-item-row span:first-child {
       color: var(--text);
       font-weight: 500;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .order-item-row span:last-child {
+      flex-shrink: 0;
     }
 
     .order-card-foot {
@@ -920,8 +1044,10 @@
       text-align: center;
     }
 
+    /* بهبود: پیش‌نمایش آپلود بزرگ‌تر (150px → 220px) */
     .upload-preview img {
-      max-height: 150px;
+      max-height: 220px;
+      max-width: 100%;
       border-radius: var(--radius-sm);
       border: 1.5px solid var(--border);
       cursor: zoom-in;
@@ -951,23 +1077,33 @@
       display: flex;
     }
 
+    /* بهبود: هدر و فوتر مودال چسبان شدند — دکمه‌ی ذخیره همیشه دیده می‌شود و فقط بدنه اسکرول می‌خورد */
     .modal {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 20px;
       width: 100%;
-      max-width: 480px;
+      max-width: 520px;
       max-height: 92vh;
       overflow-y: auto;
-      padding: 1.75rem;
+      padding: 0;
       box-shadow: var(--shadow-lg);
     }
 
     .modal-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--surface);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 1.25rem;
+      padding: 1.05rem 1.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-body {
+      padding: 1.25rem 1.4rem;
     }
 
     .modal-header h3 {
@@ -997,11 +1133,14 @@
     }
 
     .modal-footer {
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      background: var(--surface);
       display: flex;
       gap: 0.6rem;
       justify-content: flex-end;
-      margin-top: 1.25rem;
-      padding-top: 1rem;
+      padding: 0.95rem 1.4rem;
       border-top: 1px solid var(--border);
     }
 
@@ -1016,7 +1155,7 @@
     /* Cat grid */
     .cat-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
       gap: 0.9rem;
       padding: 1.25rem;
     }
@@ -1038,9 +1177,10 @@
       transform: translateY(-2px);
     }
 
+    /* بهبود: بندانگشتی دسته‌بندی بزرگ‌تر (52px → 64px) */
     .cat-thumb {
-      width: 52px;
-      height: 52px;
+      width: 64px;
+      height: 64px;
       object-fit: cover;
       border-radius: 10px;
       border: 1.5px solid var(--border);
@@ -1072,7 +1212,7 @@
     /* QR Cards */
     .qr-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(275px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(275px, 100%), 1fr));
       gap: 1.15rem;
     }
 
@@ -1094,9 +1234,11 @@
       box-shadow: var(--shadow);
     }
 
+    /* بهبود: QR واکنش‌گرا (185px ثابت → حداکثر 200px و تطبیق با عرض کارت) */
     .qr-svg-wrap {
-      width: 185px;
-      height: 185px;
+      width: min(200px, 100%);
+      aspect-ratio: 1;
+      height: auto;
       background: #ffffff;
       padding: 12px;
       border-radius: 14px;
@@ -1183,6 +1325,7 @@
     }
 
     /* Toast */
+    /* بهبود: متن بلند از صفحه بیرون نمی‌زند و چندخطی می‌شود */
     #toast {
       position: fixed;
       bottom: 1.5rem;
@@ -1191,14 +1334,15 @@
       background: #1c1b18;
       color: #fff;
       padding: 0.65rem 1.35rem;
-      border-radius: 30px;
+      border-radius: 14px;
       font-size: 0.86rem;
       font-weight: 600;
       z-index: 999;
       opacity: 0;
       transition: all 0.28s;
       pointer-events: none;
-      white-space: nowrap;
+      max-width: min(92vw, 520px);
+      text-align: center;
       box-shadow: var(--shadow-lg);
     }
 
@@ -1227,6 +1371,7 @@
       }
     }
 
+    /* بهبود: تجربه‌ی موبایل — فشرده‌سازی فاصله‌ها و جدول جمع‌وجورتر */
     @media (max-width: 640px) {
       main {
         padding: 1rem;
@@ -1238,17 +1383,95 @@
 
       nav {
         padding: 0.5rem 1rem;
-        overflow-x: auto;
-        white-space: nowrap;
-        top: 61px;
+        scrollbar-width: none;
       }
 
-      .nav-btn {
-        flex-shrink: 0;
+      nav::-webkit-scrollbar {
+        display: none;
       }
 
       .row-2 {
         grid-template-columns: 1fr;
+      }
+
+      table {
+        min-width: 540px;
+      }
+
+      th,
+      td {
+        padding: 0.7rem 0.85rem;
+        font-size: 0.85rem;
+      }
+
+      .header-actions {
+        gap: 0.35rem;
+      }
+
+      .header-actions .btn {
+        padding: 0.38rem 0.6rem;
+        font-size: 0.78rem;
+      }
+
+      .card-header {
+        padding: 1rem 1.1rem;
+      }
+
+      .card-toolbar {
+        padding: 0.75rem 1.1rem;
+      }
+
+      .order-list {
+        padding: 1rem;
+      }
+
+      .prod-grid {
+        padding: 1rem;
+        gap: 0.9rem;
+      }
+
+      .cat-grid {
+        padding: 1rem;
+      }
+
+      .qr-grid {
+        gap: 0.9rem;
+      }
+
+      .overlay {
+        padding: 0.6rem;
+      }
+
+      .modal-header {
+        padding: 0.95rem 1.1rem;
+      }
+
+      .modal-body {
+        padding: 1.05rem 1.1rem;
+      }
+
+      .modal-footer {
+        padding: 0.85rem 1.1rem;
+      }
+
+      .bento-hero {
+        padding: 1.3rem 1.25rem;
+      }
+
+      .bento-hero-info h2 {
+        font-size: 1.18rem;
+      }
+
+      .rev-today-val {
+        font-size: clamp(1.6rem, 8vw, 2.3rem);
+      }
+
+      .health-card {
+        flex-direction: column;
+      }
+
+      .donut-wrap {
+        margin: 0 auto;
       }
     }
 
@@ -1563,11 +1786,39 @@
       background: var(--surface-hover);
     }
 
+    /* بهبود: متن‌های بلند لیست آخرین سفارش‌ها یک خطی و با … */
+    .mini-order-item span,
+    .mini-order-item strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     @media (max-width: 860px) {
 
       .bento-top-grid,
       .bento-bottom-grid {
         grid-template-columns: 1fr;
+      }
+    }
+
+    /* بهبود: دسترس‌پذیری — نمایانی فوکوس کیبورد */
+    .btn:focus-visible,
+    .nav-btn:focus-visible,
+    .toggle:focus-visible,
+    .modal-close:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* بهبود: احترام به تنظیم کاهش انیمیشن کاربر */
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
       }
     }
   </style>
@@ -1582,8 +1833,8 @@
       <h1>کافه روشن</h1>
       <p>پنل مدیریت هوشمند</p>
       <div class="field">
-        <label>رمز عبور مدیر</label>
-        <input type="password" id="pw" placeholder="••••••••" />
+        <label for="pw">رمز عبور مدیر</label>
+        <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password" enterkeyhint="done" />
       </div>
       <button class="btn btn-primary btn-block" id="login-btn">ورود به پنل</button>
       <div class="err-msg" id="login-err"></div>
@@ -1592,35 +1843,39 @@
 
   <!-- App -->
   <div id="app">
-    <header>
-      <div class="logo">
-        <div class="logo-icon">☕</div>
-        <div>
-          <div>کافه روشن</div>
-          <span class="logo-sub">پنل مدیریت</span>
+    <div class="app-top">
+      <header>
+        <div class="logo">
+          <div class="logo-icon">☕</div>
+          <div>
+            <div>کافه روشن</div>
+            <span class="logo-sub">پنل مدیریت</span>
+          </div>
         </div>
-      </div>
-      <div class="header-actions">
-        <button class="btn btn-ghost btn-sm" id="theme-toggle-btn" title="تغییر تم تاریک / روشن">🌙</button>
-        <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">🌐 مشاهده منو</a>
-        <button class="btn btn-danger btn-sm" id="logout-btn" title="خروج از حساب">🚪 خروج</button>
-      </div>
-    </header>
-    <nav>
-      <button class="nav-btn active" data-tab="dashboard">🏠 داشبورد</button>
-      <button class="nav-btn" data-tab="orders">🧾 سفارش‌ها <span id="pending-badge" class="pending-badge"
-          style="display:none"></span></button>
-      <button class="nav-btn" data-tab="products">🍽 محصولات</button>
-      <button class="nav-btn" data-tab="categories">📂 دسته‌بندی‌ها</button>
-      <button class="nav-btn" data-tab="qr">📱 بارکد QR میزها</button>
-      <button class="nav-btn" data-tab="site">🖼 تصاویر و تنظیمات</button>
-    </nav>
+        <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" id="theme-toggle-btn" title="تغییر تم تاریک / روشن"
+            aria-label="تغییر تم تاریک / روشن">🌙</button>
+          <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">🌐 مشاهده منو</a>
+          <button class="btn btn-danger btn-sm" id="logout-btn" title="خروج از حساب" aria-label="خروج از حساب">🚪
+            خروج</button>
+        </div>
+      </header>
+      <nav>
+        <button class="nav-btn active" data-tab="dashboard">🏠 داشبورد</button>
+        <button class="nav-btn" data-tab="orders">🧾 سفارش‌ها <span id="pending-badge" class="pending-badge"
+            style="display:none"></span></button>
+        <button class="nav-btn" data-tab="products">🍽 محصولات</button>
+        <button class="nav-btn" data-tab="categories">📂 دسته‌بندی‌ها</button>
+        <button class="nav-btn" data-tab="qr">📱 بارکد QR میزها</button>
+        <button class="nav-btn" data-tab="site">🖼 تصاویر و تنظیمات</button>
+      </nav>
+    </div>
     <main id="main-content"></main>
   </div>
 
   <!-- Lightbox برای بزرگ‌نمایی تصاویر -->
   <div id="lightbox" data-action="close-lightbox">
-    <button id="lightbox-close" data-action="close-lightbox">✕</button>
+    <button id="lightbox-close" data-action="close-lightbox" aria-label="بستن">✕</button>
     <img id="lightbox-img" src="" alt="" />
     <div id="lightbox-caption"></div>
   </div>
@@ -1630,53 +1885,55 @@
     <div class="modal">
       <div class="modal-header">
         <h3 id="modal-title">محصول جدید</h3>
-        <button class="modal-close" data-close-modal="product-modal">✕</button>
+        <button class="modal-close" data-close-modal="product-modal" aria-label="بستن">✕</button>
       </div>
-
-      <span class="section-sep">اطلاعات اصلی</span>
-      <div class="field"><label>نام محصول *</label><input id="p-name" placeholder="مثلاً: لاته کارامل" /></div>
-      <div class="field">
-        <label>دسته‌بندی *</label>
-        <select id="p-cat">
-          <option value="">انتخاب کنید...</option>
-        </select>
-      </div>
-      <div class="row-2">
-        <div class="field">
-          <label>قیمت (تومان) *</label>
-          <input id="p-price" type="number" placeholder="85000" />
+      <div class="modal-body">
+        <span class="section-sep">اطلاعات اصلی</span>
+        <div class="field"><label for="p-name">نام محصول *</label><input id="p-name" placeholder="مثلاً: لاته کارامل" />
         </div>
         <div class="field">
-          <label>تخفیف (%)</label>
-          <input id="p-discount" type="number" min="0" max="99" placeholder="0" />
-          <div class="disc-preview" id="disc-preview"></div>
+          <label for="p-cat">دسته‌بندی *</label>
+          <select id="p-cat">
+            <option value="">انتخاب کنید...</option>
+          </select>
         </div>
-      </div>
-      <div class="field"><label>یادداشت / توضیحات</label><textarea id="p-note"
-          placeholder="مواد تشکیل‌دهنده، توضیح کوتاه..."></textarea></div>
-
-      <span class="section-sep">تصویر محصول</span>
-      <div class="field">
-        <div class="upload-area">
-          <input type="file" id="p-file-input" accept="image/*" />
-          <div style="font-size:1.6rem">📷</div>
-          <p>کلیک کنید یا تصویر را اینجا رها کنید</p>
-          <p style="font-size:.73rem">JPG · PNG · WEBP · فشرده‌سازی خودکار (سقف نهایی 2MB)</p>
+        <div class="row-2">
+          <div class="field">
+            <label for="p-price">قیمت (تومان) *</label>
+            <input id="p-price" type="number" placeholder="85000" />
+          </div>
+          <div class="field">
+            <label for="p-discount">تخفیف (%)</label>
+            <input id="p-discount" type="number" min="0" max="99" placeholder="0" />
+            <div class="disc-preview" id="disc-preview"></div>
+          </div>
         </div>
-        <div class="upload-preview" id="prod-upload-preview">
-          <img id="prod-preview-img" src="" alt="" data-action="zoom-image" />
-          <div class="upload-status" id="prod-upload-status"></div>
+        <div class="field"><label for="p-note">یادداشت / توضیحات</label><textarea id="p-note"
+            placeholder="مواد تشکیل‌دهنده، توضیح کوتاه..."></textarea></div>
+
+        <span class="section-sep">تصویر محصول</span>
+        <div class="field">
+          <div class="upload-area">
+            <input type="file" id="p-file-input" accept="image/*" />
+            <div style="font-size:1.6rem">📷</div>
+            <p>کلیک کنید یا تصویر را اینجا رها کنید</p>
+            <p style="font-size:.73rem">JPG · PNG · WEBP · فشرده‌سازی خودکار (سقف نهایی 2MB)</p>
+          </div>
+          <div class="upload-preview" id="prod-upload-preview">
+            <img id="prod-preview-img" src="" alt="" data-action="zoom-image" />
+            <div class="upload-status" id="prod-upload-status"></div>
+          </div>
+          <input id="p-img" type="hidden" />
         </div>
-        <input id="p-img" type="hidden" />
-      </div>
 
-      <span class="section-sep">وضعیت موجودی</span>
-      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem">
-        <button class="toggle on" id="p-avail"></button>
-        <span id="p-avail-lbl" style="font-weight:600">موجود</span>
-      </div>
+        <span class="section-sep">وضعیت موجودی</span>
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem">
+          <button class="toggle on" id="p-avail" aria-label="تغییر وضعیت موجودی"></button>
+          <span id="p-avail-lbl" style="font-weight:600">موجود</span>
+        </div>
 
-      <div class="err-msg" id="prod-err"></div>
+        <div class="err-msg" id="prod-err"></div>
+      </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" data-close-modal="product-modal">انصراف</button>
         <button class="btn btn-primary" id="save-prod-btn">ذخیره محصول</button>
@@ -1689,23 +1946,26 @@
     <div class="modal">
       <div class="modal-header">
         <h3 id="cat-modal-title">دسته‌بندی جدید</h3>
-        <button class="modal-close" data-close-modal="cat-modal">✕</button>
+        <button class="modal-close" data-close-modal="cat-modal" aria-label="بستن">✕</button>
       </div>
-      <div class="field"><label>نام دسته‌بندی *</label><input id="c-label" placeholder="مثلاً: بار گرم" /></div>
-      <div class="field">
-        <label>تصویر دسته‌بندی</label>
-        <div class="upload-area">
-          <input type="file" id="c-file-input" accept="image/*" />
-          <div style="font-size:1.6rem">🖼</div>
-          <p>کلیک کنید یا فایل را اینجا بکشید</p>
+      <div class="modal-body">
+        <div class="field"><label for="c-label">نام دسته‌بندی *</label><input id="c-label"
+            placeholder="مثلاً: بار گرم" /></div>
+        <div class="field">
+          <label for="c-file-input">تصویر دسته‌بندی</label>
+          <div class="upload-area">
+            <input type="file" id="c-file-input" accept="image/*" />
+            <div style="font-size:1.6rem">🖼</div>
+            <p>کلیک کنید یا فایل را اینجا بکشید</p>
+          </div>
+          <div class="upload-preview" id="cat-upload-preview">
+            <img id="cat-preview-img" src="" alt="" data-action="zoom-image" />
+            <div class="upload-status" id="cat-upload-status"></div>
+          </div>
+          <input id="c-img" type="hidden" />
         </div>
-        <div class="upload-preview" id="cat-upload-preview">
-          <img id="cat-preview-img" src="" alt="" data-action="zoom-image" />
-          <div class="upload-status" id="cat-upload-status"></div>
-        </div>
-        <input id="c-img" type="hidden" />
+        <div class="err-msg" id="cat-err"></div>
       </div>
-      <div class="err-msg" id="cat-err"></div>
       <div class="modal-footer">
         <button class="btn btn-ghost" data-close-modal="cat-modal">انصراف</button>
         <button class="btn btn-primary" id="save-cat-btn">ذخیره</button>
@@ -1717,6 +1977,21 @@
 
   <script src="/admin/vendor/qrcode.js"></script>
   <script src="/admin/admin.js"></script>
+  <script>
+    /* بهبود: ورود با کلید Enter در صفحه‌ی ورود */
+    (function () {
+      var pw = document.getElementById('pw');
+      var btn = document.getElementById('login-btn');
+      if (pw && btn) {
+        pw.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            btn.click();
+          }
+        });
+      }
+    })();
+  </script>
 </body>
 
 </html>
