@@ -1,2408 +1,326 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#14110f" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f1ea" media="(prefers-color-scheme: light)" />
   <title>پنل مدیریت — کافه روشن</title>
-  <!-- فونت وزیرمتن از فایل‌های محلی (CSP اجازه‌ی CDN بیرونی رو نمی‌داد) -->
+  <!-- فونت وزیرمتن از فایل‌های محلی (CSP اجازه‌ی منبع بیرونی نمی‌دهد) -->
   <link rel="preload" href="/fonts/Dxxo8j6PP2D_kU2muijlGMWWIGroe7ll.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/css/fonts.css" />
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    :root {
-      color-scheme: light;
-      --bg: #f4f1ea;
-      --surface: #ffffff;
-      --surface-hover: #fcfaf7;
-      --surface-alt: #f9f7f3;
-      --border: #e4ded5;
-      --text: #1e1b18;
-      --muted: #7d776f;
-      --accent: #c47c3a;
-      --accent-light: #fdf3ea;
-      --accent-dark: #9e5f24;
-      --success: #258d54;
-      --success-light: #e8f8ef;
-      --danger: #cc3528;
-      --danger-light: #fdeeed;
-      --radius-lg: 16px;
-      --radius: 12px;
-      --radius-sm: 8px;
-      --shadow: 0 4px 20px rgba(30, 27, 24, 0.06);
-      --shadow-lg: 0 12px 42px rgba(30, 27, 24, 0.14);
-    }
-
-    body.dark {
-      color-scheme: dark;
-      --bg: #121211;
-      --surface: #1c1b19;
-      --surface-hover: #252320;
-      --surface-alt: #211f1d;
-      --border: #33302c;
-      --text: #f3efe9;
-      --muted: #9e978e;
-      --accent: #d98d45;
-      --accent-light: rgba(217, 141, 69, 0.15);
-      --accent-dark: #b8712d;
-      --success: #34b36d;
-      --success-light: rgba(52, 179, 109, 0.15);
-      --danger: #e55346;
-      --danger-light: rgba(229, 83, 70, 0.15);
-      --shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-      --shadow-lg: 0 12px 45px rgba(0, 0, 0, 0.55);
-    }
-
-    body {
-      font-family: 'Vazirmatn', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      font-size: 14px;
-      line-height: 1.65;
-      transition: background 0.25s, color 0.25s;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 4px;
-    }
-
-    /* ── بهبود: ایمنی سرریز — کلمات و متن‌های بلند از کارت‌ها بیرون نمی‌زنند ── */
-    img {
-      max-width: 100%;
-    }
-
-    ::selection {
-      background: var(--accent);
-      color: #fff;
-    }
-
-    h1,
-    h2,
-    h3,
-    p,
-    label,
-    td,
-    .stat-card .val,
-    .rev-today-val,
-    .rev-sub-item .val,
-    .prod-name,
-    .prod-note,
-    .prod-card-cat,
-    .qa-label,
-    .cat-name,
-    .order-table-no,
-    .order-time,
-    .modal-header h3,
-    .card-header h2,
-    .bento-hero-info h2,
-    #toast {
-      overflow-wrap: break-word;
-      word-break: break-word;
-    }
-
-    /* بهبود: فرزندهای flex/grid حق رشد بی‌نهایت ندارند (ریشه‌ی اصلی بیرون‌زدن متن از کارت‌ها) */
-    .quick-action,
-    .quick-action .qa-label,
-    .cat-item,
-    .stat-card,
-    .rev-sub-item,
-    .order-card,
-    .prod-card-body,
-    .card-header h2,
-    .prod-card-foot>*,
-    .order-card-head>*,
-    .order-card-foot>*,
-    .mini-order-item>*,
-    .health-stats-list {
-      min-width: 0;
-    }
-
-    /* بهبود: اعداد با عرض یکنواخت و مرتب */
-    .stat-card .val,
-    .rev-today-val,
-    .rev-sub-item .val,
-    .price-main,
-    .order-total {
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* Login */
-    #login-screen {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      background: radial-gradient(circle at top right, var(--accent-light), var(--bg));
-      padding: 1rem;
-    }
-
-    .login-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 22px;
-      padding: 2.75rem 2.25rem;
-      width: 100%;
-      max-width: 390px;
-      box-shadow: var(--shadow-lg);
-      text-align: center;
-    }
-
-    .login-logo {
-      font-size: 3rem;
-      margin-bottom: 0.5rem;
-      display: inline-block;
-      background: var(--accent-light);
-      width: 72px;
-      height: 72px;
-      line-height: 72px;
-      border-radius: 20px;
-    }
-
-    .login-card h1 {
-      font-size: 1.45rem;
-      font-weight: 800;
-      margin-bottom: 0.25rem;
-    }
-
-    .login-card p {
-      color: var(--muted);
-      font-size: 0.88rem;
-      margin-bottom: 2rem;
-    }
-
-    /* Buttons */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.45rem;
-      padding: 0.62rem 1.25rem;
-      border: 1.5px solid transparent;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      font-size: 0.88rem;
-      font-weight: 600;
-      transition: all 0.18s ease;
-      font-family: inherit;
-      white-space: nowrap;
-    }
-
-    .btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: #fff;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: var(--accent-dark);
-      box-shadow: 0 4px 14px rgba(196, 124, 58, 0.35);
-      transform: translateY(-1px);
-    }
-
-    .btn-block {
-      width: 100%;
-    }
-
-    .btn-sm {
-      padding: 0.4rem 0.85rem;
-      font-size: 0.8rem;
-      border-radius: 7px;
-    }
-
-    .btn-ghost {
-      background: var(--surface);
-      border-color: var(--border);
-      color: var(--text);
-    }
-
-    .btn-ghost:hover:not(:disabled) {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: var(--accent-light);
-    }
-
-    .btn-ghost.active {
-      background: var(--accent-light);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    .btn-danger {
-      background: var(--danger-light);
-      color: var(--danger);
-      border-color: rgba(204, 53, 40, 0.25);
-    }
-
-    .btn-danger:hover:not(:disabled) {
-      background: var(--danger);
-      color: #fff;
-      border-color: var(--danger);
-    }
-
-    /* بهبود: دکمه‌ها در فضای تنگ (کارت QR، کارت محصول و...) چندخطی شوند تا از کارت بیرون نزنند */
-    .qr-btn-group .btn,
-    .prod-card-foot .btn,
-    .mini-order-item .btn {
-      white-space: normal;
-      line-height: 1.35;
-    }
-
-    /* Form */
-    .field {
-      margin-bottom: 1rem;
-      text-align: right;
-    }
-
-    .field label {
-      display: block;
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-bottom: 0.38rem;
-      font-weight: 600;
-    }
-
-    .field input,
-    .field select,
-    .field textarea {
-      width: 100%;
-      padding: 0.68rem 1rem;
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-size: 0.92rem;
-      outline: none;
-      font-family: inherit;
-      background: var(--surface-alt);
-      color: var(--text);
-      transition: 0.18s;
-    }
-
-    .field input:focus,
-    .field select:focus,
-    .field textarea:focus {
-      border-color: var(--accent);
-      background: var(--surface);
-      box-shadow: 0 0 0 3px var(--accent-light);
-    }
-
-    .field textarea {
-      resize: vertical;
-      min-height: 75px;
-    }
-
-    .row-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.85rem;
-    }
-
-    .err-msg {
-      color: var(--danger);
-      font-size: 0.82rem;
-      margin-top: 0.45rem;
-      min-height: 1.1rem;
-    }
-
-    .hint {
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-top: 0.25rem;
-    }
-
-    /* Layout */
-    #app {
-      display: none;
-      min-height: 100vh;
-    }
-
-    /* بهبود: هدر و منو در یک ظرف چسبان — با تغییر ارتفاع هدر (مثلاً در موبایل)،
-       منو دیگر روی محتوا نمی‌افتد و نیازی به مقدار ثابت 69px/61px نیست */
-    .app-top {
-      position: sticky;
-      top: 0;
-      z-index: 40;
-    }
-
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0.9rem 1.75rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      backdrop-filter: blur(10px);
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-weight: 800;
-      font-size: 1.05rem;
-    }
-
-    .logo-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background: var(--accent-light);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.35rem;
-    }
-
-    .logo-sub {
-      color: var(--muted);
-      font-size: 0.75rem;
-      font-weight: 500;
-      display: block;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    nav {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0.55rem 1.75rem;
-      display: flex;
-      gap: 0.4rem;
-      overflow-x: auto;
-      scrollbar-width: thin;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .nav-btn {
-      padding: 0.5rem 1.15rem;
-      border: none;
-      background: none;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      font-size: 0.88rem;
-      color: var(--muted);
-      font-weight: 600;
-      transition: 0.18s;
-      font-family: inherit;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      flex-shrink: 0;
-      white-space: nowrap;
-    }
-
-    .nav-btn.active {
-      background: var(--accent);
-      color: #fff;
-      box-shadow: 0 3px 12px rgba(196, 124, 58, 0.3);
-    }
-
-    .nav-btn:not(.active):hover {
-      background: var(--surface-alt);
-      color: var(--text);
-    }
-
-    main {
-      padding: 1.75rem;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    /* Stats */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .stat-card {
-      background: var(--surface);
-      border-radius: var(--radius-lg);
-      padding: 1.35rem 1.5rem;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border);
-      border-right: 5px solid var(--accent);
-      transition: transform 0.18s;
-    }
-
-    .stat-card:hover {
-      transform: translateY(-2px);
-    }
-
-    .stat-card.green {
-      border-right-color: var(--success);
-    }
-
-    .stat-card.gray {
-      border-right-color: var(--muted);
-    }
-
-    .stat-card.red {
-      border-right-color: var(--danger);
-    }
-
-    .stat-card .val {
-      font-size: 1.9rem;
-      font-weight: 800;
-      color: var(--accent);
-      line-height: 1.1;
-    }
-
-    .stat-card.green .val {
-      color: var(--success);
-    }
-
-    .stat-card.gray .val {
-      color: var(--muted);
-    }
-
-    .stat-card.red .val {
-      color: var(--danger);
-    }
-
-    .stat-card .lbl {
-      color: var(--muted);
-      font-size: 0.82rem;
-      margin-top: 0.4rem;
-      font-weight: 500;
-    }
-
-    .stat-icon {
-      font-size: 1.4rem;
-      margin-bottom: 0.5rem;
-    }
-
-    /* بهبود: گریدها با min(…, 100%) در موبایل از صفحه بیرون نمی‌زنند */
-    .quick-actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
-      gap: 0.85rem;
-      margin-bottom: 1.75rem;
-    }
-
-    .quick-action {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.1rem 1.2rem;
-      display: flex;
-      align-items: center;
-      gap: 0.85rem;
-      cursor: pointer;
-      transition: all 0.18s;
-      text-decoration: none;
-      color: var(--text);
-      box-shadow: var(--shadow);
-    }
-
-    .quick-action:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
-
-    .quick-action .qa-icon {
-      font-size: 1.4rem;
-      width: 46px;
-      height: 46px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--accent-light);
-      border-radius: 12px;
-      flex-shrink: 0;
-    }
-
-    .quick-action .qa-label {
-      font-weight: 700;
-      font-size: 0.92rem;
-    }
-
-    .cat-breakdown-item {
-      display: flex;
-      align-items: center;
-      gap: 0.9rem;
-      padding: 0.65rem 0;
-    }
-
-    /* بهبود: عرض انعطاف‌پذیر به‌جای 130px ثابت تا در موبایل میله‌ی نمودار له نشود */
-    .cat-breakdown-item .cb-label {
-      width: auto;
-      min-width: 90px;
-      max-width: 45%;
-      flex-shrink: 0;
-      font-size: 0.86rem;
-      font-weight: 600;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .cat-breakdown-item .cb-bar-track {
-      flex: 1;
-      height: 10px;
-      background: var(--surface-alt);
-      border-radius: 6px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-    }
-
-    .cat-breakdown-item .cb-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent), var(--accent-dark));
-      border-radius: 6px;
-    }
-
-    .cat-breakdown-item .cb-count {
-      width: auto;
-      min-width: 34px;
-      flex-shrink: 0;
-      text-align: left;
-      font-size: 0.82rem;
-      font-weight: 700;
-      color: var(--muted);
-    }
-
-    /* Card */
-    .card {
-      background: var(--surface);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      margin-bottom: 1.5rem;
-      border: 1px solid var(--border);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.1rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .card-header h2 {
-      font-size: 1.02rem;
-      font-weight: 800;
-    }
-
-    .card-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 0.85rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface-alt);
-      flex-wrap: wrap;
-    }
-
-    .search-input {
-      flex: 1;
-      min-width: 180px;
-      padding: 0.55rem 0.95rem;
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-size: 0.88rem;
-      outline: none;
-      font-family: inherit;
-      background: var(--surface);
-      color: var(--text);
-      transition: 0.18s;
-    }
-
-    .search-input:focus {
-      border-color: var(--accent);
-    }
-
-    /* Table */
-    .table-wrap {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 600px;
-    }
-
-    th {
-      background: var(--surface-alt);
-      padding: 0.8rem 1.25rem;
-      text-align: right;
-      font-size: 0.78rem;
-      color: var(--muted);
-      font-weight: 700;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-
-    td {
-      padding: 0.9rem 1.25rem;
-      border-top: 1px solid var(--border);
-      vertical-align: middle;
-      font-size: 0.9rem;
-    }
-
-    tbody tr:hover td {
-      background: var(--surface-hover);
-    }
-
-    .prod-name {
-      font-weight: 700;
-      font-size: 0.95rem;
-    }
-
-    .prod-note {
-      color: var(--muted);
-      font-size: 0.8rem;
-      margin-top: 0.2rem;
-    }
-
-    .price-orig {
-      color: var(--muted);
-      text-decoration: line-through;
-      font-size: 0.78rem;
-      display: block;
-    }
-
-    .price-main {
-      font-weight: 700;
-      font-size: 0.95rem;
-    }
-
-    .disc-badge {
-      background: var(--accent-light);
-      color: var(--accent-dark);
-      border: 1px solid var(--accent);
-      padding: 0.15rem 0.5rem;
-      border-radius: 20px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      margin-right: 0.35rem;
-      display: inline-block;
-    }
-
-    .actions {
-      display: flex;
-      gap: 0.45rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    /* بهبود: دکمه‌های عملیات جدول در فضای کم جمع‌وجورتر */
-    .actions .btn-sm {
-      padding: 0.35rem 0.7rem;
-      font-size: 0.76rem;
-    }
-
-    .empty {
-      text-align: center;
-      padding: 3.5rem 1.5rem;
-      color: var(--muted);
-    }
-
-    .empty-icon {
-      font-size: 2.4rem;
-      margin-bottom: 0.6rem;
-    }
-
-    /* Enlarged Images + Zoom */
-    /* بهبود: پیش‌نمایش‌های بزرگ‌تر (64px → 74px) */
-    .img-preview {
-      width: 74px;
-      height: 74px;
-      object-fit: cover;
-      border-radius: 12px;
-      border: 1.5px solid var(--border);
-      cursor: zoom-in;
-      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
-      background: var(--surface-alt);
-      display: block;
-    }
-
-    .img-preview:hover {
-      transform: scale(1.08);
-      border-color: var(--accent);
-      box-shadow: var(--shadow);
-    }
-
-    .img-placeholder {
-      width: 74px;
-      height: 74px;
-      border-radius: 12px;
-      background: var(--surface-alt);
-      border: 1.5px dashed var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: 1.5rem;
-    }
-
-    /* Product Cards Grid View */
-    .prod-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr));
-      gap: 1.15rem;
-      padding: 1.35rem;
-    }
-
-    .prod-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.18s, box-shadow 0.18s;
-    }
-
-    .prod-card:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow);
-    }
-
-    /* بهبود: نسبت تصویر واکنش‌گرا به‌جای ارتفاع ثابت 175px — تصویر بزرگ‌تر و بدون له‌شدگی */
-    .prod-card-img-wrap {
-      position: relative;
-      width: 100%;
-      aspect-ratio: 4 / 3;
-      height: auto;
-      background: var(--surface-alt);
-      border-bottom: 1px solid var(--border);
-      overflow: hidden;
-    }
-
-    .prod-card-img-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      cursor: zoom-in;
-      transition: transform 0.3s;
-    }
-
-    .prod-card-img-wrap img:hover {
-      transform: scale(1.05);
-    }
-
-    .prod-card-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 3rem;
-      color: var(--muted);
-    }
-
-    .prod-card-body {
-      padding: 1rem;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 0.45rem;
-    }
-
-    .prod-card-cat {
-      font-size: 0.74rem;
-      color: var(--accent);
-      font-weight: 700;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* بهبود: نام طولانی محصول حداکثر دو خط، سپس ادامه با … */
-    .prod-card-body .prod-name {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .prod-card-foot {
-      padding: 0.75rem 1rem;
-      border-top: 1px solid var(--border);
-      background: var(--surface-alt);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-
-    /* Product Section Specific Enhancements */
-    .prod-stats-strip {
-      display: flex;
-      align-items: center;
-      gap: 0.55rem;
-      padding: 0.75rem 1.35rem;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-    }
-
-    .prod-stat-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.3rem 0.65rem;
-      border-radius: 20px;
-      font-size: 0.76rem;
-      font-weight: 700;
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      color: var(--text);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .prod-stat-chip:hover {
-      border-color: var(--accent);
-      background: var(--surface-hover);
-    }
-
-    .prod-stat-chip.active {
-      background: var(--accent-light);
-      border-color: var(--accent);
-      color: var(--accent-dark);
-    }
-
-    body.dark .prod-stat-chip.active {
-      color: var(--accent);
-    }
-
-    .prod-stat-chip.green {
-      border-color: rgba(46, 125, 50, 0.3);
-    }
-
-    .prod-stat-chip.green.active {
-      background: rgba(46, 125, 50, 0.15);
-      color: var(--success);
-      border-color: var(--success);
-    }
-
-    .prod-stat-chip.red {
-      border-color: rgba(204, 53, 40, 0.3);
-    }
-
-    .prod-stat-chip.red.active {
-      background: var(--danger-light);
-      color: var(--danger);
-      border-color: var(--danger);
-    }
-
-    .prod-stat-chip.gold {
-      border-color: rgba(196, 124, 58, 0.3);
-    }
-
-    .prod-stat-chip.gold.active {
-      background: var(--accent-light);
-      color: var(--accent-dark);
-      border-color: var(--accent);
-    }
-
-    .prod-active-filters {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-right: auto;
-      flex-wrap: wrap;
-    }
-
-    .prod-filter-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.25rem 0.65rem;
-      border-radius: 16px;
-      font-size: 0.74rem;
-      font-weight: 700;
-      background: var(--accent-light);
-      color: var(--accent-dark);
-      border: 1px solid var(--accent);
-    }
-
-    body.dark .prod-filter-pill {
-      color: var(--accent);
-    }
-
-    .prod-filter-pill .remove-filter {
-      cursor: pointer;
-      font-weight: 900;
-      opacity: 0.7;
-      transition: opacity 0.15s;
-    }
-
-    .prod-filter-pill .remove-filter:hover {
-      opacity: 1;
-    }
-
-    /* Product Status Pill in Table and Cards */
-    .prod-status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.22rem 0.65rem;
-      border-radius: 20px;
-      font-size: 0.74rem;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .prod-status-pill.avail {
-      background: rgba(46, 125, 50, 0.12);
-      color: var(--success);
-      border: 1px solid rgba(46, 125, 50, 0.25);
-    }
-
-    .prod-status-pill.unavail {
-      background: var(--danger-light);
-      color: var(--danger);
-      border: 1px solid rgba(204, 53, 40, 0.25);
-    }
-
-    /* Dimmed / Red tinted row when unavailable */
-    tr.prod-row-unavail td {
-      background: rgba(204, 53, 40, 0.03);
-    }
-
-    tr.prod-row-unavail:hover td {
-      background: rgba(204, 53, 40, 0.07);
-    }
-
-    tr.prod-row-unavail .prod-name {
-      color: var(--muted);
-    }
-
-    /* Floating badges for Product Cards */
-    .prod-badge-floating {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      padding: 0.25rem 0.6rem;
-      border-radius: 20px;
-      font-size: 0.72rem;
-      font-weight: 800;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-      z-index: 2;
-    }
-
-    .prod-badge-floating.avail {
-      background: rgba(46, 125, 50, 0.9);
-      color: #fff;
-    }
-
-    .prod-badge-floating.unavail {
-      background: rgba(204, 53, 40, 0.9);
-      color: #fff;
-    }
-
-    .prod-disc-floating {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      padding: 0.25rem 0.55rem;
-      border-radius: 20px;
-      font-size: 0.72rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, #e67e22, #d35400);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-      z-index: 2;
-    }
-
-    .prod-card.is-unavail {
-      border-color: rgba(204, 53, 40, 0.35);
-      opacity: 0.9;
-    }
-
-    /* Orders */
-    .pending-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 20px;
-      height: 20px;
-      padding: 0 6px;
-      border-radius: 10px;
-      background: var(--danger);
-      color: #fff;
-      font-size: 0.72rem;
-      font-weight: 700;
-    }
-
-    .order-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.85rem;
-      padding: 1.25rem;
-    }
-
-    .order-card {
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.1rem 1.25rem;
-      background: var(--surface-alt);
-    }
-
-    .order-card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.6rem;
-      margin-bottom: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    .order-table-no {
-      font-weight: 800;
-      font-size: 0.98rem;
-    }
-
-    .order-time {
-      color: var(--muted);
-      font-size: 0.8rem;
-    }
-
-    .order-status {
-      padding: 0.2rem 0.65rem;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 700;
-    }
-
-    .order-status.pending {
-      background: var(--accent-light);
-      color: var(--accent);
-    }
-
-    .order-status.confirmed {
-      background: var(--success-light);
-      color: var(--success);
-    }
-
-    .order-status.rejected {
-      background: var(--danger-light);
-      color: var(--danger);
-    }
-
-    .order-items {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      margin-bottom: 0.85rem;
-      font-size: 0.88rem;
-    }
-
-    /* بهبود: نام آیتم سفارش کوتاه شود، مبلغ همیشه سر جایش بماند */
-    .order-item-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 0.75rem;
-      color: var(--muted);
-    }
-
-    .order-item-row span:first-child {
-      color: var(--text);
-      font-weight: 500;
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .order-item-row span:last-child {
-      flex-shrink: 0;
-    }
-
-    .order-card-foot {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.6rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid var(--border);
-    }
-
-    .order-total {
-      font-weight: 800;
-      font-size: 0.96rem;
-    }
-
-    /* Toggle */
-    .toggle {
-      width: 44px;
-      height: 24px;
-      background: var(--border);
-      border-radius: 12px;
-      position: relative;
-      cursor: pointer;
-      transition: 0.2s;
-      border: none;
-      flex-shrink: 0;
-    }
-
-    .toggle.on {
-      background: var(--success);
-    }
-
-    .toggle::after {
-      content: '';
-      position: absolute;
-      top: 3px;
-      right: 3px;
-      width: 18px;
-      height: 18px;
-      background: #fff;
-      border-radius: 50%;
-      transition: 0.2s;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-    }
-
-    .toggle.on::after {
-      transform: translateX(-20px);
-    }
-
-    /* Upload */
-    .upload-area {
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      padding: 1.25rem;
-      text-align: center;
-      cursor: pointer;
-      transition: 0.2s;
-      position: relative;
-      background: var(--surface-alt);
-    }
-
-    .upload-area:hover {
-      border-color: var(--accent);
-      background: var(--accent-light);
-    }
-
-    .upload-area input[type=file] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-    }
-
-    .upload-area p {
-      font-size: 0.84rem;
-      color: var(--muted);
-      margin-top: 0.25rem;
-    }
-
-    .upload-preview {
-      margin-top: 0.75rem;
-      display: none;
-      text-align: center;
-    }
-
-    /* بهبود: پیش‌نمایش آپلود بزرگ‌تر (150px → 220px) */
-    .upload-preview img {
-      max-height: 220px;
-      max-width: 100%;
-      border-radius: var(--radius-sm);
-      border: 1.5px solid var(--border);
-      cursor: zoom-in;
-      object-fit: contain;
-    }
-
-    .upload-status {
-      font-size: 0.8rem;
-      color: var(--muted);
-      margin-top: 0.3rem;
-    }
-
-    /* Modal */
-    .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.55);
-      z-index: 100;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-      backdrop-filter: blur(3px);
-    }
-
-    .overlay.open {
-      display: flex;
-    }
-
-    /* بهبود: هدر و فوتر مودال چسبان شدند — دکمه‌ی ذخیره همیشه دیده می‌شود و فقط بدنه اسکرول می‌خورد */
-    .modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      width: 100%;
-      max-width: 520px;
-      max-height: 92vh;
-      overflow-y: auto;
-      padding: 0;
-      box-shadow: var(--shadow-lg);
-    }
-
-    .modal-header {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      background: var(--surface);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.05rem 1.4rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .modal-body {
-      padding: 1.25rem 1.4rem;
-    }
-
-    .modal-header h3 {
-      font-size: 1.08rem;
-      font-weight: 800;
-    }
-
-    .modal-close {
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      cursor: pointer;
-      font-size: 0.95rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      transition: 0.15s;
-    }
-
-    .modal-close:hover {
-      background: var(--danger-light);
-      color: var(--danger);
-      border-color: var(--danger);
-    }
-
-    .modal-footer {
-      position: sticky;
-      bottom: 0;
-      z-index: 2;
-      background: var(--surface);
-      display: flex;
-      gap: 0.6rem;
-      justify-content: flex-end;
-      padding: 0.95rem 1.4rem;
-      border-top: 1px solid var(--border);
-    }
-
-    .section-sep {
-      font-size: 0.74rem;
-      font-weight: 700;
-      color: var(--accent);
-      margin: 0.85rem 0 0.5rem;
-      display: block;
-    }
-
-    /* Cat grid */
-    .cat-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-      gap: 0.9rem;
-      padding: 1.25rem;
-    }
-
-    .cat-item {
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.95rem 1.1rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      background: var(--surface-alt);
-      transition: transform 0.15s, border-color 0.15s;
-    }
-
-    .cat-item:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
-
-    /* بهبود: بندانگشتی دسته‌بندی بزرگ‌تر (52px → 64px) */
-    .cat-thumb {
-      width: 64px;
-      height: 64px;
-      object-fit: cover;
-      border-radius: 10px;
-      border: 1.5px solid var(--border);
-      cursor: zoom-in;
-      flex-shrink: 0;
-      background: var(--surface);
-      transition: transform 0.2s;
-    }
-
-    .cat-thumb:hover {
-      transform: scale(1.08);
-    }
-
-    .cat-item .cat-name {
-      font-weight: 700;
-      font-size: 0.92rem;
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .cat-item .cat-count {
-      color: var(--muted);
-      font-size: 0.78rem;
-    }
-
-    /* QR Cards */
-    .qr-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(275px, 100%), 1fr));
-      gap: 1.15rem;
-    }
-
-    .qr-card {
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
-      align-items: center;
-      text-align: center;
-      transition: transform 0.18s, box-shadow 0.18s;
-    }
-
-    .qr-card:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow);
-    }
-
-    /* بهبود: QR واکنش‌گرا (185px ثابت → حداکثر 200px و تطبیق با عرض کارت) */
-    .qr-svg-wrap {
-      width: min(200px, 100%);
-      aspect-ratio: 1;
-      height: auto;
-      background: #ffffff;
-      padding: 12px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0.25rem auto;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-    }
-
-    .qr-svg-wrap svg {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    .qr-btn-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.45rem;
-      width: 100%;
-    }
-
-    /* Lightbox */
-    #lightbox {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.85);
-      z-index: 300;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      padding: 1.5rem;
-      backdrop-filter: blur(5px);
-      cursor: zoom-out;
-    }
-
-    #lightbox.open {
-      display: flex;
-    }
-
-    #lightbox img {
-      max-width: 92vw;
-      max-height: 82vh;
-      border-radius: 14px;
-      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
-      object-fit: contain;
-      background: #fff;
-      cursor: default;
-    }
-
-    #lightbox-caption {
-      color: #fff;
-      margin-top: 0.85rem;
-      font-weight: 700;
-      font-size: 1rem;
-    }
-
-    #lightbox-close {
-      position: absolute;
-      top: 1.25rem;
-      left: 1.25rem;
-      background: rgba(255, 255, 255, 0.15);
-      color: #fff;
-      border: none;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      font-size: 1.2rem;
-      cursor: pointer;
-    }
-
-    /* Discount preview */
-    .disc-preview {
-      background: var(--accent-light);
-      border: 1px solid var(--accent);
-      border-radius: var(--radius-sm);
-      padding: 0.6rem 0.9rem;
-      font-size: 0.83rem;
-      margin-top: 0.4rem;
-      display: none;
-    }
-
-    /* Toast */
-    /* بهبود: متن بلند از صفحه بیرون نمی‌زند و چندخطی می‌شود */
-    #toast {
-      position: fixed;
-      bottom: 1.5rem;
-      left: 50%;
-      transform: translateX(-50%) translateY(80px);
-      background: #1c1b18;
-      color: #fff;
-      padding: 0.65rem 1.35rem;
-      border-radius: 14px;
-      font-size: 0.86rem;
-      font-weight: 600;
-      z-index: 999;
-      opacity: 0;
-      transition: all 0.28s;
-      pointer-events: none;
-      max-width: min(92vw, 520px);
-      text-align: center;
-      box-shadow: var(--shadow-lg);
-    }
-
-    #toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-
-    #toast.err {
-      background: var(--danger);
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255, 255, 255, 0.35);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* بهبود: تجربه‌ی موبایل — فشرده‌سازی فاصله‌ها و جدول جمع‌وجورتر */
-    @media (max-width: 640px) {
-      main {
-        padding: 1rem;
-      }
-
-      header {
-        padding: 0.75rem 1rem;
-      }
-
-      nav {
-        padding: 0.5rem 1rem;
-        scrollbar-width: none;
-      }
-
-      nav::-webkit-scrollbar {
-        display: none;
-      }
-
-      .row-2 {
-        grid-template-columns: 1fr;
-      }
-
-      table {
-        min-width: 540px;
-      }
-
-      th,
-      td {
-        padding: 0.7rem 0.85rem;
-        font-size: 0.85rem;
-      }
-
-      .header-actions {
-        gap: 0.35rem;
-      }
-
-      .header-actions .btn {
-        padding: 0.38rem 0.6rem;
-        font-size: 0.78rem;
-      }
-
-      .card-header {
-        padding: 1rem 1.1rem;
-      }
-
-      .card-toolbar {
-        padding: 0.75rem 1.1rem;
-      }
-
-      .order-list {
-        padding: 1rem;
-      }
-
-      .prod-grid {
-        padding: 1rem;
-        gap: 0.9rem;
-      }
-
-      .cat-grid {
-        padding: 1rem;
-      }
-
-      .qr-grid {
-        gap: 0.9rem;
-      }
-
-      .overlay {
-        padding: 0.6rem;
-      }
-
-      .modal-header {
-        padding: 0.95rem 1.1rem;
-      }
-
-      .modal-body {
-        padding: 1.05rem 1.1rem;
-      }
-
-      .modal-footer {
-        padding: 0.85rem 1.1rem;
-      }
-
-      .bento-hero {
-        padding: 1.3rem 1.25rem;
-      }
-
-      .bento-hero-info h2 {
-        font-size: 1.18rem;
-      }
-
-      .rev-today-val {
-        font-size: clamp(1.6rem, 8vw, 2.3rem);
-      }
-
-      .health-card {
-        flex-direction: column;
-      }
-
-      .donut-wrap {
-        margin: 0 auto;
-      }
-    }
-
-    @media print {
-      body * {
-        visibility: hidden;
-      }
-
-      #qr-print-sheet,
-      #qr-print-sheet * {
-        visibility: visible;
-      }
-
-      #qr-print-sheet {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        background: #fff !important;
-        color: #000 !important;
-        display: block !important;
-        padding: 1cm;
-      }
-
-      .no-print {
-        display: none !important;
-      }
-
-      .print-card {
-        page-break-inside: avoid;
-        border: 2px dashed #666 !important;
-        background: #fff !important;
-        color: #000 !important;
-        padding: 15px;
-        margin-bottom: 20px;
-        text-align: center;
-        border-radius: 8px;
-      }
-
-      .print-card svg {
-        width: 160px;
-        height: 160px;
-        display: block;
-        margin: 0 auto;
-      }
-    }
-
-    /* ── High-Density Operations & Barista Dashboard (Idea 3) ──────────── */
-    .ops-hero {
-      background: linear-gradient(135deg, #24180f 0%, #3e2615 50%, #70441e 100%);
-      color: #fff;
-      border-radius: var(--radius-lg);
-      padding: 1.25rem 1.6rem;
-      margin-bottom: 1.25rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      flex-wrap: wrap;
-      box-shadow: 0 10px 28px rgba(36, 24, 15, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .ops-hero::after {
-      content: '☕';
-      position: absolute;
-      left: -10px;
-      bottom: -30px;
-      font-size: 8rem;
-      opacity: 0.06;
-      pointer-events: none;
-      transform: rotate(15deg);
-    }
-
-    .ops-hero-info h2 {
-      font-size: 1.25rem;
-      font-weight: 800;
-      margin-bottom: 0.25rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .ops-hero-meta {
-      font-size: 0.82rem;
-      color: rgba(255, 255, 255, 0.8);
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    .ops-hero-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      z-index: 1;
-    }
-
-    .ops-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.32rem 0.85rem;
-      border-radius: 20px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      background: rgba(255, 255, 255, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      color: #fff;
-      text-decoration: none;
-      transition: 0.18s;
-    }
-
-    .ops-pill:hover {
-      background: rgba(255, 255, 255, 0.25);
-    }
-
-    .ops-pill.alert {
-      background: var(--danger);
-      border-color: rgba(255, 255, 255, 0.4);
-      animation: pulseAlert 1.6s infinite;
-      cursor: pointer;
-    }
-
-    @keyframes pulseAlert {
-
-      0%,
-      100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(204, 53, 40, 0.6);
-      }
-
-      50% {
-        transform: scale(1.03);
-        box-shadow: 0 0 0 6px rgba(204, 53, 40, 0);
-      }
-    }
-
-    /* 4-KPI Compact Bar */
-    .ops-kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
-      gap: 0.85rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .ops-kpi-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1rem 1.15rem;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: transform 0.18s, border-color 0.18s;
-    }
-
-    .ops-kpi-card:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
-
-    .ops-kpi-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 0.45rem;
-    }
-
-    .ops-kpi-title {
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .ops-kpi-icon {
-      font-size: 1.15rem;
-      opacity: 0.9;
-    }
-
-    .ops-kpi-val {
-      font-size: 1.6rem;
-      font-weight: 900;
-      color: var(--text);
-      line-height: 1.15;
-      margin-bottom: 0.55rem;
-      letter-spacing: -0.3px;
-    }
-
-    .ops-kpi-val.highlight {
-      color: var(--accent-dark);
-    }
-
-    body.dark .ops-kpi-val.highlight {
-      color: var(--accent);
-    }
-
-    .ops-kpi-sub {
-      font-size: 0.76rem;
-      color: var(--muted);
-      border-top: 1px dashed var(--border);
-      padding-top: 0.45rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.4rem;
-    }
-
-    /* Quick Ops Row */
-    .ops-quick-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
-      gap: 0.65rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .ops-quick-btn {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 0.75rem 0.9rem;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      font-weight: 700;
-      font-size: 0.84rem;
-      color: var(--text);
-      cursor: pointer;
-      text-decoration: none;
-      transition: all 0.18s;
-      box-shadow: var(--shadow);
-    }
-
-    .ops-quick-btn:hover {
-      border-color: var(--accent);
-      background: var(--accent-light);
-      color: var(--accent-dark);
-      transform: translateY(-1px);
-    }
-
-    body.dark .ops-quick-btn:hover {
-      color: var(--accent);
-    }
-
-    .ops-quick-btn .btn-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: var(--surface-alt);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.1rem;
-      flex-shrink: 0;
-    }
-
-    /* 2-Column Split Workspace */
-    .ops-workspace {
-      display: grid;
-      grid-template-columns: 1.35fr 1fr;
-      gap: 1.15rem;
-      margin-bottom: 1.25rem;
-    }
-
-    @media (max-width: 920px) {
-      .ops-workspace {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .ops-panel {
-      background: var(--surface);
-      border-radius: var(--radius-lg);
-      border: 1.5px solid var(--border);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .ops-panel-header {
-      padding: 0.9rem 1.2rem;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-
-    .ops-panel-header h3 {
-      font-size: 0.95rem;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-      color: var(--text);
-      margin: 0;
-    }
-
-    .ops-kpi-val.highlight-alert {
-      color: var(--danger);
-      animation: pulseAlert 2s infinite;
-    }
-
-    /* Table Matrix (Live Table Grid) */
-    .table-matrix-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
-      gap: 0.55rem;
-      padding: 1.15rem;
-      max-height: 360px;
-      overflow-y: auto;
-    }
-
-    .table-tile {
-      background: var(--surface-alt);
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      padding: 0.65rem 0.3rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.18s ease;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.2rem;
-      min-height: 62px;
-    }
-
-    .table-tile:hover {
-      border-color: var(--accent);
-      background: var(--surface);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow);
-    }
-
-    .table-tile-num {
-      font-weight: 800;
-      font-size: 0.96rem;
-      color: var(--text);
-    }
-
-    .table-tile-status {
-      font-size: 0.65rem;
-      font-weight: 700;
-      color: var(--muted);
-    }
-
-    .table-tile.has-pending {
-      border-color: var(--danger);
-      background: var(--danger-light);
-      color: var(--danger);
-      animation: tableGlow 1.8s infinite;
-    }
-
-    .table-tile.has-pending .table-tile-num {
-      color: var(--danger);
-    }
-
-    .table-tile.has-pending .table-tile-status {
-      color: var(--danger);
-      font-weight: 800;
-    }
-
-    @keyframes tableGlow {
-
-      0%,
-      100% {
-        border-color: var(--danger);
-      }
-
-      50% {
-        border-color: #ff7675;
-        box-shadow: 0 0 10px rgba(204, 53, 40, 0.4);
-      }
-    }
-
-    /* Stock Alert Panel */
-    .stock-alert-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      padding: 1rem 1.25rem;
-      max-height: 360px;
-      overflow-y: auto;
-    }
-
-    .stock-alert-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.65rem;
-      padding: 0.6rem 0.85rem;
-      background: var(--surface-alt);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-    }
-
-    .stock-alert-name {
-      font-weight: 700;
-      font-size: 0.86rem;
-      color: var(--text);
-    }
-
-    .stock-alert-cat {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-top: 0.15rem;
-    }
-
-    .stock-empty-good {
-      padding: 2.2rem 1rem;
-      text-align: center;
-      color: var(--success);
-      font-weight: 700;
-      font-size: 0.9rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .stock-empty-icon {
-      font-size: 2.2rem;
-    }
-
-    /* ── Categories Management Styling (Fixes and enhancements) ─────── */
-    .cat-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 1fr));
-      gap: 1.1rem;
-      padding: 1.35rem;
-    }
-
-    .cat-item {
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .cat-item:hover {
-      border-color: var(--accent);
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .cat-thumb-wrap {
-      width: 100%;
-      height: 140px;
-      background: var(--surface-alt);
-      position: relative;
-      overflow: hidden;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .cat-thumb {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      cursor: zoom-in;
-      transition: transform 0.3s ease;
-    }
-
-    .cat-item:hover .cat-thumb {
-      transform: scale(1.04);
-    }
-
-    .cat-thumb-placeholder {
-      font-size: 2.75rem;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(135deg, var(--surface-alt), var(--accent-light));
-    }
-
-    .cat-item-body {
-      padding: 1rem 1.15rem;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 0.65rem;
-    }
-
-    .cat-item-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-
-    .cat-name {
-      font-weight: 800;
-      font-size: 1.05rem;
-      color: var(--text);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .cat-count-badge {
-      font-size: 0.74rem;
-      font-weight: 700;
-      padding: 0.2rem 0.55rem;
-      border-radius: 20px;
-      background: var(--accent-light);
-      color: var(--accent-dark);
-      border: 1px solid rgba(196, 124, 58, 0.25);
-      flex-shrink: 0;
-    }
-
-    body.dark .cat-count-badge {
-      color: var(--accent);
-    }
-
-    .cat-item-meta {
-      font-size: 0.78rem;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
-    .cat-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-      padding-top: 0.65rem;
-      border-top: 1px solid var(--border);
-    }
-
-    .cat-actions .btn {
-      flex: 1;
-      padding: 0.42rem 0.5rem;
-      font-size: 0.78rem;
-    }
-
-    .cat-actions .btn-danger {
-      flex: 0 0 36px;
-      padding: 0;
-    }
-
-    /* بهبود: دسترس‌پذیری — نمایانی فوکوس کیبورد */
-    .btn:focus-visible,
-    .nav-btn:focus-visible,
-    .toggle:focus-visible,
-    .modal-close:focus-visible,
-    .table-tile:focus-visible,
-    .cat-breakdown-item:focus-visible,
-    .remove-filter:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-
-    /* بهبود: احترام به تنظیم کاهش انیمیشن کاربر */
-    @media (prefers-reduced-motion: reduce) {
-
-      *,
-      *::before,
-      *::after {
-        animation-duration: 0.01ms !important;
-        transition-duration: 0.01ms !important;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="/admin/admin.css" />
 </head>
+<body data-theme="dark">
 
-<body>
-
-  <!-- Login -->
-  <div id="login-screen">
+  <!-- ═══════════ اسپرایت آیکون‌های SVG (تمام آیکون‌های پنل از همین‌جا استفاده می‌کنند) ═══════════ -->
+  <svg class="svg-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.7 12 3.5l9 7.2"/><path d="M5.5 9.8v10.7h13V9.8"/><path d="M10 20.5V15h4v5.5"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6.5 3.5h11a.8.8 0 0 1 .8.8v16.2l-3.1-2-3.2 2-3.2-2-3.1 2V4.3a.8.8 0 0 1 .8-.8Z"/><path d="M9.5 8.5h5M9.5 12h5M9.5 15.5h3"/></symbol>
+    <symbol id="i-cup" viewBox="0 0 24 24"><path d="M4.5 8.5h12v5.5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V8.5Z"/><path d="M16.5 9.5H18a2.6 2.6 0 0 1 0 5.2h-1.5"/><path d="M8 5.5c0-1 .6-1.2.6-2M11.5 5.5c0-1 .6-1.2.6-2"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.2V4.9a1.4 1.4 0 0 1 1.4-1.4h7.3a1.4 1.4 0 0 1 1 .4l8 8a1.4 1.4 0 0 1 0 2L14 21.1a1.4 1.4 0 0 1-2 0l-8-8a1.4 1.4 0 0 1-.5-.9Z"/><circle cx="8" cy="8" r="1.3"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2.5v2.5H14zM17.5 17.5H20V20h-2.5zM14 19h2M19 14h1"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m20.5 15.5-4.5-4.5-8 8"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h8.5M17.5 7H20M4 12h2.5M11.5 12H20M4 17h10.5M19.5 17H20"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 13.6A8.2 8.2 0 1 1 10.4 4a6.6 6.6 0 0 0 9.6 9.6Z"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z"/><path d="M15.5 9.2a4.2 4.2 0 0 1 0 5.6M18 6.8a7.6 7.6 0 0 1 0 10.4"/></symbol>
+    <symbol id="i-vol-off" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/></symbol>
+    <symbol id="i-exit" viewBox="0 0 24 24"><path d="M13.5 4.5H19a.8.8 0 0 1 .8.8v13.4a.8.8 0 0 1-.8.8h-5.5"/><path d="M9.5 8 5.5 12l4 4M5.5 12h9"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m4.5 19.5 4.3-.8L19.6 7.9a1.9 1.9 0 0 0-2.7-2.7L6.1 16l-1.6 3.5Z"/><path d="m14.5 6.5 3 3"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 6.5h15M9.5 6.5V5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5"/><path d="m6.5 6.5.9 12.6a1 1 0 0 0 1 .9h7.2a1 1 0 0 0 1-.9l.9-12.6"/><path d="M10 10.5v6M14 10.5v6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.5-5.7"/><path d="M19.5 3.5v4h-4"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M13.5 4.5h6v6"/><path d="M19.5 4.5 11 13"/><path d="M9.5 6.5H6A1.5 1.5 0 0 0 4.5 8v10A1.5 1.5 0 0 0 6 19.5h10a1.5 1.5 0 0 0 1.5-1.5v-3.5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10.5M7.5 11 12 15.5l4.5-4.5"/><path d="M5 19.5h14"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="1.6"/><path d="M15 9V5.6A1.6 1.6 0 0 0 13.4 4H5.6A1.6 1.6 0 0 0 4 5.6v7.8A1.6 1.6 0 0 0 5.6 15H9"/></symbol>
+    <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 8V4h10v4"/><path d="M7 16.5H5.5A1.5 1.5 0 0 1 4 15V9.5A1.5 1.5 0 0 1 5.5 8h13A1.5 1.5 0 0 1 20 9.5V15a1.5 1.5 0 0 1-1.5 1.5H17"/><rect x="7" y="13.5" width="10" height="7" rx="1"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 9.5v4.5M12 17v.5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 7.8v.4"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.2 1.9"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="17" height="12" rx="2"/><circle cx="12" cy="12.5" r="2.4"/><path d="M6.5 9.5h.5M17 15.5h.5"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.4-6.5-10.3a6.5 6.5 0 0 1 13 0C18.5 15.6 12 21 12 21Z"/><circle cx="12" cy="10.5" r="2.3"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="m12 3 8.5 4.7v8.6L12 21l-8.5-4.7V7.7L12 3Z"/><path d="M3.5 7.7 12 12.4l8.5-4.7M12 12.4V21"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8.5 6.5H20M8.5 12H20M8.5 17.5H20"/><circle cx="4.8" cy="6.5" r="1.2"/><circle cx="4.8" cy="12" r="1.2"/><circle cx="4.8" cy="17.5" r="1.2"/></symbol>
+  </svg>
+  <!-- ═══════════ صفحه‌ی ورود ═══════════ -->
+  <section id="login-screen" class="login-screen" hidden>
     <div class="login-card">
-      <div class="login-logo">☕</div>
-      <h1>کافه روشن</h1>
-      <p>پنل مدیریت هوشمند</p>
-      <div class="field">
-        <label for="pw">رمز عبور مدیر</label>
-        <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password" enterkeyhint="done" />
+      <div class="login-brand">
+        <span class="brand-badge" aria-hidden="true"><svg class="icon icon-lg"><use href="#i-cup"></use></svg></span>
+        <h1>کافه روشن</h1>
+        <p>برای ورود به پنل مدیریت، رمز را وارد کنید</p>
       </div>
-      <button class="btn btn-primary btn-block" id="login-btn">ورود به پنل</button>
-      <div class="err-msg" id="login-err"></div>
+      <form id="login-form" novalidate>
+        <div class="field">
+          <label for="login-password">رمز عبور</label>
+          <input type="password" id="login-password" name="password" autocomplete="current-password" dir="ltr" />
+        </div>
+        <p class="form-error" id="login-error" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">
+          <span class="btn-label">ورود به پنل</span>
+        </button>
+      </form>
     </div>
-  </div>
+  </section>
 
-  <!-- App -->
-  <div id="app">
-    <div class="app-top">
-      <header>
-        <div class="logo">
-          <div class="logo-icon">☕</div>
-          <div>
-            <div>کافه روشن</div>
-            <span class="logo-sub">پنل مدیریت</span>
+  <!-- ═══════════ برنامه‌ی اصلی ═══════════ -->
+  <div id="app" hidden>
+
+    <!-- هدر موبایل (در دسکتاپ مخفی است) -->
+    <header class="top-bar no-print">
+      <span class="top-bar-brand"><svg class="icon"><use href="#i-cup"></use></svg>کافه روشن</span>
+      <h1 class="top-bar-title" id="page-title">داشبورد</h1>
+    </header>
+
+    <div class="layout">
+
+      <!-- سایدبار دسکتاپ (سمت راست) -->
+      <aside class="sidebar no-print" aria-label="ناوبری پنل مدیریت">
+        <div class="sidebar-brand">
+          <span class="brand-badge" aria-hidden="true"><svg class="icon icon-lg"><use href="#i-cup"></use></svg></span>
+          <div class="brand-text">
+            <strong>کافه روشن</strong>
+            <span class="brand-sub">پنل مدیریت</span>
           </div>
         </div>
-        <div class="header-actions">
-          <button class="btn btn-ghost btn-sm" id="sound-toggle-btn" title="هشدار صوتی سفارش جدید"
-            aria-label="هشدار صوتی سفارش جدید">🔔</button>
-          <button class="btn btn-ghost btn-sm" id="theme-toggle-btn" title="تغییر تم تاریک / روشن"
-            aria-label="تغییر تم تاریک / روشن">🌙</button>
-          <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">🌐 مشاهده منو</a>
-          <button class="btn btn-danger btn-sm" id="logout-btn" title="خروج از حساب" aria-label="خروج از حساب">🚪
-            خروج</button>
+
+        <nav class="sidebar-nav" aria-label="بخش‌های پنل">
+          <button type="button" class="nav-item" data-action="nav" data-tab="dashboard">
+            <svg class="icon"><use href="#i-home"></use></svg><span>داشبورد</span>
+          </button>
+          <button type="button" class="nav-item" data-action="nav" data-tab="orders">
+            <svg class="icon"><use href="#i-receipt"></use></svg><span>سفارش‌ها</span>
+            <span class="nav-badge" id="badge-sidebar" hidden></span>
+          </button>
+          <button type="button" class="nav-item" data-action="nav" data-tab="products">
+            <svg class="icon"><use href="#i-cup"></use></svg><span>محصولات</span>
+          </button>
+          <button type="button" class="nav-item" data-action="nav" data-tab="categories">
+            <svg class="icon"><use href="#i-tag"></use></svg><span>دسته‌بندی‌ها</span>
+          </button>
+          <button type="button" class="nav-item" data-action="nav" data-tab="qr">
+            <svg class="icon"><use href="#i-qr"></use></svg><span>QR میزها</span>
+          </button>
+          <button type="button" class="nav-item" data-action="nav" data-tab="site">
+            <svg class="icon"><use href="#i-sliders"></use></svg><span>تصاویر و تنظیمات</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <button type="button" class="nav-item" data-action="toggle-theme">
+            <span class="nav-icon" id="theme-btn-icon"></span><span id="theme-btn-label">تم روشن</span>
+          </button>
+          <button type="button" class="nav-item" data-action="toggle-sound">
+            <span class="nav-icon" id="sound-btn-icon"></span><span id="sound-btn-label">صدا: فعال</span>
+          </button>
+          <a class="nav-item" href="/" target="_blank" rel="noopener">
+            <svg class="icon"><use href="#i-external"></use></svg><span>مشاهده منوی مشتری</span>
+          </a>
+          <button type="button" class="nav-item nav-danger" data-action="logout">
+            <svg class="icon"><use href="#i-exit"></use></svg><span>خروج</span>
+          </button>
         </div>
-      </header>
-      <nav>
-        <button class="nav-btn active" data-tab="dashboard">🏠 داشبورد</button>
-        <button class="nav-btn" data-tab="orders">🧾 سفارش‌ها <span id="pending-badge" class="pending-badge"
-            style="display:none"></span></button>
-        <button class="nav-btn" data-tab="products">🍽 محصولات</button>
-        <button class="nav-btn" data-tab="categories">📂 دسته‌بندی‌ها</button>
-        <button class="nav-btn" data-tab="qr">📱 بارکد QR میزها</button>
-        <button class="nav-btn" data-tab="site">🖼 تصاویر و تنظیمات</button>
-      </nav>
+      </aside>
+
+      <!-- محتوای اصلی -->
+      <main class="main" id="main">
+        <div id="main-content" class="main-content"></div>
+      </main>
     </div>
-    <main id="main-content"></main>
+
+    <!-- نوار تب پایین موبایل -->
+    <nav class="bottom-tabs no-print" aria-label="ناوبری موبایل">
+      <button type="button" data-action="nav" data-tab="dashboard">
+        <svg class="icon"><use href="#i-home"></use></svg><span>داشبورد</span>
+      </button>
+      <button type="button" data-action="nav" data-tab="orders">
+        <svg class="icon"><use href="#i-receipt"></use></svg><span>سفارش‌ها</span>
+        <span class="nav-badge" id="badge-mobile" hidden></span>
+      </button>
+      <button type="button" data-action="nav" data-tab="products">
+        <svg class="icon"><use href="#i-cup"></use></svg><span>محصولات</span>
+      </button>
+      <button type="button" data-action="nav" data-tab="categories">
+        <svg class="icon"><use href="#i-tag"></use></svg><span>دسته‌ها</span>
+      </button>
+      <button type="button" data-action="open-sheet">
+        <svg class="icon"><use href="#i-grid"></use></svg><span>بیشتر</span>
+      </button>
+    </nav>
   </div>
 
-  <!-- Lightbox برای بزرگ‌نمایی تصاویر -->
-  <div id="lightbox" role="dialog" aria-modal="true" aria-label="نمایش بزرگ تصویر" data-action="close-lightbox">
-    <button id="lightbox-close" data-action="close-lightbox" aria-label="بستن">✕</button>
-    <img id="lightbox-img" src="" alt="" />
-    <div id="lightbox-caption"></div>
+  <!-- ═══════════ شیت «بیشتر» (موبایل) ═══════════ -->
+  <div class="overlay overlay-sheet" id="sheet-overlay" hidden data-action="overlay-close">
+    <div class="bottom-sheet" role="dialog" aria-modal="true" aria-label="گزینه‌های بیشتر">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 class="sheet-title">گزینه‌های بیشتر</h2>
+      <div class="sheet-list">
+        <button type="button" class="sheet-item" data-action="sheet-nav" data-tab="qr">
+          <svg class="icon"><use href="#i-qr"></use></svg><span>QR میزها</span>
+        </button>
+        <button type="button" class="sheet-item" data-action="sheet-nav" data-tab="site">
+          <svg class="icon"><use href="#i-sliders"></use></svg><span>تصاویر و تنظیمات</span>
+        </button>
+        <button type="button" class="sheet-item" data-action="toggle-theme">
+          <span class="nav-icon" id="sheet-theme-icon"></span><span>تغییر تم</span><span class="sheet-val" id="sheet-theme-label">تیره</span>
+        </button>
+        <button type="button" class="sheet-item" data-action="toggle-sound">
+          <span class="nav-icon" id="sheet-sound-icon"></span><span>صدا</span><span class="sheet-val" id="sheet-sound-label">فعال</span>
+        </button>
+        <a class="sheet-item" href="/" target="_blank" rel="noopener">
+          <svg class="icon"><use href="#i-external"></use></svg><span>مشاهده منوی مشتری</span>
+        </a>
+        <button type="button" class="sheet-item danger" data-action="logout">
+          <svg class="icon"><use href="#i-exit"></use></svg><span>خروج از پنل</span>
+        </button>
+      </div>
+    </div>
   </div>
-
-  <!-- Product Modal -->
-  <div class="overlay" id="product-modal">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <!-- ═══════════ مودال محصول ═══════════ -->
+  <div class="overlay" id="modal-product" hidden data-action="overlay-close">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="prod-modal-title">
       <div class="modal-header">
-        <h3 id="modal-title">محصول جدید</h3>
-        <button class="modal-close" data-close-modal="product-modal" aria-label="بستن">✕</button>
+        <h2 id="prod-modal-title">محصول جدید</h2>
+        <button type="button" class="icon-btn" data-action="close-modal" data-modal="modal-product" aria-label="بستن">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
       </div>
       <div class="modal-body">
-        <span class="section-sep">اطلاعات اصلی</span>
-        <div class="field"><label for="p-name">نام محصول *</label><input id="p-name" placeholder="مثلاً: لاته کارامل" />
+        <div class="field">
+          <label for="p-name">نام محصول <b class="req">*</b></label>
+          <input type="text" id="p-name" maxlength="80" />
         </div>
         <div class="field">
-          <label for="p-cat">دسته‌بندی *</label>
-          <select id="p-cat">
-            <option value="">انتخاب کنید...</option>
-          </select>
+          <label for="p-cat">دسته‌بندی <b class="req">*</b></label>
+          <select id="p-cat"></select>
         </div>
         <div class="row-2">
           <div class="field">
-            <label for="p-price">قیمت (تومان) *</label>
-            <input id="p-price" type="number" placeholder="85000" />
+            <label for="p-price">قیمت پایه (تومان) <b class="req">*</b></label>
+            <input type="number" id="p-price" inputmode="numeric" min="1000" max="50000000" step="any" placeholder="مثلاً ۱۵۰۰۰۰" />
+            <p class="hint">قیمت نهایی با تخفیف به نزدیک‌ترین ۱٬۰۰۰ تومان گرد می‌شود.</p>
           </div>
           <div class="field">
-            <label for="p-discount">تخفیف (%)</label>
-            <input id="p-discount" type="number" min="0" max="99" step="any" placeholder="0" />
-            <div class="disc-preview" id="disc-preview"></div>
+            <label for="p-discount">تخفیف (٪)</label>
+            <input type="number" id="p-discount" inputmode="decimal" min="0" max="99" step="any" placeholder="۰ تا ۹۹" />
+            <div class="disc-preview" id="disc-preview" hidden></div>
           </div>
         </div>
-        <div class="field"><label for="p-note">یادداشت / توضیحات</label><textarea id="p-note"
-            placeholder="مواد تشکیل‌دهنده، توضیح کوتاه..."></textarea></div>
-
-        <span class="section-sep">تصویر محصول</span>
         <div class="field">
-          <div class="upload-area">
-            <input type="file" id="p-file-input" accept="image/*" aria-label="انتخاب تصویر محصول" />
-            <div style="font-size:1.6rem">📷</div>
+          <label for="p-note">توضیحات</label>
+          <textarea id="p-note" maxlength="300" rows="3"></textarea>
+        </div>
+        <div class="field">
+          <span class="field-label">تصویر محصول</span>
+          <div class="upload-area" id="prod-upload-area" role="button" tabindex="0" aria-label="انتخاب تصویر محصول">
+            <svg class="icon icon-lg"><use href="#i-image"></use></svg>
             <p>کلیک کنید یا تصویر را اینجا رها کنید</p>
-            <p style="font-size:.73rem">JPG · PNG · WEBP · فشرده‌سازی خودکار (سقف نهایی 2MB)</p>
+            <p class="upload-hint">jpg، png، webp یا gif — حداکثر ۵ مگابایت</p>
           </div>
-          <div class="upload-preview" id="prod-upload-preview">
-            <img id="prod-preview-img" src="" alt="" data-action="zoom-image" />
-            <div class="upload-status" id="prod-upload-status"></div>
+          <input type="file" id="prod-file-input" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" hidden />
+          <div class="upload-preview" id="prod-upload-preview" hidden>
+            <img id="prod-preview-img" alt="پیش‌نمایش تصویر محصول" data-action="zoom-self" />
+            <div class="upload-preview-meta">
+              <span class="upload-status" id="prod-upload-status"></span>
+              <button type="button" class="btn btn-ghost btn-sm" data-action="clear-prod-image">حذف تصویر</button>
+            </div>
           </div>
-          <input id="p-img" type="hidden" />
+          <input type="hidden" id="prod-image-value" value="" />
         </div>
-
-        <span class="section-sep">وضعیت موجودی</span>
-        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem">
-          <button class="toggle on" id="p-avail" role="switch" aria-checked="true"
-            aria-labelledby="p-avail-lbl"></button>
-          <span id="p-avail-lbl" style="font-weight:600">موجود</span>
+        <div class="switch-row">
+          <span id="p-avail-label">محصول موجود است</span>
+          <button type="button" class="toggle" id="p-avail" role="switch" aria-checked="true" aria-labelledby="p-avail-label" data-action="toggle-prod-avail"></button>
         </div>
-
-        <div class="err-msg" id="prod-err" role="alert"></div>
+        <p class="form-error" id="prod-form-error" role="alert"></p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-ghost" data-close-modal="product-modal">انصراف</button>
-        <button class="btn btn-primary" id="save-prod-btn">ذخیره محصول</button>
+        <button type="button" class="btn btn-ghost" data-action="close-modal" data-modal="modal-product">انصراف</button>
+        <button type="button" class="btn btn-primary" id="prod-save-btn" data-action="save-product"><span class="btn-label">ذخیره</span></button>
       </div>
     </div>
   </div>
 
-  <!-- Category Modal -->
-  <div class="overlay" id="cat-modal">
+  <!-- ═══════════ مودال دسته‌بندی ═══════════ -->
+  <div class="overlay" id="modal-category" hidden data-action="overlay-close">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-modal-title">
       <div class="modal-header">
-        <h3 id="cat-modal-title">دسته‌بندی جدید</h3>
-        <button class="modal-close" data-close-modal="cat-modal" aria-label="بستن">✕</button>
+        <h2 id="cat-modal-title">دسته‌بندی جدید</h2>
+        <button type="button" class="icon-btn" data-action="close-modal" data-modal="modal-category" aria-label="بستن">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
       </div>
       <div class="modal-body">
-        <div class="field"><label for="c-label">نام دسته‌بندی *</label><input id="c-label"
-            placeholder="مثلاً: بار گرم" /></div>
         <div class="field">
-          <label for="c-file-input">تصویر دسته‌بندی</label>
-          <div class="upload-area">
-            <input type="file" id="c-file-input" accept="image/*" />
-            <div style="font-size:1.6rem">🖼</div>
-            <p>کلیک کنید یا فایل را اینجا بکشید</p>
-          </div>
-          <div class="upload-preview" id="cat-upload-preview">
-            <img id="cat-preview-img" src="" alt="" data-action="zoom-image" />
-            <div class="upload-status" id="cat-upload-status"></div>
-          </div>
-          <input id="c-img" type="hidden" />
+          <label for="c-label">نام دسته‌بندی <b class="req">*</b></label>
+          <input type="text" id="c-label" maxlength="40" />
         </div>
-        <div class="err-msg" id="cat-err" role="alert"></div>
+        <div class="field">
+          <span class="field-label">تصویر دسته‌بندی</span>
+          <div class="upload-area" id="cat-upload-area" role="button" tabindex="0" aria-label="انتخاب تصویر دسته‌بندی">
+            <svg class="icon icon-lg"><use href="#i-image"></use></svg>
+            <p>کلیک کنید یا تصویر را اینجا رها کنید</p>
+            <p class="upload-hint">jpg، png، webp یا gif — حداکثر ۵ مگابایت</p>
+          </div>
+          <input type="file" id="cat-file-input" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" hidden />
+          <div class="upload-preview" id="cat-upload-preview" hidden>
+            <img id="cat-preview-img" alt="پیش‌نمایش تصویر دسته‌بندی" data-action="zoom-self" />
+            <div class="upload-preview-meta">
+              <span class="upload-status" id="cat-upload-status"></span>
+              <button type="button" class="btn btn-ghost btn-sm" data-action="clear-cat-image">حذف تصویر</button>
+            </div>
+          </div>
+          <input type="hidden" id="cat-image-value" value="" />
+        </div>
+        <p class="form-error" id="cat-form-error" role="alert"></p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-ghost" data-close-modal="cat-modal">انصراف</button>
-        <button class="btn btn-primary" id="save-cat-btn">ذخیره</button>
+        <button type="button" class="btn btn-ghost" data-action="close-modal" data-modal="modal-category">انصراف</button>
+        <button type="button" class="btn btn-primary" id="cat-save-btn" data-action="save-category"><span class="btn-label">ذخیره</span></button>
       </div>
     </div>
   </div>
 
-  <div id="toast" role="status" aria-live="polite"></div>
+  <!-- ═══════════ مودال تایید (جایگزین confirm مرورگر) ═══════════ -->
+  <div class="overlay" id="modal-confirm" hidden>
+    <div class="modal modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+      <div class="modal-header">
+        <h2 id="confirm-title">تایید عملیات</h2>
+        <button type="button" class="icon-btn" id="confirm-cancel" aria-label="بستن">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-message" id="confirm-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="confirm-cancel-btn">انصراف</button>
+        <button type="button" class="btn btn-danger" id="confirm-ok">تایید</button>
+      </div>
+    </div>
+  </div>
 
+  <!-- ═══════════ لایت‌باکس بزرگ‌نمایی تصاویر ═══════════ -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="نمایش تصویر" hidden>
+    <button type="button" class="icon-btn lightbox-close no-capture" data-action="close-lightbox" aria-label="بستن">
+      <svg class="icon"><use href="#i-x"></use></svg>
+    </button>
+    <img id="lightbox-img" alt="" />
+    <p class="lightbox-caption" id="lightbox-caption"></p>
+  </div>
+
+  <!-- ظرف toast (قابل دسترس برای اسکرین‌ریدر) -->
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+
+  <!-- کتابخانه‌ی QR (سراسری qrcode) و سپس منطق پنل -->
   <script src="/admin/vendor/qrcode.js"></script>
   <script src="/admin/admin.js"></script>
 </body>
-
 </html>
