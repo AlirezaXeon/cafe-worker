@@ -37,7 +37,7 @@ function corsHeaders(request) {
 const json = (request, data, status = 200, extraHeaders = {}) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders(request), ...extraHeaders },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...corsHeaders(request), ...extraHeaders },
   });
 
 // پیام خطای عمومی برای کلاینت؛ جزئیات واقعی فقط تو لاگ سرور می‌مونه (نه تو جواب HTTP)

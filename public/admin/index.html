@@ -8,9 +8,9 @@
   <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)" />
   <title>پنل مدیریت — کافه روشن</title>
-  <!-- فونت فارسی وزیرمتن (اختیاری) — اگر CDN در دسترس نیست این دو خط را حذف کنید تا فونت سیستم استفاده شود -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css" />
+  <!-- فونت وزیرمتن از فایل‌های محلی (CSP اجازه‌ی CDN بیرونی رو نمی‌داد) -->
+  <link rel="preload" href="/fonts/Dxxo8j6PP2D_kU2muijlGMWWIGroe7ll.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/css/fonts.css" />
   <style>
     * {
       box-sizing: border-box;
@@ -902,6 +902,7 @@
     .prod-stat-chip.green {
       border-color: rgba(46, 125, 50, 0.3);
     }
+
     .prod-stat-chip.green.active {
       background: rgba(46, 125, 50, 0.15);
       color: var(--success);
@@ -911,6 +912,7 @@
     .prod-stat-chip.red {
       border-color: rgba(204, 53, 40, 0.3);
     }
+
     .prod-stat-chip.red.active {
       background: var(--danger-light);
       color: var(--danger);
@@ -920,6 +922,7 @@
     .prod-stat-chip.gold {
       border-color: rgba(196, 124, 58, 0.3);
     }
+
     .prod-stat-chip.gold.active {
       background: var(--accent-light);
       color: var(--accent-dark);
@@ -990,9 +993,11 @@
     tr.prod-row-unavail td {
       background: rgba(204, 53, 40, 0.03);
     }
+
     tr.prod-row-unavail:hover td {
       background: rgba(204, 53, 40, 0.07);
     }
+
     tr.prod-row-unavail .prod-name {
       color: var(--muted);
     }
@@ -1783,8 +1788,17 @@
     }
 
     @keyframes pulseAlert {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(204, 53, 40, 0.6); }
-      50% { transform: scale(1.03); box-shadow: 0 0 0 6px rgba(204, 53, 40, 0); }
+
+      0%,
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(204, 53, 40, 0.6);
+      }
+
+      50% {
+        transform: scale(1.03);
+        box-shadow: 0 0 0 6px rgba(204, 53, 40, 0);
+      }
     }
 
     /* 4-KPI Compact Bar */
@@ -1845,6 +1859,7 @@
     .ops-kpi-val.highlight {
       color: var(--accent-dark);
     }
+
     body.dark .ops-kpi-val.highlight {
       color: var(--accent);
     }
@@ -2019,8 +2034,16 @@
     }
 
     @keyframes tableGlow {
-      0%, 100% { border-color: var(--danger); }
-      50% { border-color: #ff7675; box-shadow: 0 0 10px rgba(204, 53, 40, 0.4); }
+
+      0%,
+      100% {
+        border-color: var(--danger);
+      }
+
+      50% {
+        border-color: #ff7675;
+        box-shadow: 0 0 10px rgba(204, 53, 40, 0.4);
+      }
     }
 
     /* Stock Alert Panel */
@@ -2167,6 +2190,7 @@
       border: 1px solid rgba(196, 124, 58, 0.25);
       flex-shrink: 0;
     }
+
     body.dark .cat-count-badge {
       color: var(--accent);
     }
@@ -2202,7 +2226,10 @@
     .btn:focus-visible,
     .nav-btn:focus-visible,
     .toggle:focus-visible,
-    .modal-close:focus-visible {
+    .modal-close:focus-visible,
+    .table-tile:focus-visible,
+    .cat-breakdown-item:focus-visible,
+    .remove-filter:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
@@ -2249,6 +2276,8 @@
           </div>
         </div>
         <div class="header-actions">
+          <button class="btn btn-ghost btn-sm" id="sound-toggle-btn" title="هشدار صوتی سفارش جدید"
+            aria-label="هشدار صوتی سفارش جدید">🔔</button>
           <button class="btn btn-ghost btn-sm" id="theme-toggle-btn" title="تغییر تم تاریک / روشن"
             aria-label="تغییر تم تاریک / روشن">🌙</button>
           <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">🌐 مشاهده منو</a>
@@ -2270,7 +2299,7 @@
   </div>
 
   <!-- Lightbox برای بزرگ‌نمایی تصاویر -->
-  <div id="lightbox" data-action="close-lightbox">
+  <div id="lightbox" role="dialog" aria-modal="true" aria-label="نمایش بزرگ تصویر" data-action="close-lightbox">
     <button id="lightbox-close" data-action="close-lightbox" aria-label="بستن">✕</button>
     <img id="lightbox-img" src="" alt="" />
     <div id="lightbox-caption"></div>
@@ -2278,7 +2307,7 @@
 
   <!-- Product Modal -->
   <div class="overlay" id="product-modal">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
         <h3 id="modal-title">محصول جدید</h3>
         <button class="modal-close" data-close-modal="product-modal" aria-label="بستن">✕</button>
@@ -2300,7 +2329,7 @@
           </div>
           <div class="field">
             <label for="p-discount">تخفیف (%)</label>
-            <input id="p-discount" type="number" min="0" max="99" placeholder="0" />
+            <input id="p-discount" type="number" min="0" max="99" step="any" placeholder="0" />
             <div class="disc-preview" id="disc-preview"></div>
           </div>
         </div>
@@ -2310,7 +2339,7 @@
         <span class="section-sep">تصویر محصول</span>
         <div class="field">
           <div class="upload-area">
-            <input type="file" id="p-file-input" accept="image/*" />
+            <input type="file" id="p-file-input" accept="image/*" aria-label="انتخاب تصویر محصول" />
             <div style="font-size:1.6rem">📷</div>
             <p>کلیک کنید یا تصویر را اینجا رها کنید</p>
             <p style="font-size:.73rem">JPG · PNG · WEBP · فشرده‌سازی خودکار (سقف نهایی 2MB)</p>
@@ -2324,11 +2353,12 @@
 
         <span class="section-sep">وضعیت موجودی</span>
         <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem">
-          <button class="toggle on" id="p-avail" aria-label="تغییر وضعیت موجودی"></button>
+          <button class="toggle on" id="p-avail" role="switch" aria-checked="true"
+            aria-labelledby="p-avail-lbl"></button>
           <span id="p-avail-lbl" style="font-weight:600">موجود</span>
         </div>
 
-        <div class="err-msg" id="prod-err"></div>
+        <div class="err-msg" id="prod-err" role="alert"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" data-close-modal="product-modal">انصراف</button>
@@ -2339,7 +2369,7 @@
 
   <!-- Category Modal -->
   <div class="overlay" id="cat-modal">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-modal-title">
       <div class="modal-header">
         <h3 id="cat-modal-title">دسته‌بندی جدید</h3>
         <button class="modal-close" data-close-modal="cat-modal" aria-label="بستن">✕</button>
@@ -2360,7 +2390,7 @@
           </div>
           <input id="c-img" type="hidden" />
         </div>
-        <div class="err-msg" id="cat-err"></div>
+        <div class="err-msg" id="cat-err" role="alert"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" data-close-modal="cat-modal">انصراف</button>
@@ -2369,7 +2399,7 @@
     </div>
   </div>
 
-  <div id="toast"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
 
   <script src="/admin/vendor/qrcode.js"></script>
   <script src="/admin/admin.js"></script>

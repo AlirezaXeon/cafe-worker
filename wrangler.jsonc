@@ -20,12 +20,6 @@
       "/sitemap.xml"
     ]
   },
-  "routes": [
-    {
-      "pattern": "cafe.alirezaxeon.ir",
-      "custom_domain": true
-    }
-  ],
   "triggers": {
     "crons": [
       "* * * * *"

@@ -41,6 +41,66 @@ function updateThemeBtn() {
 
 initTheme();
 
+// ── Audio Alert (صدای سفارش جدید) ──────────────────────────────────────────
+let soundEnabled = localStorage.getItem('admin_sound_enabled') !== 'false';
+let audioCtx = null;
+
+function initSound() {
+  updateSoundBtn();
+}
+
+function updateSoundBtn() {
+  const btn = document.getElementById('sound-toggle-btn');
+  if (!btn) return;
+  btn.textContent = soundEnabled ? '🔔' : '🔕';
+  btn.title = soundEnabled ? 'هشدار صوتی سفارش جدید: فعال' : 'هشدار صوتی سفارش جدید: غیرفعال';
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('admin_sound_enabled', soundEnabled ? 'true' : 'false');
+  updateSoundBtn();
+  if (soundEnabled) {
+    playOrderNotificationSound();
+    toast('هشدار صوتی فعال شد 🔔');
+  } else {
+    toast('هشدار صوتی غیرفعال شد 🔕');
+  }
+}
+
+function playOrderNotificationSound() {
+  if (!soundEnabled) return;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtx) audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, now); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.25, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.45);
+  } catch (e) {
+    console.warn('[sound] audio playback error:', e);
+  }
+}
+
+initSound();
+
 // ── Lightbox (بزرگ‌نمایی تصاویر) ───────────────────────────────────────────
 function openLightbox(src, caption = '') {
   if (!src) return;
@@ -56,7 +116,8 @@ function openLightbox(src, caption = '') {
 function closeLightbox() {
   const lb = document.getElementById('lightbox');
   if (lb) lb.classList.remove('open');
-  document.body.style.overflow = '';
+  // اگه مودالی زیر لایت‌باکس بازه، اسکرول قفل بمونه
+  document.body.style.overflow = document.querySelector('.overlay.open') ? 'hidden' : '';
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -102,6 +163,7 @@ async function api(path, opts = {}) {
   const r = await fetch(`${BASE}${path}`, {
     ...opts,
     credentials: 'same-origin',
+    cache: 'no-store',
     headers: {
       ...(!isFormData && opts.body ? { 'Content-Type': 'application/json' } : {}),
       ...(opts.headers || {})
@@ -129,21 +191,26 @@ function initApp() {
 }
 
 // ── کنترلر پولینگ سفارش‌ها ────────────────────────────────────────────────
-const ORDERS_POLL_MS = 30000;
-const MAX_BACKOFF_MS = 300000;
+const ACTIVE_POLL_MS = 3000;    // هر ۳ ثانیه وقتی صفحه فعال است (همگام با ربات)
+const HIDDEN_POLL_MS = 15000;   // هر ۱۵ ثانیه در پس‌زمینه
+const MAX_BACKOFF_MS = 30000;   // حداکثر زمان انتظار در صورت خطا
+
 let adminPollTimer = null;
-let currentPollInterval = ORDERS_POLL_MS;
+let currentPollInterval = ACTIVE_POLL_MS;
 let isPollingActive = false;
 let isPollInProgress = false;
 let pendingPollRequested = false;
 let lastKnownSummary = { pending: null, latestId: null };
 let currentActiveTab = 'dashboard';
 let currentOrderFilter = '';
+let orderTableFilter = '';   // فیلتر شماره میز (سمت کلاینت)
+let ordersPreset = null;     // { status, table } برای باز کردن تب سفارش‌ها با فیلتر از پیش‌تعیین‌شده
+const originalDocTitle = document.title;
 
 function startAdminPolling() {
   if (isPollingActive) return;
   isPollingActive = true;
-  currentPollInterval = ORDERS_POLL_MS;
+  currentPollInterval = document.hidden ? HIDDEN_POLL_MS : ACTIVE_POLL_MS;
   pollOrdersNow();
 }
 
@@ -155,6 +222,7 @@ function stopAdminPolling() {
   }
   isPollInProgress = false;
   pendingPollRequested = false;
+  document.title = originalDocTitle;
 }
 
 function scheduleNextPoll(delayMs) {
@@ -168,10 +236,9 @@ function scheduleNextPoll(delayMs) {
 
 async function executePollTick(forceImmediate = false) {
   if (!isPollingActive || !isLoggedIn) return;
-  if (document.hidden && !forceImmediate) {
-    scheduleNextPoll(currentPollInterval);
-    return;
-  }
+
+  const targetInterval = document.hidden ? HIDDEN_POLL_MS : ACTIVE_POLL_MS;
+
   if (isPollInProgress) {
     pendingPollRequested = true;
     return;
@@ -179,29 +246,48 @@ async function executePollTick(forceImmediate = false) {
   isPollInProgress = true;
   try {
     const summary = await api('/orders/summary');
-    currentPollInterval = ORDERS_POLL_MS;
+    currentPollInterval = targetInterval;
 
     const pendingCount = Number(summary?.pending ?? 0);
     const latestId = Number(summary?.latestId ?? 0);
 
     updatePendingBadge(pendingCount);
 
-    const hasChanged =
-      lastKnownSummary.pending !== pendingCount ||
-      lastKnownSummary.latestId !== latestId;
+    const prevPending = lastKnownSummary.pending;
+    const prevLatestId = lastKnownSummary.latestId;
+    const isInitial = prevPending === null && prevLatestId === null;
+
+    const hasChanged = !isInitial && (prevPending !== pendingCount || prevLatestId !== latestId);
+    const hasNewOrder = !isInitial && (
+      (latestId > (prevLatestId || 0)) ||
+      (pendingCount > (prevPending || 0))
+    );
 
     lastKnownSummary = { pending: pendingCount, latestId };
 
-    if (currentActiveTab === 'orders' && hasChanged && document.getElementById('order-list-wrap')) {
-      const targetLimit = Math.min(Math.max(currentOrdersList.length, 50), 100);
-      await loadOrders(false, targetLimit);
+    if (hasNewOrder) {
+      playOrderNotificationSound();
+      toast('🔔 سفارش جدید ثبت شد!');
+      if (document.hidden) {
+        document.title = `(🔔 ${pendingCount} سفارش در انتظار) ${originalDocTitle}`;
+      }
+    }
+
+    if (hasChanged) {
+      if (currentActiveTab === 'orders' && document.getElementById('order-list-wrap')) {
+        // تازه‌سازی لیست سفارش‌ها در تب مدیریت سفارش‌ها
+        await refreshOrdersHead();
+      } else if (currentActiveTab === 'dashboard') {
+        // تازه‌سازی آنی آمار و ماتریس میزهای داشبورد باریستا
+        await refreshDashboardOrders();
+      }
     }
   } catch (err) {
     if (err.message === 'unauthorized') {
       stopAdminPolling();
       return;
     }
-    currentPollInterval = Math.min(currentPollInterval * 2, MAX_BACKOFF_MS);
+    currentPollInterval = Math.min(currentPollInterval * 1.5, MAX_BACKOFF_MS);
   } finally {
     isPollInProgress = false;
     if (pendingPollRequested) {
@@ -227,7 +313,17 @@ function pollOrdersNow() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && isPollingActive && isLoggedIn) {
+  if (!document.hidden) {
+    document.title = originalDocTitle;
+    if (isPollingActive && isLoggedIn) {
+      pollOrdersNow();
+    }
+  }
+});
+
+window.addEventListener('focus', () => {
+  document.title = originalDocTitle;
+  if (isPollingActive && isLoggedIn) {
     pollOrdersNow();
   }
 });
@@ -244,7 +340,11 @@ function updatePendingBadge(count) {
 }
 
 function renderOrders(m) {
-  currentOrderFilter = '';
+  const preset = ordersPreset;
+  ordersPreset = null;
+  currentOrderFilter = preset?.status || '';
+  orderTableFilter = preset?.table || '';
+  const sel = (v) => (currentOrderFilter === v ? 'selected' : '');
   m.innerHTML = `
     <div class="card">
       <div class="card-header">
@@ -252,22 +352,27 @@ function renderOrders(m) {
         <button class="btn btn-ghost btn-sm" data-action="refresh-orders">🔄 تازه‌سازی</button>
       </div>
       <div class="card-toolbar">
-        <select class="search-input" style="max-width:220px" data-action="filter-orders">
-          <option value="">همه وضعیت‌ها</option>
-          <option value="pending">⏳ در انتظار تایید</option>
-          <option value="confirmed">✅ تایید شده</option>
-          <option value="rejected">❌ رد شده</option>
+        <select class="search-input" style="max-width:220px" data-action="filter-orders" aria-label="فیلتر وضعیت سفارش">
+          <option value="" ${sel('')}>همه وضعیت‌ها</option>
+          <option value="pending" ${sel('pending')}>⏳ در انتظار تایید</option>
+          <option value="confirmed" ${sel('confirmed')}>✅ تایید شده</option>
+          <option value="rejected" ${sel('rejected')}>❌ رد شده</option>
         </select>
+        <span id="order-table-chip"></span>
       </div>
       <div id="order-list-wrap"><div class="empty"><div class="empty-icon">⏳</div>در حال بارگذاری...</div></div>
     </div>`;
-  loadOrders(false, 50);
+  loadOrders(false);
+  pollOrdersNow();
 }
 
 async function manualRefreshOrders() {
   toast('در حال به‌روزرسانی...');
-  const targetLimit = Math.min(Math.max(currentOrdersList.length, 50), 100);
-  await loadOrders(false, targetLimit);
+  try {
+    await refreshOrdersHead();
+  } catch (e) {
+    if (e.message !== 'unauthorized') toast(e.message || 'خطا در به‌روزرسانی', true);
+  }
   pollOrdersNow();
 }
 
@@ -304,37 +409,81 @@ function formatOrderDateTime(createdAt) {
   return `${dateStr}، ${timeStr}`;
 }
 
-async function loadOrders(append = false, customLimit = null) {
+function ordersQuery(limit, beforeId) {
+  let qs = `?limit=${limit}`;
+  if (currentOrderFilter) qs += `&status=${encodeURIComponent(currentOrderFilter)}`;
+  if (beforeId) qs += `&before_id=${beforeId}`;
+  return qs;
+}
+
+// بارگذاری اولیه (append=false) یا صفحه‌ی بعدی (append=true)
+async function loadOrders(append = false) {
   const wrap = document.getElementById('order-list-wrap');
   if (!wrap) return;
   try {
-    const limit = customLimit ? Math.min(Math.max(customLimit, 50), 100) : 50;
-    let qs = `?limit=${limit}`;
-    if (currentOrderFilter) qs += `&status=${currentOrderFilter}`;
-    if (append && currentOrdersList.length) {
-      const oldestId = currentOrdersList[currentOrdersList.length - 1].id;
-      qs += `&before_id=${oldestId}`;
-    }
-    const orders = await api('/orders' + qs);
-    if (!append) {
-      currentOrdersList = orders;
-    } else {
-      currentOrdersList = currentOrdersList.concat(orders);
-    }
+    const limit = 50;
+    const beforeId = append && currentOrdersList.length
+      ? currentOrdersList[currentOrdersList.length - 1].id
+      : null;
+    const orders = await api('/orders' + ordersQuery(limit, beforeId));
+    currentOrdersList = append ? currentOrdersList.concat(orders) : orders;
     hasMoreOrders = orders.length === limit;
+    renderOrderList();
+  } catch (e) {
+    if (e.message !== 'unauthorized') wrap.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری</div>';
+  }
+}
 
-    if (!currentOrdersList.length) {
-      wrap.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>سفارشی یافت نشد</div>';
-      return;
-    }
-    const statusLabel = { pending: 'در انتظار', confirmed: 'تایید شده', rejected: 'رد شده' };
-    wrap.innerHTML = `<div class="order-list">${currentOrdersList.map(o => {
-      const time = formatOrderDateTime(o.created_at);
-      return `
+// تازه‌سازی ابتدای لیست بدون از دست دادن سفارش‌های قدیمی‌تر که کاربر قبلاً بارگذاری کرده
+async function refreshOrdersHead() {
+  const limit = 100; // سقف سمت سرور
+  const fresh = await api('/orders' + ordersQuery(limit));
+  if (fresh.length < limit) {
+    currentOrdersList = fresh;
+    hasMoreOrders = false;
+  } else {
+    const minId = fresh[fresh.length - 1].id;
+    const tail = currentOrdersList.filter((o) => o.id < minId);
+    currentOrdersList = fresh.concat(tail);
+    hasMoreOrders = true;
+  }
+  renderOrderList();
+}
+
+function renderOrderTableChip() {
+  const chip = document.getElementById('order-table-chip');
+  if (!chip) return;
+  chip.innerHTML = orderTableFilter
+    ? `<span class="prod-filter-pill"><span>میز ${esc(orderTableFilter)}</span><span class="remove-filter" role="button" tabindex="0" data-action="clear-order-table" title="حذف فیلتر میز">✕</span></span>`
+    : '';
+}
+
+function renderOrderList() {
+  const wrap = document.getElementById('order-list-wrap');
+  if (!wrap) return;
+  renderOrderTableChip();
+
+  const list = orderTableFilter
+    ? currentOrdersList.filter((o) => String(o.table_number) === orderTableFilter)
+    : currentOrdersList;
+
+  const moreBtn = hasMoreOrders ? `
+      <div style="text-align:center;padding-bottom:1.25rem;">
+        <button class="btn btn-ghost" data-action="load-more-orders">بارگذاری بیشتر...</button>
+      </div>` : '';
+
+  if (!list.length) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>سفارشی یافت نشد</div>${moreBtn}`;
+    return;
+  }
+  const statusLabel = { pending: 'در انتظار', confirmed: 'تایید شده', rejected: 'رد شده' };
+  wrap.innerHTML = `<div class="order-list">${list.map(o => {
+    const time = formatOrderDateTime(o.created_at);
+    return `
       <div class="order-card">
         <div class="order-card-head">
           <span class="order-table-no">سفارش #${o.id} — میز ${esc(o.table_number)}</span>
-          <span class="order-status ${o.status}">${statusLabel[o.status] || o.status}</span>
+          <span class="order-status ${esc(o.status)}">${statusLabel[o.status] || esc(o.status)}</span>
           <span class="order-time">${time}</span>
         </div>
         <div class="order-items">${(o.items || []).map(it => `
@@ -349,22 +498,14 @@ async function loadOrders(append = false, customLimit = null) {
             </div>` : ''}
         </div>
       </div>`;
-    }).join('')}</div>
-    ${hasMoreOrders ? `
-      <div style="text-align:center;padding-bottom:1.25rem;">
-        <button class="btn btn-ghost" data-action="load-more-orders">بارگذاری بیشتر...</button>
-      </div>
-    ` : ''}`;
-  } catch (e) {
-    if (e.message !== 'unauthorized') wrap.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>خطا در بارگذاری</div>';
-  }
+  }).join('')}</div>${moreBtn}`;
 }
 
 async function resolveOrderWeb(id, status) {
   try {
     await api(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
     toast(status === 'confirmed' ? 'سفارش تایید شد ✓' : 'سفارش رد شد');
-    await loadOrders(false, Math.min(Math.max(currentOrdersList.length, 50), 100));
+    await refreshOrdersHead();
     pollOrdersNow();
   } catch (e) {
     if (e.message !== 'unauthorized') toast(e.message || 'خطا در ثبت', true);
@@ -553,20 +694,34 @@ async function renderDashboard(m) {
   startOpsClock();
 
   try {
-    const [cats, prods, sales, siteCfg, pendingOrders] = await Promise.all([
+    const [cats, prods] = await Promise.all([
       api('/categories'),
       api('/products'),
-      api('/sales-stats'),
-      api('/site').catch(() => ({ tableCount: 20, signingEnabled: false })),
-      api('/orders?status=pending&limit=100').catch(() => []),
     ]);
 
     allCategories = cats;
     allProducts = prods;
 
-    const total = allProducts.length;
-    const avail = allProducts.filter(p => p.available).length;
-    const unavail = total - avail;
+    // KPI 3 + لیست ناموجودها + تراکم دسته‌ها
+    updateDashboardInventory();
+
+    // سفارش‌ها، آمار فروش و ماتریس میزها
+    await refreshDashboardOrders();
+  } catch (e) {
+    if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار داشبورد', true);
+  }
+}
+
+// به‌روزرسانی زنده بخش سفارش‌ها، آمار فروش و ماتریس میزهای داشبورد بدون بازسازی کل صفحه
+async function refreshDashboardOrders() {
+  if (currentActiveTab !== 'dashboard') return;
+  try {
+    const [sales, siteCfg, pendingOrders] = await Promise.all([
+      api('/sales-stats').catch(() => null),
+      api('/site').catch(() => ({ tableCount: 20, signingEnabled: false })),
+      api('/orders?status=pending&limit=100').catch(() => []),
+    ]);
+
     const pendingList = Array.isArray(pendingOrders) ? pendingOrders : [];
     const pendingCount = pendingList.length;
     const tableCount = Number(siteCfg?.tableCount) || 20;
@@ -586,12 +741,14 @@ async function renderDashboard(m) {
     }
 
     // KPI 1: Sales
-    const sToday = document.getElementById('kpi-sales-today');
-    if (sToday) sToday.textContent = Number(sales?.today || 0).toLocaleString('fa-IR') + ' ت';
-    const sWeek = document.getElementById('kpi-sales-week');
-    if (sWeek) sWeek.textContent = 'هفته: ' + Number(sales?.week || 0).toLocaleString('fa-IR') + ' ت';
-    const sMonth = document.getElementById('kpi-sales-month');
-    if (sMonth) sMonth.textContent = 'ماه: ' + Number(sales?.month || 0).toLocaleString('fa-IR') + ' ت';
+    if (sales) {
+      const sToday = document.getElementById('kpi-sales-today');
+      if (sToday) sToday.textContent = Number(sales?.today || 0).toLocaleString('fa-IR') + ' ت';
+      const sWeek = document.getElementById('kpi-sales-week');
+      if (sWeek) sWeek.textContent = 'هفته: ' + Number(sales?.week || 0).toLocaleString('fa-IR') + ' ت';
+      const sMonth = document.getElementById('kpi-sales-month');
+      if (sMonth) sMonth.textContent = 'ماه: ' + Number(sales?.month || 0).toLocaleString('fa-IR') + ' ت';
+    }
 
     // KPI 2: Orders
     const kOrdersVal = document.getElementById('kpi-orders-val');
@@ -604,18 +761,6 @@ async function renderDashboard(m) {
       kOrdersSub.innerHTML = pendingCount > 0
         ? '<span style="color:var(--danger);font-weight:700">اقدام سریع باریستا</span><span>مشاهده ←</span>'
         : '<span>همه سفارش‌ها تایید/رد شده‌اند</span><span>مشاهده لیست ←</span>';
-    }
-
-    // KPI 3: Menu & Inventory
-    const kMenuVal = document.getElementById('kpi-menu-val');
-    if (kMenuVal) {
-      kMenuVal.innerHTML = `${avail} <span style="font-size:0.95rem;font-weight:600;color:var(--muted)">/ ${total} موجود</span>`;
-    }
-    const kMenuSub = document.getElementById('kpi-menu-sub');
-    if (kMenuSub) {
-      kMenuSub.innerHTML = unavail > 0
-        ? `<span style="color:var(--danger);font-weight:700">⚠️ ${unavail} قلم ناموجود</span><span>در ${allCategories.length} دسته</span>`
-        : `<span>✓ تمام ${total} قلم موجود</span><span>در ${allCategories.length} دسته</span>`;
     }
 
     // KPI 4: Tables
@@ -654,6 +799,7 @@ async function renderDashboard(m) {
           <div class="table-tile ${hasPending ? 'has-pending' : ''}"
                data-action="ops-select-table"
                data-table="${i}"
+               role="button" tabindex="0"
                title="${hasPending ? `میز ${i} — ${orderCount} سفارش در انتظار` : `میز ${i} — بدون سفارش در انتظار`}">
             <span class="table-tile-num">میز ${i}</span>
             <span class="table-tile-status">${hasPending ? `🔔 ${orderCount}` : 'خالی'}</span>
@@ -662,79 +808,96 @@ async function renderDashboard(m) {
       }
       tableGrid.innerHTML = tilesHtml.join('');
     }
+  } catch (e) {
+    if (e.message !== 'unauthorized') console.warn('[dashboard:refreshOrders]', e);
+  }
+}
 
-    // Workspace: Out-of-Stock Emergency Fast Toggle List
-    const stockList = document.getElementById('ops-stock-list');
-    const stockPill = document.getElementById('ops-stock-pill');
-    if (stockPill) {
-      stockPill.textContent = `${unavail} قلم`;
-      stockPill.className = 'ops-pill' + (unavail > 0 ? ' alert' : '');
-    }
+// به‌روزرسانی بخش‌های وابسته به موجودی محصولات (KPI منو، لیست ناموجودها، تراکم دسته‌ها)
+// بدون ساخت دوباره‌ی کل داشبورد و بدون درخواست اضافه به API
+function updateDashboardInventory() {
+  const total = allProducts.length;
+  const avail = allProducts.filter(p => p.available).length;
+  const unavail = total - avail;
 
-    if (stockList) {
-      const unavailList = allProducts.filter(p => !p.available);
-      if (!unavailList.length) {
-        stockList.innerHTML = `
+  const kMenuVal = document.getElementById('kpi-menu-val');
+  if (kMenuVal) {
+    kMenuVal.innerHTML = `${avail} <span style="font-size:0.95rem;font-weight:600;color:var(--muted)">/ ${total} موجود</span>`;
+  }
+  const kMenuSub = document.getElementById('kpi-menu-sub');
+  if (kMenuSub) {
+    kMenuSub.innerHTML = unavail > 0
+      ? `<span style="color:var(--danger);font-weight:700">⚠️ ${unavail} قلم ناموجود</span><span>در ${allCategories.length} دسته</span>`
+      : `<span>✓ تمام ${total} قلم موجود</span><span>در ${allCategories.length} دسته</span>`;
+  }
+
+  const stockList = document.getElementById('ops-stock-list');
+  const stockPill = document.getElementById('ops-stock-pill');
+  if (stockPill) {
+    stockPill.textContent = `${unavail} قلم`;
+    stockPill.className = 'ops-pill' + (unavail > 0 ? ' alert' : '');
+  }
+
+  if (stockList) {
+    const unavailList = allProducts.filter(p => !p.available);
+    if (!unavailList.length) {
+      stockList.innerHTML = `
           <div class="stock-empty-good">
             <div class="stock-empty-icon">☕✨</div>
             <div>تمام محصولات بار و انبار موجود هستند!</div>
             <div style="font-size:0.75rem;font-weight:normal;color:var(--muted)">هیچ محصول ناموجودی در منو ثبت نشده است.</div>
           </div>`;
-      } else {
-        stockList.innerHTML = unavailList.map(p => {
-          const cat = allCategories.find(c => c.id === p.category);
-          const catLabelText = cat ? cat.label : 'بدون دسته';
-          return `
+    } else {
+      stockList.innerHTML = unavailList.map(p => {
+        const cat = allCategories.find(c => c.id === p.category);
+        const catLabelText = cat ? cat.label : 'بدون دسته';
+        return `
             <div class="stock-alert-item">
               <div style="min-width:0;flex:1">
                 <div class="stock-alert-name" title="${esc(p.name)}">${esc(p.name)}</div>
                 <div class="stock-alert-cat">${esc(catLabelText)} • ${Number(p.price).toLocaleString('fa-IR')} ت</div>
               </div>
-              <button class="btn btn-primary btn-sm" data-action="ops-quick-avail" data-prod-id="${p.id}" title="تغییر وضعیت به موجود">
+              <button class="btn btn-primary btn-sm" data-action="ops-quick-avail" data-prod-id="${esc(p.id)}" title="تغییر وضعیت به موجود">
                 ✓ موجود شد
               </button>
             </div>`;
-        }).join('');
-      }
+      }).join('');
     }
+  }
 
-    // Category Density Breakdown
-    const breakdown = document.getElementById('cat-breakdown');
-    if (breakdown) {
-      const counts = allCategories
-        .map(c => {
-          const prodsInCat = allProducts.filter(p => p.category === c.id);
-          return {
-            id: c.id,
-            label: c.label,
-            count: prodsInCat.length,
-            avail: prodsInCat.filter(p => p.available).length
-          };
-        })
-        .sort((a, b) => b.count - a.count);
+  const breakdown = document.getElementById('cat-breakdown');
+  if (breakdown) {
+    const counts = allCategories
+      .map(c => {
+        const prodsInCat = allProducts.filter(p => p.category === c.id);
+        return {
+          id: c.id,
+          label: c.label,
+          count: prodsInCat.length,
+          avail: prodsInCat.filter(p => p.available).length
+        };
+      })
+      .sort((a, b) => b.count - a.count);
 
-      const max = Math.max(1, ...counts.map(c => c.count));
-      breakdown.innerHTML = counts.length
-        ? counts.map(c => `
-          <div class="cat-breakdown-item" data-action="view-cat-products" data-cat-id="${esc(c.id)}" style="cursor:pointer" title="مشاهده محصولات دسته «${esc(c.label)}»">
+    const max = Math.max(1, ...counts.map(c => c.count));
+    breakdown.innerHTML = counts.length
+      ? counts.map(c => `
+          <div class="cat-breakdown-item" data-action="view-cat-products" data-cat-id="${esc(c.id)}" role="button" tabindex="0" style="cursor:pointer" title="مشاهده محصولات دسته «${esc(c.label)}»">
             <div class="cb-label" title="${esc(c.label)}">${esc(c.label)}</div>
             <div class="cb-bar-track"><div class="cb-bar-fill" style="width:${(c.count / max) * 100}%"></div></div>
             <div class="cb-count">${c.count} (${c.avail} موجود)</div>
           </div>`).join('')
-        : '<div class="empty"><div class="empty-icon">📭</div>هنوز دسته‌بندی‌ای ثبت نشده است</div>';
-    }
-  } catch (e) {
-    if (e.message !== 'unauthorized') toast('خطا در بارگذاری آمار داشبورد', true);
+      : '<div class="empty"><div class="empty-icon">📭</div>هنوز دسته‌بندی‌ای ثبت نشده است</div>';
   }
 }
 
 async function quickToggleAvail(id) {
   try {
-    const res = await api(`/products/${id}/availability`, { method: 'PATCH' });
-    const p = allProducts.find(x => x.id == id);
+    const res = await api(`/products/${encodeURIComponent(id)}/availability`, { method: 'PATCH' });
+    const p = allProducts.find(x => x.id === id);
     if (p) p.available = res.available;
     toast(res.available ? 'محصول موجود شد ✓' : 'محصول ناموجود شد');
-    renderDashboard(document.getElementById('main-content'));
+    updateDashboardInventory();
   } catch (e) {
     if (e.message !== 'unauthorized') toast(e.message || 'خطا در تغییر وضعیت', true);
   }
@@ -769,10 +932,10 @@ async function renderProducts(m) {
       </div>
       <div class="card-toolbar">
         <input class="search-input" placeholder="🔍 جستجوی نام یا توضیحات محصول..." value="${esc(searchQ)}" data-action="search-products" />
-        <select class="search-input" style="max-width:190px" id="prod-cat-filter" data-action="filter-prod-cat">
+        <select class="search-input" style="max-width:190px" id="prod-cat-filter" data-action="filter-prod-cat" aria-label="فیلتر دسته‌بندی">
           <option value="">همه دسته‌بندی‌ها</option>
         </select>
-        <select class="search-input" style="max-width:170px" id="prod-avail-filter" data-action="filter-prod-avail">
+        <select class="search-input" style="max-width:170px" id="prod-avail-filter" data-action="filter-prod-avail" aria-label="فیلتر وضعیت">
           <option value="" ${filterAvail === '' ? 'selected' : ''}>همه وضعیت‌ها</option>
           <option value="1" ${filterAvail === '1' ? 'selected' : ''}>✅ فقط موجود</option>
           <option value="0" ${filterAvail === '0' ? 'selected' : ''}>⛔ فقط ناموجود</option>
@@ -882,8 +1045,8 @@ function renderProductTable() {
           </span>
           ${hasDisc ? `<span class="prod-disc-floating">٪${discPct} تخفیف</span>` : ''}
           ${fullImg
-            ? `<img src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}" loading="lazy">`
-            : `<div class="prod-card-placeholder">☕</div>`}
+          ? `<img src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}" loading="lazy">`
+          : `<div class="prod-card-placeholder">☕</div>`}
         </div>
         <div class="prod-card-body">
           <div class="prod-card-cat">📂 ${esc(catLabel(p.category))}</div>
@@ -899,12 +1062,12 @@ function renderProductTable() {
         </div>
         <div class="prod-card-foot">
           <div style="display:flex;align-items:center;gap:0.45rem">
-            <button class="toggle ${p.available ? 'on' : ''}" data-action="toggle-avail" data-prod-id="${p.id}" data-cur-avail="${p.available}" title="${p.available ? 'کلیک جهت تغییر به ناموجود' : 'کلیک جهت تغییر به موجود'}"></button>
+            <button class="toggle ${p.available ? 'on' : ''}" role="switch" aria-checked="${p.available ? 'true' : 'false'}" aria-label="موجودی ${esc(p.name)}" data-action="toggle-avail" data-prod-id="${esc(p.id)}" data-cur-avail="${p.available}" title="${p.available ? 'کلیک جهت تغییر به ناموجود' : 'کلیک جهت تغییر به موجود'}"></button>
             <span style="font-size:0.75rem;font-weight:700;color:${p.available ? 'var(--success)' : 'var(--danger)'}">${p.available ? 'موجود' : 'ناموجود'}</span>
           </div>
           <div class="actions">
-            <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${p.id}" title="ویرایش محصول">✏️ ویرایش</button>
-            <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${p.id}" title="حذف محصول">🗑</button>
+            <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${esc(p.id)}" title="ویرایش محصول">✏️ ویرایش</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${esc(p.id)}" title="حذف محصول" aria-label="حذف ${esc(p.name)}">🗑</button>
           </div>
         </div>
       </div>`;
@@ -925,15 +1088,15 @@ function renderProductTable() {
       </tr>
     </thead>
     <tbody>${rows.map(p => {
-      const fullImg = p.image ? imgSrc(p.image) : '';
-      const hasDisc = p.original_price && p.original_price > p.price;
-      const discPct = hasDisc ? Math.round((1 - p.price / p.original_price) * 100) : 0;
-      return `
+    const fullImg = p.image ? imgSrc(p.image) : '';
+    const hasDisc = p.original_price && p.original_price > p.price;
+    const discPct = hasDisc ? Math.round((1 - p.price / p.original_price) * 100) : 0;
+    return `
       <tr class="${!p.available ? 'prod-row-unavail' : ''}">
         <td>
           ${fullImg
-            ? `<img class="img-preview" src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}" loading="lazy">`
-            : `<div class="img-placeholder">☕</div>`}
+        ? `<img class="img-preview" src="${esc(fullImg)}" alt="${esc(p.name)}" data-action="zoom-image" data-caption="${esc(p.name)}" loading="lazy">`
+        : `<div class="img-placeholder">☕</div>`}
         </td>
         <td>
           <div class="prod-name">${esc(p.name)}</div>
@@ -957,23 +1120,23 @@ function renderProductTable() {
           </span>
         </td>
         <td style="text-align:center">
-          <button class="toggle ${p.available ? 'on' : ''}" data-action="toggle-avail" data-prod-id="${p.id}" data-cur-avail="${p.available}" title="${p.available ? 'کلیک جهت ناموجود کردن' : 'کلیک جهت موجود کردن'}"></button>
+          <button class="toggle ${p.available ? 'on' : ''}" role="switch" aria-checked="${p.available ? 'true' : 'false'}" aria-label="موجودی ${esc(p.name)}" data-action="toggle-avail" data-prod-id="${esc(p.id)}" data-cur-avail="${p.available}" title="${p.available ? 'کلیک جهت ناموجود کردن' : 'کلیک جهت موجود کردن'}"></button>
         </td>
         <td>
           <div class="actions" style="justify-content:center">
-            <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${p.id}" title="ویرایش محصول">✏️ ویرایش</button>
-            <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${p.id}" title="حذف محصول">🗑</button>
+            <button class="btn btn-ghost btn-sm" data-action="open-prod-modal" data-prod-id="${esc(p.id)}" title="ویرایش محصول">✏️ ویرایش</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-prod" data-prod-id="${esc(p.id)}" title="حذف محصول" aria-label="حذف ${esc(p.name)}">🗑</button>
           </div>
         </td>
       </tr>`;
-    }).join('')}
+  }).join('')}
     </tbody></table>`;
 }
 
 async function toggleAvail(id) {
-  const p = allProducts.find(x => x.id == id); if (!p) return;
+  const p = allProducts.find(x => x.id === id); if (!p) return;
   try {
-    const res = await api(`/products/${id}/availability`, { method: 'PATCH' });
+    const res = await api(`/products/${encodeURIComponent(id)}/availability`, { method: 'PATCH' });
     p.available = res.available; renderProductTable();
     toast(p.available ? 'محصول موجود شد ✓' : 'محصول ناموجود شد');
   } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در تغییر وضعیت', true); }
@@ -1043,8 +1206,8 @@ function renderCategoryList() {
       <div class="cat-item">
         <div class="cat-thumb-wrap">
           ${fullImg
-            ? `<img class="cat-thumb" src="${esc(fullImg)}" alt="${esc(c.label)}" data-action="zoom-image" data-caption="${esc(c.label)}" loading="lazy">`
-            : '<div class="cat-thumb-placeholder">☕</div>'}
+        ? `<img class="cat-thumb" src="${esc(fullImg)}" alt="${esc(c.label)}" data-action="zoom-image" data-caption="${esc(c.label)}" loading="lazy">`
+        : '<div class="cat-thumb-placeholder">☕</div>'}
         </div>
         <div class="cat-item-body">
           <div class="cat-item-header">
@@ -1059,7 +1222,7 @@ function renderCategoryList() {
           <div class="cat-actions">
             <button class="btn btn-ghost btn-sm" data-action="view-cat-products" data-cat-id="${esc(c.id)}" title="مشاهده محصولات این دسته‌بندی">🍽 محصولات</button>
             <button class="btn btn-ghost btn-sm" data-action="open-cat-modal" data-cat-id="${esc(c.id)}" title="ویرایش">✏️ ویرایش</button>
-            <button class="btn btn-danger btn-sm" data-action="delete-cat" data-cat-id="${esc(c.id)}" title="حذف دسته‌بندی">🗑</button>
+            <button class="btn btn-danger btn-sm" data-action="delete-cat" data-cat-id="${esc(c.id)}" title="حذف دسته‌بندی" aria-label="حذف ${esc(c.label)}">🗑</button>
           </div>
         </div>
       </div>`;
@@ -1088,7 +1251,7 @@ async function saveCat() {
   try {
     const image = document.getElementById('c-img').value;
     if (editingCatId) {
-      await api(`/categories/${editingCatId}`, { method: 'PUT', body: JSON.stringify({ label, image }) });
+      await api(`/categories/${encodeURIComponent(editingCatId)}`, { method: 'PUT', body: JSON.stringify({ label, image }) });
       toast('دسته‌بندی ویرایش شد ✓');
     } else {
       await api('/categories', { method: 'POST', body: JSON.stringify({ label, image }) });
@@ -1105,7 +1268,7 @@ async function deleteCat(id) {
   const c = allCategories.find(x => x.id === id);
   if (!confirm(`حذف دسته‌بندی «${c ? c.label : ''}»؟`)) return;
   try {
-    await api(`/categories/${id}`, { method: 'DELETE' });
+    await api(`/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
     toast('دسته‌بندی حذف شد');
     await loadCategories();
   } catch (e) { if (e.message !== 'unauthorized') toast(e.message || 'خطا در حذف', true); }
@@ -1187,7 +1350,7 @@ function openProductModal(id) {
     allCategories.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('');
 
   if (id) {
-    const p = allProducts.find(x => x.id == id);
+    const p = allProducts.find(x => x.id === id);
     editingProductOriginalPrice = p.original_price != null ? Number(p.original_price) : null;
     editingProductPrice = Number(p.price);
     document.getElementById('p-name').value = p.name;
@@ -1196,7 +1359,8 @@ function openProductModal(id) {
     catSel.value = p.category || '';
 
     if (p.original_price && p.original_price > p.price) {
-      const disc = Math.round((1 - p.price / p.original_price) * 100);
+      // با دقت یک رقم اعشار تا تخفیف‌های اعشاری (مثل ۱۲٫۵٪) با ویرایش بی‌تغییر گرد نشن
+      const disc = Math.round((1 - p.price / p.original_price) * 1000) / 10;
       document.getElementById('p-price').value = p.original_price;
       document.getElementById('p-discount').value = disc;
       editingProductInitialInputPrice = Number(p.original_price);
@@ -1238,8 +1402,10 @@ function updateDiscPreview() {
 }
 
 function syncAvailLabel() {
-  document.getElementById('p-avail-lbl').textContent =
-    document.getElementById('p-avail').classList.contains('on') ? 'موجود' : 'ناموجود';
+  const btn = document.getElementById('p-avail');
+  const on = btn.classList.contains('on');
+  btn.setAttribute('aria-checked', on ? 'true' : 'false');
+  document.getElementById('p-avail-lbl').textContent = on ? 'موجود' : 'ناموجود';
 }
 
 async function saveProduct() {
@@ -1274,7 +1440,7 @@ async function saveProduct() {
 
   try {
     if (editingProductId) {
-      await api(`/products/${editingProductId}`, { method: 'PUT', body: JSON.stringify(body) });
+      await api(`/products/${encodeURIComponent(editingProductId)}`, { method: 'PUT', body: JSON.stringify(body) });
       toast('محصول ویرایش شد ✓');
     } else {
       await api('/products', { method: 'POST', body: JSON.stringify(body) });
@@ -1289,10 +1455,10 @@ async function saveProduct() {
 }
 
 async function deleteProduct(id) {
-  const p = allProducts.find(x => x.id == id);
+  const p = allProducts.find(x => x.id === id);
   if (!confirm(`حذف «${p ? p.name : ''}»؟`)) return;
   try {
-    await api(`/products/${id}`, { method: 'DELETE' });
+    await api(`/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
     toast('محصول حذف شد');
     allProducts = await api('/products');
     renderProductTable();
@@ -1468,7 +1634,7 @@ async function loadSiteImages() {
           ? `<img src="${esc(src)}" alt="${SITE_IMG_LABELS[kind]}" data-action="zoom-image" data-caption="${SITE_IMG_LABELS[kind]}" style="height:160px;width:100%;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:zoom-in;padding:0.5rem">`
           : '<div class="hint" style="height:160px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--border);border-radius:10px">هنوز تصویری آپلود نشده</div>'}
           <div class="upload-area" style="padding:.85rem">
-            <input type="file" accept="image/*" data-upload-site="${kind}" />
+            <input type="file" accept="image/*" data-upload-site="${kind}" aria-label="آپلود ${SITE_IMG_LABELS[kind]}" />
             <p>📤 انتخاب و آپلود تصویر جدید</p>
           </div>
           ${src ? `<button class="btn btn-danger btn-sm" data-action="remove-site-img" data-kind="${kind}">🗑 حذف تصویر</button>` : ''}
@@ -1487,7 +1653,7 @@ async function loadSiteImages() {
       <div class="card" style="margin-bottom:0">
         <div class="card-header"><h2>🔐 الزام اسکن QR برای ثبت سفارش</h2></div>
         <div style="padding:1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-          <button class="toggle ${cfg.signingEnabled ? 'on' : ''}" data-action="toggle-signing"
+          <button class="toggle ${cfg.signingEnabled ? 'on' : ''}" role="switch" aria-checked="${cfg.signingEnabled ? 'true' : 'false'}" aria-label="الزام اسکن QR" data-action="toggle-signing"
             data-enabled="${cfg.signingEnabled ? '1' : '0'}" ${cfg.signingSecretPresent ? '' : 'disabled'}></button>
           <span class="hint" style="font-size:0.86rem">${!cfg.signingSecretPresent
         ? 'سکرت TABLE_SIGNING_SECRET ست نشده؛ ابتدا آن را در Cloudflare ست کنید.'
@@ -1570,8 +1736,40 @@ function catLabel(id) {
   return c ? c.label : (id || '—');
 }
 
-function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+// ── مودال‌ها: مدیریت فوکوس (ورود، تله‌ی Tab، بازگشت فوکوس) ─────────────────
+const modalFocusReturn = new Map();
+
+function focusableIn(root) {
+  return [...root.querySelectorAll(
+    'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )].filter(el => el.getClientRects().length > 0);
+}
+
+function openModal(id) {
+  const overlay = document.getElementById(id);
+  modalFocusReturn.set(id, document.activeElement);
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  // فوکوس روی اولین فیلد قابل تایپ (وگرنه دکمه‌ی بستن)
+  requestAnimationFrame(() => {
+    const first = overlay.querySelector(
+      '.modal-body input:not([type="hidden"]):not([type="file"]):not([disabled]), .modal-body select, .modal-body textarea'
+    ) || overlay.querySelector('.modal-close');
+    if (first) first.focus({ preventScroll: true });
+  });
+}
+
+function closeModal(id) {
+  const overlay = document.getElementById(id);
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  document.body.style.overflow = document.querySelector('.overlay.open') ? 'hidden' : '';
+  const back = modalFocusReturn.get(id);
+  modalFocusReturn.delete(id);
+  if (back && back.isConnected && typeof back.focus === 'function' && back !== document.body) {
+    back.focus({ preventScroll: true });
+  }
+}
 
 document.addEventListener('error', (e) => {
   const el = e.target;
@@ -1582,6 +1780,15 @@ document.addEventListener('error', (e) => {
 
 // ── Document Event Listeners ──────────────────────────────────────────────
 document.addEventListener('click', (e) => {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+
+  if (e.target.closest('#sound-toggle-btn')) {
+    toggleSound();
+    return;
+  }
+
   if (e.target.closest('#theme-toggle-btn')) {
     toggleTheme();
     return;
@@ -1673,6 +1880,9 @@ document.addEventListener('click', (e) => {
     manualRefreshOrders();
   } else if (action === 'load-more-orders') {
     loadOrders(true);
+  } else if (action === 'clear-order-table') {
+    orderTableFilter = '';
+    renderOrderList();
   } else if (action === 'order-resolve') {
     resolveOrderWeb(Number(actionEl.dataset.orderId), actionEl.dataset.orderStatus);
   } else if (action === 'quick-add-prod') {
@@ -1684,9 +1894,10 @@ document.addEventListener('click', (e) => {
   } else if (action === 'quick-go-qr') {
     switchTab('qr');
   } else if (action === 'ops-select-table') {
+    // تب سفارش‌ها با فیلتر «در انتظار» + میز انتخاب‌شده باز میشه
     const tNum = actionEl.dataset.table;
+    ordersPreset = { status: 'pending', table: String(tNum) };
     switchTab('orders');
-    toast(`مشاهده سفارش‌های میز ${tNum}`);
   } else if (action === 'ops-quick-avail') {
     quickToggleAvail(actionEl.dataset.prodId);
   } else if (action === 'view-cat-products') {
@@ -1738,7 +1949,7 @@ document.addEventListener('change', (e) => {
     uploadSiteImage(e.target, e.target.dataset.uploadSite);
   } else if (e.target.matches('[data-action="filter-orders"]')) {
     currentOrderFilter = e.target.value;
-    loadOrders(false, 50);
+    loadOrders(false);
   } else if (e.target.matches('[data-action="filter-prod-cat"]')) {
     filterCat = e.target.value;
     renderProductTable();
@@ -1751,8 +1962,37 @@ document.addEventListener('change', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.target.id === 'pw' && e.key === 'Enter') {
     doLogin();
-  } else if (e.key === 'Escape') {
-    closeLightbox();
+    return;
+  }
+
+  // اکشن‌های role="button" (مثل کاشی میزها) با Enter/Space هم کار کنن
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role="button"][data-action]')) {
+    e.preventDefault();
+    e.target.click();
+    return;
+  }
+
+  if (e.key === 'Escape') {
+    // هر Escape فقط بالاترین لایه رو می‌بنده: اول لایت‌باکس، بعد مودال
+    const lb = document.getElementById('lightbox');
+    if (lb && lb.classList.contains('open')) { closeLightbox(); return; }
+    const openOverlays = document.querySelectorAll('.overlay.open');
+    if (openOverlays.length) closeModal(openOverlays[openOverlays.length - 1].id);
+    return;
+  }
+
+  // تله‌ی فوکوس داخل مودال باز
+  if (e.key === 'Tab') {
+    const openOverlays = document.querySelectorAll('.overlay.open');
+    if (!openOverlays.length) return;
+    const dlg = openOverlays[openOverlays.length - 1].querySelector('.modal');
+    if (!dlg) return;
+    const items = focusableIn(dlg);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (!dlg.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 });
 
