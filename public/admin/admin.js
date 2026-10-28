@@ -15,7 +15,7 @@ const BASE = '/admin/api';
 const BASE_TITLE = 'پنل مدیریت — کافه روشن';
 const THEME_KEY = 'admin_theme';
 const SOUND_KEY = 'admin_sound_enabled';
-const VIEW_KEY = 'admin_prod_view';
+const VIEW_KEY = 'admin_prod_view_v2'; // نسخه‌ی ۲: پیش‌فرض جدید «گالری» است
 const MAX_INPUT_BYTES = 5 * 1024 * 1024;   // سقف انتخاب فایل توسط کاربر
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;  // سقف حجم پس از فشرده‌سازی (سرور 413 می‌دهد)
 
@@ -76,6 +76,23 @@ function fmtOrderTime(s) {
   return date + '، ' + time;
 }
 
+// زمان نسبی برای سفارش‌های در انتظار: «همین الان»، «۵ دقیقه پیش»، «۲ ساعت پیش»
+function relTime(s) {
+  const d = parseOrderDate(s);
+  if (!d) return '';
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'همین الان';
+  if (mins < 60) return fmtNum(mins) + ' دقیقه پیش';
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return fmtNum(hours) + ' ساعت پیش';
+  return '';
+}
+
+// شماره‌ی میز: اگر عددی بود با رقم فارسی، وگرنه escape‌شده
+function tableLabel(n) {
+  return /^\d+$/.test(String(n)) ? fmtNum(n) : esc(n);
+}
+
 /* ── ۱) وضعیت برنامه ────────────────────────────────────────────────── */
 const state = {
   loggedIn: false,
@@ -88,7 +105,7 @@ const state = {
   prodSearch: '',
   prodCat: '',
   prodAvail: '',       // '' | '1' | '0' | 'disc'
-  prodView: localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'table',
+  prodView: localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'grid',
   catSearch: '',
   // سفارش‌ها
   orderStatus: '',     // '' | pending | confirmed | rejected
@@ -156,7 +173,7 @@ function primeAudio() {
   if (!audioCtx) {
     try { audioCtx = new AC(); } catch (e) { return; }
   }
-  if (audioCtx.state === 'suspended') audioCtx.resume().catch(function () {});
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(function () { });
 }
 document.addEventListener('pointerdown', primeAudio, { capture: true });
 
@@ -677,7 +694,7 @@ async function pollTick() {
     if (changed) {
       // فقط محتوای تب جاری تازه شود (بدون بازسازی کل صفحه و بدون پرش اسکرول)
       if (state.tab === 'dashboard') refreshDashboardLive();
-      else if (state.tab === 'orders') refreshOrdersHead().catch(function () {});
+      else if (state.tab === 'orders') refreshOrdersHead().catch(function () { });
     }
   } catch (err) {
     if (err.status === 401) return; // پولینگ در handleSessionExpired متوقف شده است
@@ -723,7 +740,7 @@ function updateBadge(n) {
 // تازه‌سازی محتوای وابسته به تغییر پولینگ
 function refreshActiveTabData() {
   if (state.tab === 'dashboard') refreshDashboardLive();
-  else if (state.tab === 'orders') refreshOrdersHead().catch(function () {});
+  else if (state.tab === 'orders') refreshOrdersHead().catch(function () { });
 }
 /* ── ابزارهای رندر مشترک ────────────────────────────────────────────── */
 function skeletonListHTML(n) {
@@ -833,28 +850,51 @@ async function refreshDashboardLive(opts) {
   renderUnavailList();
 }
 
+// کارت سفارش: میز درشت ← اقلام (تعداد، نام، قیمت ردیف) ← جمع کل و دکمه‌ها
 function orderCardHTML(o) {
   const stLabel = ORDER_STATUS[o.status] || o.status;
   const items = (o.items || []).map(function (it) {
-    return '<li><span class="oi-name">' + esc(it.name) + ' <b class="oi-qty">× ' + fmtNum(it.quantity) + '</b></span>' +
-      '<span class="oi-price num">' + fmtMoney(it.price * it.quantity) + '</span></li>';
+    const qty = Number(it.quantity) || 0;
+    const unit = qty > 1
+      ? '<span class="oi-unit">هر عدد: ' + fmtMoney(it.price) + '</span>'
+      : '';
+    return '<li>' +
+      '<span class="oi-qty num">×' + fmtNum(qty) + '</span>' +
+      '<span class="oi-info"><span class="oi-name">' + esc(it.name) + '</span>' + unit + '</span>' +
+      '<span class="oi-price num">' + fmtMoney(it.price * qty) + '</span>' +
+      '</li>';
   }).join('');
+  const ago = o.status === 'pending' ? relTime(o.created_at) : '';
+  const agoHTML = ago
+    ? '<span class="order-ago" data-created="' + esc(o.created_at) + '">' + ago + '</span>'
+    : '';
   const acts = o.status === 'pending' ? `
       <div class="order-actions">
-        <button type="button" class="btn btn-success btn-sm" data-action="order-resolve" data-id="${o.id}" data-status="confirmed">${icon('check')} تایید</button>
-        <button type="button" class="btn btn-danger btn-sm" data-action="order-resolve" data-id="${o.id}" data-status="rejected">${icon('x')} رد</button>
+        <button type="button" class="btn btn-success" data-action="order-resolve" data-id="${o.id}" data-status="confirmed">${icon('check')} تایید</button>
+        <button type="button" class="btn btn-danger" data-action="order-resolve" data-id="${o.id}" data-status="rejected">${icon('x')} رد</button>
       </div>` : '';
   return `
-    <article class="order-card" data-order-id="${o.id}">
+    <article class="order-card os-${esc(o.status)}" data-order-id="${o.id}">
       <div class="order-head">
-        <span class="order-no num">سفارش #${fmtNum(o.id)}</span>
-        <span class="order-table">${icon('pin')} میز ${esc(o.table_number)}</span>
-        <span class="order-time">${icon('clock')} ${fmtOrderTime(o.created_at)}</span>
+        <div class="order-table-big" title="شماره میز">
+          <span class="ot-label">میز</span>
+          <span class="ot-num num">${tableLabel(o.table_number)}</span>
+        </div>
+        <div class="order-meta">
+          <span class="order-no num">سفارش #${fmtNum(o.id)}</span>
+          <span class="order-time">
+            <span>${icon('clock')} ${fmtOrderTime(o.created_at)}</span>
+            ${agoHTML}
+          </span>
+        </div>
         <span class="status-pill st-${esc(o.status)}">${stLabel}</span>
       </div>
       <ul class="order-items">${items}</ul>
       <div class="order-foot">
-        <span class="order-total num">جمع: ${fmtMoney(o.total)}</span>
+        <div class="order-total">
+          <span>جمع کل</span>
+          <b class="num">${fmtMoney(o.total)}</b>
+        </div>
         ${acts}
       </div>
     </article>`;
@@ -917,7 +957,7 @@ async function resolveOrder(id, status) {
     if (state.tab === 'dashboard') {
       setTimeout(function () { refreshDashboardLive(); }, 240);
     } else if (state.tab === 'orders') {
-      refreshOrdersHead().catch(function () {});
+      refreshOrdersHead().catch(function () { });
     }
   } catch (err) {
     if (err.status === 401) return;
@@ -1239,25 +1279,26 @@ function productRowHTML(p) {
   </tr>`;
 }
 
-function productGridHTML(rows) {
-  return '<div class="prod-grid">' + rows.map(function (p) {
-    const avail = Number(p.available) === 1;
-    const hasDisc = p.original_price && Number(p.original_price) > Number(p.price);
-    const discPct = hasDisc ? Math.round((1 - Number(p.price) / Number(p.original_price)) * 100) : 0;
-    return `<article class="prod-card ${avail ? '' : 'is-unavail'}">
-      <div class="prod-card-media" ${p.image ? `data-action="zoom" data-src="${esc(imgSrc(p.image))}" data-caption="${esc(p.name)}" role="button" tabindex="0" aria-label="بزرگ‌نمایی ${esc(p.name)}"` : ''}>
-        ${p.image
-          ? `<img src="${esc(thumbSrc(p.image))}" data-fallback="${esc(imgSrc(p.image))}" alt="${esc(p.name)}" loading="lazy">`
-          : `<div class="prod-card-ph">${icon('cup')}</div>`}
-        <span class="float-badge fb-avail ${avail ? 'ok' : 'no'}">${avail ? 'موجود' : 'ناموجود'}</span>
-        ${hasDisc ? `<span class="float-badge fb-disc">${fmtNum(discPct)}٪ تخفیف</span>` : ''}
-      </div>
-      <div class="prod-card-body">
-        <span class="prod-card-cat">${esc(catLabelOf(p.category))}</span>
-        <h3 class="p-name">${esc(p.name)}</h3>
-        ${p.note ? `<p class="p-note">${esc(p.note)}</p>` : ''}
-        <div class="prod-card-price">${priceHTML(p)}</div>
-      </div>
+// کارت محصول با همان ساختار کارت دسته‌بندی (cat-card / cat-media / cat-body)
+function productCardHTML(p) {
+  const avail = Number(p.available) === 1;
+  const hasDisc = p.original_price && Number(p.original_price) > Number(p.price);
+  const discPct = hasDisc ? Math.round((1 - Number(p.price) / Number(p.original_price)) * 100) : 0;
+  const zoomAttrs = p.image
+    ? ` data-action="zoom" data-src="${esc(imgSrc(p.image))}" data-caption="${esc(p.name)}" role="button" tabindex="0" aria-label="بزرگ‌نمایی ${esc(p.name)}"`
+    : '';
+  return `<article class="cat-card prod-card ${avail ? '' : 'is-unavail'}">
+    <div class="cat-media"${zoomAttrs}>
+      ${p.image
+      ? `<img src="${esc(thumbSrc(p.image))}" data-fallback="${esc(imgSrc(p.image))}" alt="${esc(p.name)}" loading="lazy">`
+      : `<div class="cat-ph">${icon('cup')}</div>`}
+      <span class="float-badge fb-avail ${avail ? 'ok' : 'no'}">${avail ? 'موجود' : 'ناموجود'}</span>
+      ${hasDisc ? `<span class="float-badge fb-disc">${fmtNum(discPct)}٪ تخفیف</span>` : ''}
+    </div>
+    <div class="cat-body">
+      <h3 class="cat-name" title="${esc(p.name)}">${esc(p.name)}</h3>
+      ${p.note ? `<p class="p-note">${esc(p.note)}</p>` : ''}
+      <div class="prod-card-price">${priceHTML(p)}</div>
       <div class="prod-card-foot">
         <div class="toggle-wrap">
           <button type="button" class="toggle ${avail ? 'on' : ''}" role="switch" aria-checked="${avail ? 'true' : 'false'}" aria-label="تغییر موجودی ${esc(p.name)}" data-action="toggle-avail" data-id="${p.id}"></button>
@@ -1268,8 +1309,33 @@ function productGridHTML(rows) {
           <button type="button" class="icon-btn danger" data-action="delete-product" data-id="${p.id}" aria-label="حذف ${esc(p.name)}" title="حذف">${icon('trash')}</button>
         </div>
       </div>
-    </article>`;
-  }).join('') + '</div>';
+    </div>
+  </article>`;
+}
+
+// نمای گالری: محصولات زیر عنوان دسته‌ی خودشان گروه می‌شوند (به ترتیب دسته‌بندی‌ها)
+function productGridHTML(rows) {
+  const groups = [];
+  const placed = new Set();
+  state.categories.forEach(function (c) {
+    const items = rows.filter(function (p) { return String(p.category) === String(c.id); });
+    if (!items.length) return;
+    items.forEach(function (p) { placed.add(p.id); });
+    groups.push({ label: c.label, items: items });
+  });
+  const rest = rows.filter(function (p) { return !placed.has(p.id); });
+  if (rest.length) groups.push({ label: 'بدون دسته', items: rest });
+
+  return groups.map(function (g) {
+    const unavailN = g.items.filter(function (p) { return Number(p.available) !== 1; }).length;
+    return '<section class="prod-group">' +
+      '<div class="prod-group-head"><h3>' + esc(g.label) + '</h3>' +
+      '<span class="count-badge">' + fmtNum(g.items.length) + ' محصول</span>' +
+      (unavailN ? '<span class="count-badge warn">' + fmtNum(unavailN) + ' ناموجود</span>' : '') +
+      '</div>' +
+      '<div class="prod-grid">' + g.items.map(productCardHTML).join('') + '</div>' +
+      '</section>';
+  }).join('');
 }
 
 // تغییر موجودی با PATCH (بدون ریلود کل صفحه)
@@ -1526,8 +1592,8 @@ function renderCategoryList() {
     return `<article class="cat-card">
       <div class="cat-media" ${c.image ? `data-action="zoom" data-src="${esc(imgSrc(c.image))}" data-caption="${esc(c.label)}" role="button" tabindex="0" aria-label="بزرگ‌نمایی ${esc(c.label)}"` : ''}>
         ${c.image
-          ? `<img src="${esc(thumbSrc(c.image))}" data-fallback="${esc(imgSrc(c.image))}" alt="${esc(c.label)}" loading="lazy">`
-          : `<div class="cat-ph">${icon('cup')}</div>`}
+        ? `<img src="${esc(thumbSrc(c.image))}" data-fallback="${esc(imgSrc(c.image))}" alt="${esc(c.label)}" loading="lazy">`
+        : `<div class="cat-ph">${icon('cup')}</div>`}
       </div>
       <div class="cat-body">
         <h3 class="cat-name">${esc(c.label)}</h3>
@@ -2272,10 +2338,13 @@ function bindStaticUploads() {
 }
 
 /* ── ۱۹) شروع ───────────────────────────────────────────────────────── */
+// زمان نسبی سفارش‌های در انتظار («۵ دقیقه پیش») هر ۳۰ ثانیه بدون رندر مجدد کل لیست تازه می‌شود
+setInterval(function () {
+  $$('.order-ago').forEach(function (el) {
+    const t = relTime(el.dataset.created);
+    if (t && el.textContent !== t) el.textContent = t;
+  });
+}, 30000);
+
 bindStaticUploads();
 boot();
-
-
-
-
-

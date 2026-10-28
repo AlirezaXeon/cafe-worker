@@ -450,7 +450,7 @@ textarea {
   font-weight: 600;
 }
 
-.switch-row > div {
+.switch-row>div {
   min-width: 0;
 }
 
@@ -520,6 +520,7 @@ textarea {
   color: var(--muted);
   font-weight: 600;
 }
+
 /* ── ۷) صفحه‌ی ورود ──────────────────────────────────────────────────── */
 .login-screen {
   display: flex;
@@ -587,7 +588,8 @@ textarea {
   position: fixed;
   top: 0;
   bottom: 0;
-  inset-inline-start: 0; /* در RTL یعنی سمت راست صفحه */
+  inset-inline-start: 0;
+  /* در RTL یعنی سمت راست صفحه */
   width: var(--sidebar-w);
   background: var(--surface);
   border-inline-end: 1px solid var(--border);
@@ -906,7 +908,7 @@ body[data-theme="light"] .nav-item.active {
   flex: 0 1 auto;
 }
 
-.toolbar-field > span {
+.toolbar-field>span {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--muted);
@@ -961,6 +963,7 @@ body[data-theme="light"] .nav-item.active {
   border-color: var(--danger);
   color: var(--danger);
 }
+
 /* ── ۱۲) داشبورد: کارت‌های فروش و گرید دو ستونه ─────────────────────── */
 .sales-grid {
   display: grid;
@@ -1062,18 +1065,38 @@ body[data-theme="light"] .sale-today .sale-val {
 }
 
 /* ── ۱۴) کارت سفارش (داشبورد و تب سفارش‌ها) ─────────────────────────── */
+/* چیدمان: شماره‌ی میز درشت (مهم‌ترین اطلاعات برای گارسون) ← اقلام با ردیف‌های جدا ←
+   جمع کل و دکمه‌ها. رنگ نوار کنار کارت وضعیت سفارش را نشان می‌دهد. */
 .order-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  gap: 0.9rem;
+  align-items: start;
 }
 
 .order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.9rem 1rem;
+  border-inline-start: 4px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem 1.05rem;
+  min-width: 0;
   transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.order-card.os-pending {
+  border-inline-start-color: var(--warning);
+}
+
+.order-card.os-confirmed {
+  border-inline-start-color: var(--success);
+}
+
+.order-card.os-rejected {
+  border-inline-start-color: var(--danger);
 }
 
 .order-card.leaving {
@@ -1084,96 +1107,161 @@ body[data-theme="light"] .sale-today .sale-val {
 .order-head {
   display: flex;
   align-items: center;
-  gap: 0.45rem 0.8rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.6rem;
+  gap: 0.8rem;
+}
+
+.order-table-big {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.ot-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.ot-num {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent-strong);
+}
+
+body[data-theme="light"] .ot-num {
+  color: var(--accent);
+}
+
+.order-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .order-no {
   font-weight: 800;
-  font-size: 0.9rem;
-}
-
-.order-table {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.14rem 0.6rem;
-  border-radius: 20px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  color: var(--accent-strong);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-body[data-theme="light"] .order-table {
-  color: var(--accent);
+  font-size: 0.95rem;
 }
 
 .order-time {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.3rem;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.55rem;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.76rem;
 }
 
-.order-head .status-pill {
-  margin-inline-start: auto;
+.order-ago {
+  color: var(--warning);
+  font-weight: 800;
 }
 
 .order-items {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.85rem;
-  margin-bottom: 0.7rem;
+  border-top: 1px solid var(--border);
 }
 
 .order-items li {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.7rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px dashed var(--border);
 }
 
-.oi-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.order-items li:last-child {
+  border-bottom: none;
+  padding-bottom: 0.2rem;
 }
 
 .oi-qty {
-  color: var(--accent);
+  min-width: 2.2rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.86rem;
   font-weight: 800;
+  text-align: center;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+body[data-theme="light"] .oi-qty {
+  color: var(--accent);
+}
+
+.oi-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.oi-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+
+.oi-unit {
+  font-size: 0.72rem;
+  color: var(--muted);
 }
 
 .oi-price {
-  color: var(--muted);
-  flex-shrink: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .order-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
+  gap: 0.7rem;
   flex-wrap: wrap;
-  padding-top: 0.65rem;
-  border-top: 1px dashed var(--border);
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
 }
 
 .order-total {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.order-total span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.order-total b {
+  font-size: 1.08rem;
   font-weight: 800;
-  font-size: 0.92rem;
 }
 
 .order-actions {
   display: flex;
-  gap: 0.45rem;
+  gap: 0.5rem;
+}
+
+.order-actions .btn {
+  padding: 0.55rem 1.1rem;
 }
 
 .load-more {
@@ -1283,7 +1371,7 @@ body[data-theme="light"] .order-table {
   max-width: 100%;
 }
 
-.filter-pill > span:first-child {
+.filter-pill>span:first-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1444,65 +1532,55 @@ tr.is-unavail .p-name {
   gap: 0.35rem;
   flex-wrap: wrap;
 }
-/* ── ۱۸) نمای گالری محصولات ──────────────────────────────────────────── */
+
+/* ── ۱۸) نمای گالری محصولات (هم‌شکل کارت‌های دسته‌بندی) ───────────────── */
+/* کارت محصول از همان ساختار کارت دسته‌بندی (.cat-card / .cat-media / .cat-body) استفاده می‌کند؛
+   ظاهر مشترک در بخش ۱۹ تعریف شده است. اینجا فقط تفاوت‌های مخصوص محصول است. */
+.prod-group+.prod-group {
+  margin-top: 1.5rem;
+}
+
+.prod-group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.prod-group-head h3 {
+  font-size: 0.98rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.prod-group-head::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .prod-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(215px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
   gap: 0.9rem;
   padding: 1rem 1.2rem;
 }
 
-.prod-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s;
-}
-
-.prod-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow);
-  border-color: var(--accent);
+/* داخل بدنه‌ی کارت، خود گرید padding اضافه نمی‌خواهد (جلوگیری از فاصله‌ی دوباره) */
+#prod-list>.prod-grid,
+.prod-group>.prod-grid,
+#cat-list>.cat-grid {
+  padding: 0;
 }
 
 .prod-card.is-unavail {
-  opacity: 0.82;
   border-color: var(--danger);
 }
 
-.prod-card-media {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.prod-card-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  cursor: zoom-in;
-  transition: transform 0.3s ease;
-}
-
-.prod-card-media[data-action]:hover img {
-  transform: scale(1.05);
-}
-
-.prod-card-ph {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 2rem;
+.prod-card.is-unavail .cat-media img {
+  opacity: 0.6;
+  filter: grayscale(0.6);
 }
 
 .float-badge {
@@ -1537,44 +1615,25 @@ tr.is-unavail .p-name {
   color: var(--on-accent);
 }
 
-.prod-card-body {
-  padding: 0.8rem 0.9rem;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  min-width: 0;
-}
-
-.prod-card-cat {
-  font-size: 0.71rem;
-  color: var(--accent);
-  font-weight: 800;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.prod-card-body .p-name {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 .prod-card-price {
-  margin-top: auto;
-  padding-top: 0.35rem;
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
+.prod-card .cat-body {
+  gap: 0.4rem;
+}
+
+.prod-card .p-note {
+  margin-top: 0;
+}
+
 .prod-card-foot {
-  padding: 0.65rem 0.9rem;
+  margin-top: auto;
+  padding-top: 0.65rem;
   border-top: 1px solid var(--border);
-  background: var(--surface-2);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1602,7 +1661,7 @@ tr.is-unavail .p-name {
   color: var(--danger);
 }
 
-/* ── ۱۹) دسته‌بندی‌ها ────────────────────────────────────────────────── */
+/* ── ۱۹) دسته‌بندی‌ها (و ظاهر مشترک کارت محصول) ──────────────────────── */
 .cat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
@@ -1610,7 +1669,8 @@ tr.is-unavail .p-name {
   padding: 1rem 1.2rem;
 }
 
-.cat-card {
+.cat-card,
+.prod-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -1621,15 +1681,21 @@ tr.is-unavail .p-name {
   transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
 }
 
-.cat-card:hover {
+.cat-card:hover,
+.prod-card:hover {
   transform: translateY(-2px);
   border-color: var(--accent);
   box-shadow: var(--shadow-sm);
 }
 
+.prod-card.is-unavail:hover {
+  border-color: var(--danger);
+}
+
 .cat-media {
+  position: relative;
   width: 100%;
-  height: 130px;
+  height: 140px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
   overflow: hidden;
@@ -1645,6 +1711,14 @@ tr.is-unavail .p-name {
 
 .cat-media[data-action]:hover img {
   transform: scale(1.04);
+}
+
+/* جایگزین تصویر خراب/بدون تصویر (از مدیریت خطای تصاویر) */
+.cat-media .thumb-ph {
+  width: 100%;
+  height: 100%;
+  font-size: 1.9rem;
+  background: linear-gradient(135deg, var(--surface-2), var(--accent-soft));
 }
 
 .cat-ph {
@@ -1845,6 +1919,7 @@ tr.is-unavail .p-name {
 .inline-form input {
   width: 130px;
 }
+
 /* ── ۲۲) اورلی و مودال ───────────────────────────────────────────────── */
 .overlay {
   position: fixed;
@@ -2133,6 +2208,7 @@ tr.is-unavail .p-name {
   from {
     background-position: 160% 0;
   }
+
   to {
     background-position: -60% 0;
   }
@@ -2431,8 +2507,45 @@ tr.is-unavail .p-name {
     padding: 0.85rem;
   }
 
-  .order-head .status-pill {
-    margin-inline-start: 0;
+  /* دو کارت محصول/دسته کنار هم در موبایل (کارت‌ها کوچک‌تر و فشرده‌تر) */
+  #prod-list>.prod-grid,
+  .prod-group>.prod-grid,
+  #cat-list>.cat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .cat-media {
+    height: 110px;
+  }
+
+  .cat-body {
+    padding: 0.7rem 0.75rem;
+  }
+
+  /* کارت سفارش: دکمه‌های تایید/رد تمام‌عرض و بزرگ برای لمس راحت */
+  .order-card {
+    padding: 0.9rem 0.9rem 1rem;
+  }
+
+  .order-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-total {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .order-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .order-actions .btn {
+    padding: 0.7rem 0.5rem;
   }
 
   /* مودال‌ها به‌صورت bottom-sheet تمام‌عرض با فوتر چسبان */
@@ -2470,6 +2583,7 @@ tr.is-unavail .p-name {
 
 /* ── ۳۰) حرکت کاهش‌یافته ─────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
