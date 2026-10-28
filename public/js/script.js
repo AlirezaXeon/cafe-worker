@@ -814,7 +814,7 @@ function getCategoryImage(catId) {
 }
 
 function renderTabs() {
-  const allBtn = `<button class="cat-card active" data-cat="all" role="tab" aria-selected="true" aria-current="true">
+  const allBtn = `<button class="cat-card active" data-cat="all" aria-current="true">
     <span class="cat-card-img cat-card-img--all">✦</span>
     <span class="cat-card-label">همه</span>
   </button>`;
@@ -829,7 +829,7 @@ function renderTabs() {
     const imgHtml = img
       ? `<img src="${esc(productThumbSrc(img))}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}">`
       : esc(c.label.charAt(0));
-    return `<button class="cat-card" data-cat="${esc(c.id)}" role="tab" aria-selected="false">
+    return `<button class="cat-card" data-cat="${esc(c.id)}">
       <span class="cat-card-img">${imgHtml}</span>
       <span class="cat-card-label">${esc(c.label)}</span>
     </button>`;
@@ -933,7 +933,6 @@ function setActiveTab(catId) {
   tabsEl.querySelectorAll('.cat-card').forEach(b => {
     const on = b.dataset.cat === catId;
     b.classList.toggle('active', on);
-    b.setAttribute('aria-selected', String(on));
     if (on) {
       b.setAttribute('aria-current', 'true');
       activeBtn = b;
