@@ -2586,22 +2586,16 @@ renderCart();
 // ============ SPLASH SCREEN LOGIC ============
 (function initSplashDismissal() {
   let splashSeen = false;
-  try {
-    splashSeen = Boolean(sessionStorage.getItem('cafe-roshan-splash-seen'));
-  } catch {}
+  try { splashSeen = Boolean(sessionStorage.getItem('cafe-roshan-splash-seen')); } catch {}
 
-  // حداقل زمان نمایش اسپلش (اولین بار ۲.۲ ثانیه، دفعات بعد ۳۰۰ms)
-  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, splashSeen ? 300 : 2200));
+  // بار اول فقط به اندازه‌ی انیمیشن لوگو؛ دفعات بعد تقریباً بی‌درنگ
+  const minDisplay = new Promise((r) => setTimeout(r, splashSeen ? 0 : 900));
+  // دیگر منتظر عکس منو نمی‌مانیم؛ اسکلتون وظیفه‌ی پر کردن جا را دارد
+  const dataReady = Promise.allSettled([productsLoadedPromise, siteConfigPromise]);
+  const hardCap = new Promise((r) => setTimeout(r, 2500));
 
-  const allLoaded = Promise.allSettled([productsLoadedPromise, siteConfigPromise])
-    .then(() => waitForMenuImages(4000));
-
-  const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
-
-  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان سپری شده باشد
-  const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
-  Promise.race([readyPromise, hardCap]).catch(() => { }).then(hideSplash);
+  Promise.race([Promise.all([dataReady, minDisplay]), hardCap]).catch(() => { }).then(hideSplash);
 })();
 
-// شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
-setTimeout(hideSplash, 6500);
+// شبکه‌ی ایمنی نهایی
+setTimeout(hideSplash, 3000);
