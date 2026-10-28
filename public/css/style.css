@@ -3132,6 +3132,18 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   animation: tableShake 0.4s ease;
 }
 
+.table-qr-required-msg {
+  padding: 10px 14px;
+  margin-top: 6px;
+  border-radius: 10px;
+  background: rgba(201, 162, 39, 0.12);
+  border: 1px dashed rgba(201, 162, 39, 0.35);
+  color: var(--gold);
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-align: center;
+}
+
 @keyframes tableShake {
 
   0%,

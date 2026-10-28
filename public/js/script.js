@@ -782,7 +782,7 @@ async function loadProducts() {
     if (grid) {
       grid.innerHTML = `
         <div class="menu-error-state" style="text-align: center; padding: 40px 20px; grid-column: 1 / -1;">
-          <p style="margin-bottom: 16px; color: var(--text-muted, #aaa);">دریافت منوی محصولات با خطا مواجه شد.</p>
+          <p style="margin-bottom: 16px; color: var(--ink-soft);">دریافت منوی محصولات با خطا مواجه شد.</p>
           <button id="retryLoadProductsBtn" type="button" class="btn btn-primary" style="padding: 10px 24px; border-radius: 8px; cursor: pointer;">تلاش مجدد</button>
         </div>
       `;
@@ -1576,15 +1576,6 @@ function renderTableSelect() {
       qrMsgEl.id = 'tableQrRequiredMsg';
       qrMsgEl.className = 'table-qr-required-msg';
       qrMsgEl.textContent = 'کد QR روی میز را اسکن کنید';
-      qrMsgEl.style.padding = '10px 14px';
-      qrMsgEl.style.borderRadius = '10px';
-      qrMsgEl.style.background = 'rgba(212, 175, 55, 0.12)';
-      qrMsgEl.style.color = 'var(--color-gold, #d4af37)';
-      qrMsgEl.style.fontWeight = '600';
-      qrMsgEl.style.fontSize = '0.92rem';
-      qrMsgEl.style.textAlign = 'center';
-      qrMsgEl.style.marginTop = '6px';
-      qrMsgEl.style.border = '1px dashed rgba(212, 175, 55, 0.35)';
       tableSelectBtn.parentNode.appendChild(qrMsgEl);
     } else {
       qrMsgEl.style.display = 'block';
@@ -1729,7 +1720,7 @@ async function submitOrder() {
         </div>
         <h3>سفارش شما با موفقیت ثبت شد</h3>
         <div class="receipt-table-badge">میز شماره ${tableLabel}</div>
-        ${data.total ? `<div class="receipt-total-badge" style="margin: 8px 0; font-size: 1.05rem; color: var(--color-gold, #d4af37); font-weight: 600;">مبلغ کل: ${formatPrice(data.total)}</div>` : ''}
+        ${data.total ? `<div class="receipt-total-badge" style="margin: 8px 0; font-size: 1.05rem; color: var(--gold); font-weight: 600;">مبلغ کل: ${formatPrice(data.total)}</div>` : ''}
         <div id="receipt-status-badge" class="receipt-status-badge pending">در انتظار تایید</div>
         <p class="receipt-hint" id="receipt-status-hint">سفارش شما برای باریستای کافه ارسال شد و در انتظار تایید است. نیازی به مراجعه به صندوق نیست.</p>
         <button type="button" class="receipt-close-btn">متوجه شدم ✓</button>
