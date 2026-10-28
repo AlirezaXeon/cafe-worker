@@ -26,7 +26,7 @@ export function tehranDayAndMinutes(now = Date.now()) {
   return { day: d.getUTCDay(), minutes: d.getUTCHours() * 60 + d.getUTCMinutes() };
 }
 
-export function slotForDay(hours, day) {
+function slotForDay(hours, day) {
   return hours.schedule.find((s) => s.days.includes(day)) ?? null;
 }
 

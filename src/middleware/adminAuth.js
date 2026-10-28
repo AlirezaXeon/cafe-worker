@@ -15,7 +15,7 @@ export function base64urlEncode(data) {
     .replace(/=+$/, "");
 }
 
-export function base64urlDecode(str) {
+function base64urlDecode(str) {
   let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   while (base64.length % 4 !== 0) {
     base64 += "=";
@@ -100,7 +100,7 @@ export async function verifyToken(token, secret, expectedVersion = "1") {
   }
 }
 
-export function parseCookies(cookieHeader) {
+function parseCookies(cookieHeader) {
   const cookies = {};
   if (!cookieHeader) return cookies;
   for (const part of cookieHeader.split(';')) {

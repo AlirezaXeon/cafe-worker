@@ -563,7 +563,7 @@ function navigateModalProduct(dir) {
   }, 230);
 }
 
-function openModal(product, catLabelText, card) {
+function openModal(product, card) {
   clearTimeout(modalCloseTimer);
   isNavigatingModal = false;
 
@@ -1139,7 +1139,7 @@ function renderProducts() {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.add-to-cart-btn')) return;
       const product = productsData.products.find(p => p.id === card.dataset.id);
-      if (product) openModal(product, catLabel(product.category), card);
+      if (product) openModal(product, card);
     });
     // دسترسی با کیبورد: Enter/Space روی خود کارت مودال محصول رو باز می‌کنه
     card.addEventListener('keydown', (e) => {

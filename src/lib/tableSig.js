@@ -1,6 +1,8 @@
 // src/lib/tableSig.js
 // امضای دیجیتال شماره میز برای اثبات حضور فیزیکی مشتری پشت میز (QR code verification)
 
+import { safeCompare } from "./safeCompare.js";
+
 export async function signTable(table, secret) {
   if (!secret || table == null) return "";
   const key = await crypto.subtle.importKey(
@@ -19,9 +21,6 @@ export async function signTable(table, secret) {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
-
-import { safeCompare } from "./safeCompare.js";
-export { safeCompare };
 
 export async function verifyTableSig(table, sig, secret) {
   if (!secret) return true; // backward compatible: اگر secret ست نشده باشد چک غیرفعال است

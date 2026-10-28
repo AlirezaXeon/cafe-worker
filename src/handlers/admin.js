@@ -23,6 +23,7 @@ import { validateImage } from '../lib/images.js';
 import { imagePath, imageFilename } from '../data/imagePaths.js';
 import { signTable } from '../lib/tableSig.js';
 import { deleteBotState, incrementBotState, setBotState } from '../data/botState.js';
+import { safeCompare } from '../lib/safeCompare.js';
 
 // فقط درخواست‌های هم‌دامنه (یا بدون Origin، مثل curl و خود پنل) مجازن.
 // قبلاً '*' بود؛ یعنی هر سایتی می‌تونست /admin/api/login رو با IP بازدیدکننده‌های خودش صدا بزنه
@@ -45,10 +46,6 @@ function serverError(request, e, context) {
   console.error(`[admin:${context}]`, e);
   return json(request, { error: 'خطای داخلی سرور رخ داد. لطفاً دوباره امتحان کنید.' }, 500);
 }
-
-// مقایسه‌ی constant-time برای جلوگیری از timing attack روی رمز عبور
-import { safeCompare } from '../lib/safeCompare.js';
-export { safeCompare };
 
 const IMAGE_PATH_RE = /^\/images\/[\w.-]+\.(jpg|jpeg|png|webp|gif)$/i;
 

@@ -454,7 +454,7 @@ export default {
     return assetResponse;
   },
 
-  async scheduled(event, env, _ctx) {
+  async scheduled(_event, env, _ctx) {
     try {
       const pendingOrders = await getPendingOrdersNeedingNotification(env);
       for (const order of pendingOrders) {

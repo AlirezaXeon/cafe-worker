@@ -11,7 +11,7 @@ export async function createOrder(env, { tableNumber, items, total, requestId = 
   return { orderId: res.meta.last_row_id, publicId: pId };
 }
 
-export async function getOrder(env, id) {
+async function getOrder(env, id) {
   return env.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(id).first();
 }
 
@@ -120,14 +120,14 @@ async function setOrderStatus(env, id, status) {
 }
 
 export const confirmOrder = (env, id) => setOrderStatus(env, id, "confirmed");
-export const rejectOrder = (env, id) => setOrderStatus(env, id, "rejected");
+const rejectOrder = (env, id) => setOrderStatus(env, id, "rejected");
 
 // چون Cloudflare Worker با ساعت UTC اجرا میشه ولی «امروز/این هفته/این ماه» باید بر اساس
 // ساعت ایران حساب بشه، مرزهای روز/هفته/ماه رو تو زمان محلی ایران (+۳:۳۰) حساب می‌کنیم،
 // بعد برای مقایسه با created_at (که UTC ذخیره شده) دوباره به UTC برش می‌گردونیم.
 // شروع هفته هم شنبه‌ست (مطابق تقویم ایران).
 
-export function jalaliDayOfMonth(ms) {
+function jalaliDayOfMonth(ms) {
   return Number(
     new Intl.DateTimeFormat("en-US-u-ca-persian-nu-latn", {
       timeZone: "Asia/Tehran",

@@ -165,10 +165,6 @@ textarea {
   color: var(--danger);
 }
 
-.txt-muted {
-  color: var(--muted);
-}
-
 /* ── ۳) دکمه‌ها ──────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
@@ -1065,13 +1061,12 @@ body[data-theme="light"] .sale-today .sale-val {
 }
 
 /* ── ۱۴) کارت سفارش (داشبورد و تب سفارش‌ها) ─────────────────────────── */
-/* چیدمان: شماره‌ی میز درشت (مهم‌ترین اطلاعات برای گارسون) ← اقلام با ردیف‌های جدا ←
-   جمع کل و دکمه‌ها. رنگ نوار کنار کارت وضعیت سفارش را نشان می‌دهد. */
+/* چیدمان تک‌ستونه زیر هم (مشابه فاکتور)، بدون فاصله‌ی خالی ناهمگون بین کارت‌ها:
+   شماره‌ی میز درشت ← اقلام در ردیف‌های جدا و خوانا ← جمع کل و وضعیت. */
 .order-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
-  gap: 0.9rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
 }
 
 .order-card {

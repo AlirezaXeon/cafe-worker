@@ -27,6 +27,6 @@ export function clearMemo(key) {
   else memoStore.clear();
 }
 
-export async function invalidateCache(env, key) {
+export async function invalidateCache(_env, key) {
   clearMemo(key);
 }

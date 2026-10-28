@@ -2,7 +2,7 @@
 
 export const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 
-export function detectImageFormat(buffer) {
+function detectImageFormat(buffer) {
   if (!buffer || buffer.byteLength < 12) return null;
   const bytes = new Uint8Array(buffer);
 
