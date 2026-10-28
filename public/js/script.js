@@ -727,16 +727,6 @@ let currentSort = 'default';
 const EAGER_IMAGE_COUNT = 12;
 let productImgIndex = 0;
 
-// منتظر می‌مونه عکس‌های دسته‌بندی و چند کارت اول واقعاً دانلود و دیکد بشن (یا سقف زمانی تموم بشه)
-function waitForMenuImages(timeoutMs) {
-  const imgs = Array.from(document.querySelectorAll('.cat-card-img img, .product-card img'))
-    .slice(0, EAGER_IMAGE_COUNT + 6);
-  return Promise.all(imgs.map(img => {
-    if (img.loading === 'lazy' && !img.complete) return Promise.resolve();
-    return waitForImage(img, timeoutMs);
-  }));
-}
-
 // فونت‌ها محلی لود می‌شوند (CSS غیرمسدودکننده). وجه‌های واقعی را صراحتاً
 // درخواست می‌کنیم و انیمیشن اسپلش فقط بعد از رسیدنشان (با سقف زمانی) شروع می‌شود.
 let fontsPromise = null;
@@ -782,7 +772,7 @@ async function loadProducts() {
     if (grid) {
       grid.innerHTML = `
         <div class="menu-error-state" style="text-align: center; padding: 40px 20px; grid-column: 1 / -1;">
-          <p style="margin-bottom: 16px; color: var(--text-muted, #aaa);">دریافت منوی محصولات با خطا مواجه شد.</p>
+          <p style="margin-bottom: 16px; color: var(--ink-soft);">دریافت منوی محصولات با خطا مواجه شد.</p>
           <button id="retryLoadProductsBtn" type="button" class="btn btn-primary" style="padding: 10px 24px; border-radius: 8px; cursor: pointer;">تلاش مجدد</button>
         </div>
       `;
@@ -814,7 +804,7 @@ function getCategoryImage(catId) {
 }
 
 function renderTabs() {
-  const allBtn = `<button class="cat-card active" data-cat="all" role="tab" aria-selected="true" aria-current="true">
+  const allBtn = `<button class="cat-card active" data-cat="all" aria-current="true">
     <span class="cat-card-img cat-card-img--all">✦</span>
     <span class="cat-card-label">همه</span>
   </button>`;
@@ -829,7 +819,7 @@ function renderTabs() {
     const imgHtml = img
       ? `<img src="${esc(productThumbSrc(img))}" alt="${esc(c.label)}" decoding="async" data-fallback="${esc(c.label.charAt(0))}">`
       : esc(c.label.charAt(0));
-    return `<button class="cat-card" data-cat="${esc(c.id)}" role="tab" aria-selected="false">
+    return `<button class="cat-card" data-cat="${esc(c.id)}">
       <span class="cat-card-img">${imgHtml}</span>
       <span class="cat-card-label">${esc(c.label)}</span>
     </button>`;
@@ -933,7 +923,6 @@ function setActiveTab(catId) {
   tabsEl.querySelectorAll('.cat-card').forEach(b => {
     const on = b.dataset.cat === catId;
     b.classList.toggle('active', on);
-    b.setAttribute('aria-selected', String(on));
     if (on) {
       b.setAttribute('aria-current', 'true');
       activeBtn = b;
@@ -1312,6 +1301,7 @@ function openCart() {
   cartDrawer.setAttribute('aria-hidden', 'false');
   cartOverlay.classList.add('open');
   syncDialogInert();
+  lockScroll();
   history.pushState({ cart: true }, "");
   focusInside(cartClose);
   refreshCartProducts();
@@ -1324,6 +1314,7 @@ function closeCart() {
   cartDrawer.style.transform = '';
   cartOverlay.classList.remove('open');
   syncDialogInert();
+  unlockScroll();
   restoreFocus('cart');
 }
 
@@ -1575,15 +1566,6 @@ function renderTableSelect() {
       qrMsgEl.id = 'tableQrRequiredMsg';
       qrMsgEl.className = 'table-qr-required-msg';
       qrMsgEl.textContent = 'کد QR روی میز را اسکن کنید';
-      qrMsgEl.style.padding = '10px 14px';
-      qrMsgEl.style.borderRadius = '10px';
-      qrMsgEl.style.background = 'rgba(212, 175, 55, 0.12)';
-      qrMsgEl.style.color = 'var(--color-gold, #d4af37)';
-      qrMsgEl.style.fontWeight = '600';
-      qrMsgEl.style.fontSize = '0.92rem';
-      qrMsgEl.style.textAlign = 'center';
-      qrMsgEl.style.marginTop = '6px';
-      qrMsgEl.style.border = '1px dashed rgba(212, 175, 55, 0.35)';
       tableSelectBtn.parentNode.appendChild(qrMsgEl);
     } else {
       qrMsgEl.style.display = 'block';
@@ -1728,7 +1710,7 @@ async function submitOrder() {
         </div>
         <h3>سفارش شما با موفقیت ثبت شد</h3>
         <div class="receipt-table-badge">میز شماره ${tableLabel}</div>
-        ${data.total ? `<div class="receipt-total-badge" style="margin: 8px 0; font-size: 1.05rem; color: var(--color-gold, #d4af37); font-weight: 600;">مبلغ کل: ${formatPrice(data.total)}</div>` : ''}
+        ${data.total ? `<div class="receipt-total-badge" style="margin: 8px 0; font-size: 1.05rem; color: var(--gold); font-weight: 600;">مبلغ کل: ${formatPrice(data.total)}</div>` : ''}
         <div id="receipt-status-badge" class="receipt-status-badge pending">در انتظار تایید</div>
         <p class="receipt-hint" id="receipt-status-hint">سفارش شما برای باریستای کافه ارسال شد و در انتظار تایید است. نیازی به مراجعه به صندوق نیست.</p>
         <button type="button" class="receipt-close-btn">متوجه شدم ✓</button>
@@ -2586,22 +2568,16 @@ renderCart();
 // ============ SPLASH SCREEN LOGIC ============
 (function initSplashDismissal() {
   let splashSeen = false;
-  try {
-    splashSeen = Boolean(sessionStorage.getItem('cafe-roshan-splash-seen'));
-  } catch {}
+  try { splashSeen = Boolean(sessionStorage.getItem('cafe-roshan-splash-seen')); } catch {}
 
-  // حداقل زمان نمایش اسپلش (اولین بار ۲.۲ ثانیه، دفعات بعد ۳۰۰ms)
-  const minDisplayPromise = new Promise((resolve) => setTimeout(resolve, splashSeen ? 300 : 2200));
+  // بار اول فقط به اندازه‌ی انیمیشن لوگو؛ دفعات بعد تقریباً بی‌درنگ
+  const minDisplay = new Promise((r) => setTimeout(r, splashSeen ? 0 : 900));
+  // دیگر منتظر عکس منو نمی‌مانیم؛ اسکلتون وظیفه‌ی پر کردن جا را دارد
+  const dataReady = Promise.allSettled([productsLoadedPromise, siteConfigPromise]);
+  const hardCap = new Promise((r) => setTimeout(r, 2500));
 
-  const allLoaded = Promise.allSettled([productsLoadedPromise, siteConfigPromise])
-    .then(() => waitForMenuImages(4000));
-
-  const hardCap = new Promise((resolve) => setTimeout(resolve, 6500));
-
-  // اسپلش وقتی کنار می‌رود که هم لودینگ کامل شده باشد و هم حداقل زمان سپری شده باشد
-  const readyPromise = Promise.all([allLoaded, minDisplayPromise]);
-  Promise.race([readyPromise, hardCap]).catch(() => { }).then(hideSplash);
+  Promise.race([Promise.all([dataReady, minDisplay]), hardCap]).catch(() => { }).then(hideSplash);
 })();
 
-// شبکه‌ی ایمنی نهایی: در هر شرایطی بیش از ۶.۵ ثانیه روی صفحه نمی‌ماند
-setTimeout(hideSplash, 6500);
+// شبکه‌ی ایمنی نهایی
+setTimeout(hideSplash, 3000);

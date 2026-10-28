@@ -167,6 +167,12 @@ function injectSiteAssets(response, cfg, base, products, env) {
     "@type": "CafeOrCoffeeShop",
     name: "کافه روشن",
     servesCuisine: "قهوه، شیرینی، صبحانه",
+    url: base,
+    hasMenu: `${base}/#menu`,
+    priceRange: "$$",
+    ...(cfg?.cover || cfg?.logo
+      ? { image: new URL(cfg.cover || cfg.logo, `${base}/`).toString() }
+      : {}),
     ...(phone ? { telephone: phone } : {}),
     address: {
       "@type": "PostalAddress",
