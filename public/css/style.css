@@ -3803,6 +3803,15 @@ body.site-loaded .menu-groups:not(:has(.skeleton-group)) {
   }
 }
 
+@media (max-width: 768px), (hover: none) {
+  .aurora-blob { animation: none; filter: blur(48px); }
+  .card-neon   { display: none; }
+  .site-header, .menu-controls, .menu-highlight-bar, .floating-cart {
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .site-header { background: rgba(15, 13, 11, 0.96); }
+}
+
 /* ============ UTILITY BUTTONS & TABS ============ */
 .btn {
   display: inline-flex;
