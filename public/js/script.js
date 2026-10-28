@@ -1312,6 +1312,7 @@ function openCart() {
   cartDrawer.setAttribute('aria-hidden', 'false');
   cartOverlay.classList.add('open');
   syncDialogInert();
+  lockScroll();
   history.pushState({ cart: true }, "");
   focusInside(cartClose);
   refreshCartProducts();
@@ -1324,6 +1325,7 @@ function closeCart() {
   cartDrawer.style.transform = '';
   cartOverlay.classList.remove('open');
   syncDialogInert();
+  unlockScroll();
   restoreFocus('cart');
 }
 
